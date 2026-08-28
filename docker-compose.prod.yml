@@ -53,6 +53,13 @@ services:
       CONSOLE_URL: ${CONSOLE_URL:?set CONSOLE_URL}
       API_URL: ${API_URL:?set API_URL}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      # The storefront, chat widget and visitor beacon are public endpoints guarded by Origin
+      # rather than a token, and each reads its own allowlist. Left unset they default to
+      # http://localhost:3000, so production rejects the real site with 403 — and only in a
+      # browser, because a curl without an Origin header passes. Required, not defaulted.
+      VISITOR_ALLOWED_ORIGINS: ${VISITOR_ALLOWED_ORIGINS:?set VISITOR_ALLOWED_ORIGINS}
+      CHAT_ALLOWED_ORIGINS: ${CHAT_ALLOWED_ORIGINS:?set CHAT_ALLOWED_ORIGINS}
+      COMMERCE_ALLOWED_ORIGINS: ${COMMERCE_ALLOWED_ORIGINS:?set COMMERCE_ALLOWED_ORIGINS}
       MAIL_FROM: ${MAIL_FROM:-no-reply@prabhixtechnologies.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Prabhix Technologies}
       MAIL_REPLY_TO: ${MAIL_REPLY_TO:-support@prabhixtechnologies.com}
