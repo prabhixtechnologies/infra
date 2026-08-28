@@ -108,6 +108,61 @@ for default_user in ec2-user ubuntu admin; do
   fi
 done
 
+echo "==> Granting prabhix sudo"
+# Validated in a temp file first: a malformed sudoers drop-in breaks sudo for every account, and
+# prabhix is about to become the only way in.
+SUDO_TMP="$(mktemp)"
+cat > "$SUDO_TMP" <<'EOF'
+# prabhix is the operator account: it owns /opt/prabhix, runs the compose stack, and is the only
+# account permitted to log in over SSH.
+prabhix ALL=(ALL) NOPASSWD:ALL
+EOF
+visudo -c -f "$SUDO_TMP" >/dev/null
+install -m 0440 -o root -g root "$SUDO_TMP" /etc/sudoers.d/prabhix
+rm -f "$SUDO_TMP"
+
+# ---------------------------------------------------------------------------
+# SSH hardening — prabhix only
+# ---------------------------------------------------------------------------
+# Guarded on prabhix actually having a key: applying AllowUsers with an empty authorized_keys
+# locks everyone out of a fresh instance, and the only way back would be the serial console.
+if [ -s /home/prabhix/.ssh/authorized_keys ]; then
+  echo "==> Restricting SSH to prabhix"
+  if grep -qE '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config; then
+    cat > /etc/ssh/sshd_config.d/99-prabhix-only.conf <<'EOF'
+# AllowUsers rather than emptying the default user's authorized_keys: cloud-init re-provisions
+# that key from instance metadata on every boot, so deleting it quietly undoes itself.
+AllowUsers prabhix
+
+# The AMI ships root with an authorized key (the wrapper that prints "Please login as ec2-user")
+# and PermitRootLogin without-password, which would honour a real key if one were ever added.
+PermitRootLogin no
+
+PasswordAuthentication no
+EOF
+    chmod 0600 /etc/ssh/sshd_config.d/99-prabhix-only.conf
+  else
+    # Older sshd without an Include: append directly, since a drop-in would be ignored silently.
+    grep -q '^AllowUsers prabhix' /etc/ssh/sshd_config || {
+      printf '\nAllowUsers prabhix\nPermitRootLogin no\nPasswordAuthentication no\n' \
+        >> /etc/ssh/sshd_config
+    }
+  fi
+
+  if sshd -t; then
+    systemctl reload sshd || systemctl reload ssh
+    echo "    SSH now accepts only prabhix (root and ${default_user:-ec2-user} refused)"
+    echo "    NOTE: set a password for prabhix (passwd prabhix) so the EC2 serial console can"
+    echo "    be used as break-glass; key-only accounts cannot log in there."
+  else
+    echo "    sshd config invalid — reverting to avoid a lockout" >&2
+    rm -f /etc/ssh/sshd_config.d/99-prabhix-only.conf
+  fi
+else
+  echo "==> Skipping SSH lockdown: prabhix has no authorized_keys yet"
+  echo "    Add a key, then re-run this script to apply it."
+fi
+
 # ---------------------------------------------------------------------------
 # Swap — mandatory on 1–2 GB instances or the JVM gets OOM-killed mid-deploy
 # ---------------------------------------------------------------------------
