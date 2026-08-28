@@ -25,6 +25,80 @@ outright, with no per-seat vendor fee.
 
 ---
 
+## Current production state (prabhixtechnologies.com)
+
+Mail is **deliberately not delivering** in production. `MAIL_TRANSPORT` is `SMTP_RELAY` pointed at
+`localhost`, so sends fail and retry into the outbox until `MAIL_OUTBOX_MAX_ATTEMPTS` is reached.
+The transport is set to a real value rather than `LOGGING` only because
+`MailTransportStartupValidator` refuses to boot on `LOGGING` outside dev.
+
+Two consequences worth knowing before relying on the platform: **password reset and email-OTP
+sign-in cannot complete**, so the password login is the only way in; and `/actuator/health`
+reports 503 because Spring's mail health indicator drags the aggregate down. Liveness and
+readiness are unaffected, and the container healthcheck targets
+`/actuator/health/readiness`, so this does not restart anything — but do not point an uptime
+monitor at plain `/actuator/health`.
+
+### What the domain's DNS already dictates
+
+The domain is registered at GoDaddy and **already has working email there**, which constrains the
+options more than the code does. Verified against `8.8.8.8`:
+
+| Record | Live value | Consequence |
+|---|---|---|
+| `MX` | `0 smtp.secureserver.net`, `10 mailstore1.secureserver.net` | Inbound mail goes to GoDaddy, not here |
+| `SPF` | `v=spf1 include:secureserver.net -all` | `-all` hard-fails anything sent from elsewhere |
+| `DMARC` | `v=DMARC1; p=quarantine; ...` | Those failures get quarantined, not just marked |
+
+So sending as `@prabhixtechnologies.com` through SES or any other provider **without first editing
+SPF and publishing DKIM** lands in spam. This is the trap: the send succeeds, the logs look clean,
+and the mail quietly never arrives.
+
+Reachability from the EC2 host, tested directly:
+
+| Port | Status |
+|---|---|
+| 587 / 465 (submission, GoDaddy · SES · M365) | open |
+| 993 (IMAP over TLS) | open |
+| 25 (raw SMTP) | **blocked** — AWS blocks egress by default |
+
+Blocked :25 rules out Layer 1 self-hosting until AWS grants a limit removal *and* a PTR record on
+the elastic IP.
+
+### The two ways forward
+
+**Relay through GoDaddy** — works with no DNS change, because SPF and DKIM already authorise
+GoDaddy for this domain. Suited to OTPs and receipts; GoDaddy caps daily volume in the low
+hundreds, so not for bulk. Note the backend's relay is Spring's `JavaMailSender`, so it reads the
+`SMTP_*` variables below, **not** the `MAIL_RELAY_*` ones — those configure Postfix's smarthost in
+the optional `mail-server` stack and the backend ignores them.
+
+```
+MAIL_TRANSPORT=SMTP_RELAY
+SMTP_HOST=smtpout.secureserver.net   # GoDaddy Professional Email, per the MX above.
+SMTP_PORT=587                        # M365-through-GoDaddy would be smtp.office365.com instead.
+SMTP_AUTH=true
+SMTP_STARTTLS=true
+SMTP_USERNAME=<mailbox address>
+SMTP_PASSWORD=<mailbox password, or an app password if 2FA is on>
+MAIL_FROM=<the same mailbox address>
+```
+
+`MAIL_FROM` has to match the authenticated mailbox: GoDaddy rejects mismatched senders, so the
+default `no-reply@` fails unless a mailbox by that name genuinely exists.
+
+**Move to SES** for volume. Needs an IAM policy allowing `ses:SendRawEmail` — the `prabhix` IAM
+user currently has no SES permissions at all — plus DKIM CNAMEs and `include:amazonses.com` added
+to SPF. The instance already carries an instance profile, so SES can authenticate through the
+default credential chain and needs no static keys; `PrabhixProperties.Mail.Ses` falls back to that
+whenever the access key is blank.
+
+Receiving is a separate decision. `DomainMode.EXTERNAL_IMAP` is the default precisely so the
+platform can pull from an existing host over IMAP and leave MX where it is; taking over MX is only
+required for Layer 1.
+
+---
+
 ## Layer 1 — Self-hosted transport (`mail-server/`)
 
 ### Components
