@@ -33,6 +33,10 @@ local.properties
 .cxx/
 *.apk
 *.aab
+# Release signing: holds the keystore passwords in cleartext. The .jks itself is caught by *.jks
+# above. Losing the keystore means never being able to update the app for existing installs or on
+# Play, so it belongs in a password manager or secret store — not here, and not in git.
+keystore.properties
 
 # --- Node ---
 node_modules/

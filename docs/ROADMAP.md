@@ -98,6 +98,15 @@ console. Treat the estimates below as real work, not polish.
    1.8+ against the pinned 1.7.3 (redundant anyway — the shared `Json` sets `ignoreUnknownKeys`); and
    `AuthAuthenticator` → `TokenRefresher` → `AuthApi` → Retrofit → `OkHttpClient` formed a Dagger
    cycle, broken with a `Provider<TokenRefresher>`. It has still never run on a device or emulator.
+2. **A signed production release APK now builds.** `:app:assembleRelease` is green, signed from a
+   git-ignored `keystore.properties`, and verified to contain the production API URL rather than the
+   emulator's `10.0.2.2`. Enabling the release build exposed a defect that would only have surfaced
+   at runtime: `proguard-rules.pro` carried a Gson keep rule while the app uses Kotlinx
+   Serialization, and had no rules for it, so R8 stripped the generated `Companion.serializer()`
+   members — the APK would have installed and then failed to parse every API response. Official
+   Kotlinx Serialization and Retrofit keep rules are now in place, and the resulting dex was checked
+   for surviving `$$serializer` classes. Push is inert without `google-services.json`, which
+   `PushTokenManager` catches, so the app works while open but gets no background notifications.
 2. **iOS has never been compiled and has no `.xcodeproj`** — `Package.swift` only builds `Core`, and
    the dev machine is Windows. The project must be created by hand following `mobile/ios/README.md`.
 4. **Coverage is roughly a fifth of the console.** Present: auth, org select, dashboard, chat
