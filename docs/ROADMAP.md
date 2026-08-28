@@ -9,7 +9,7 @@ Kept current so nobody discovers a gap at the worst possible moment.
 
 | Area | Evidence |
 |---|---|
-| Backend unit tests | `mvn -Djava.version=17 test` → 271 green, ~530 source files |
+| Backend unit tests | `mvn -Djava.version=17 test` → 290 green, ~530 source files |
 | Flyway migrates cleanly from empty | `mvn -Djava.version=17 test -Pintegration` → migrations applied against a real `postgres:16` container |
 | Flyway migrates cleanly on an existing database | Booted against the dev database: 47 validated, V51–V58 applied, schema now at v58 |
 | `ddl-auto: validate` entity/schema agreement | Same run. Automated, not a human starting the app |
@@ -22,6 +22,8 @@ Kept current so nobody discovers a gap at the worst possible moment.
 | Compose files parse | `docker compose config` exit 0 for local, mail, and the layered prod override, with and without `--profile monitoring` |
 | Reverse proxy config | `caddy validate` on `deploy/Caddyfile` → valid. Marketing on the apex, OneOps on `oneops.`, API on `api.`, `app.` permanently redirected |
 | Deploy smoke suite | `deploy/smoke.ps1` → 7 checks green, including cursor-page shape and the public-endpoint origin allowlist refusing a foreign origin |
+| Structured event logs reach the database | Against production: a good login, a bad password and an unknown email produced `auth.login.succeeded` ×1 and `auth.login.failed` ×2 in `event_logs`, and the Ops Hub overview reported `securityEventsLast24h: 2` |
+| Ops Hub is platform-admin only | Against production: `/api/v1/admin/platform/overview` → 401 with no token and with a forged token, 200 with the platform-admin token. The console guards `/ops` with `PlatformAdminRoute` |
 
 > Note on the marketing build: on Windows the final copy into `.next/standalone` can fail with
 > `EBUSY` when the dev server is running and holds a font file. "Compiled successfully" is the
@@ -40,6 +42,7 @@ Kept current so nobody discovers a gap at the worst possible moment.
 | SSE fan-out across multiple API instances | Single-instance dev only | Scale `backend` to 2 replicas and confirm presence events reach both |
 | PgBouncer under load | Backend now serves all traffic through it in the containerised stack, but never load-tested | Run sustained load and watch for prepared-statement errors (`prepareThreshold=0` is set; Flyway bypasses the pooler via `FLYWAY_URL`) |
 | Prometheus scrape auth | Rules and dashboards provisioned; scrape needs a real token | Put a platform-admin token in `docker/prometheus/secrets/bearer_token` |
+| Most of the log taxonomy is declared but never emitted | `LogEventCode` defines 80+ codes. Only three call sites emit anything: `AccessLogFilter` (HTTP requests, deliberately not persisted), `GlobalExceptionHandler` (unhandled errors) and now `AuthService` (login succeeded/failed, account locked, token reused, logout, refresh). Mail, billing, files, chat, commerce and AI codes are unused, so the Ops Hub and the Event Logs page can only ever show auth and error activity | Emit the remaining codes from the services that own them. Events raised on a path that then throws must use `StructuredEventLogger.logNow`, since the `AFTER_COMMIT` listener drops anything whose transaction rolls back |
 | Email verification link has no page | `EmailVerificationService` emails `{CONSOLE_URL}/auth/verify-email?token=…`, but the console has no such route — the link 404s. The magic-link and password-reset links had the same defect and are now fixed | Add a `/verify-email` route and page in `web/src/routes.tsx` that posts the token, then point the service at it |
 
 ---
