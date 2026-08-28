@@ -155,14 +155,24 @@ if [ "$PKG" = apt ]; then
   fi
   ufw --force enable
 else
-  # Amazon Linux 2023 has no ufw and no host firewall enabled by default; inbound access is
-  # governed by the EC2 security group. Adding firewalld here would only create a second
-  # place to debug, so the security group stays the single source of truth.
-  echo "==> Skipping host firewall (Amazon Linux: use the EC2 security group)"
-  echo "    Required inbound rules: 22/tcp, 80/tcp, 443/tcp"
+  # Amazon Linux 2023 has no ufw and starts with no host firewall. It cannot simply be ignored,
+  # though: the fail2ban package below depends on fail2ban-firewalld, which installs firewalld
+  # and leaves it *enabled*. It is inactive until the next boot, so a host that works today
+  # silently stops answering :80/:443 after the first reboot. Configure it explicitly instead.
+  echo "==> Configuring firewalld"
+  dnf install -y firewalld >/dev/null
+  systemctl enable --now firewalld
+  firewall-cmd --permanent --add-service=ssh >/dev/null
+  firewall-cmd --permanent --add-service=http >/dev/null
+  firewall-cmd --permanent --add-service=https >/dev/null
   if [ "$MAIL_PORTS" = "true" ]; then
-    echo "    Also for mail: 25/tcp, 587/tcp, 993/tcp"
+    firewall-cmd --permanent --add-port=25/tcp >/dev/null
+    firewall-cmd --permanent --add-port=587/tcp >/dev/null
+    firewall-cmd --permanent --add-port=993/tcp >/dev/null
   fi
+  firewall-cmd --reload >/dev/null
+  echo "    open: $(firewall-cmd --list-services)"
+  echo "    NOTE: the EC2 security group must allow the same ports; it is the outer gate."
 fi
 
 # ---------------------------------------------------------------------------
