@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prabhix-backend
+    metrics_path: /actuator/prometheus
+    scheme: http
+    bearer_token_file: /etc/prometheus/secrets/bearer_token
+    static_configs:
+      - targets:
+          - backend:8080

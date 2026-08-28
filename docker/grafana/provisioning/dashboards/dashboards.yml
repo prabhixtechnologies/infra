@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Prabhix
+    orgId: 1
+    folder: Prabhix
+    type: file
+    disableDeletion: false
+    editable: false
+    options:
+      path: /etc/grafana/dashboards

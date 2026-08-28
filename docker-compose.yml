@@ -1,0 +1,227 @@
+# Prabhix platform — base Compose stack.
+# Local:  docker compose -f docker-compose.yml -f docker-compose.local.yml up
+# Prod:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Mail:   add -f mail-server/docker-compose.mail.yml --profile mailserver
+
+name: prabhix
+
+networks:
+  prabhix:
+    name: prabhix
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-prabhix}
+      POSTGRES_USER: ${POSTGRES_USER:-prabhix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prabhix} -d ${POSTGRES_DB:-prabhix}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - prabhix
+
+  # Transaction-mode pooler: multiplexes many Hikari client connections onto a small set of
+  # Postgres server connections. Requires prepareThreshold=0 on the JDBC URL (see backend DB_URL).
+  # Flyway must bypass PgBouncer — set FLYWAY_URL to postgres:5432 once application.yml supports it.
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1-p0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-prabhix}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      DB_NAME: ${POSTGRES_DB:-prabhix}
+      POOL_MODE: transaction
+      # max_client_conn: backend replicas × DB_POOL_MAX (e.g. 4 × 20 = 80) is tiny vs operator SSE
+      # scale; 10k client slots leave headroom for burst reconnects without opening 10k PG backends.
+      MAX_CLIENT_CONN: 10000
+      # default_pool_size: caps server connections per db/user. 50 × useful parallelism across
+      # tenants keeps Postgres under max_db_connections while serving many idle SSE-heavy instances.
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 10
+      MAX_DB_CONNECTIONS: 80
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      AUTH_TYPE: plain
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${POSTGRES_USER:-prabhix} -d ${POSTGRES_DB:-prabhix}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prabhix
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prabhix
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-prabhix}?prepareThreshold=0
+      DB_USERNAME: ${POSTGRES_USER:-prabhix}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      # Migrations go straight to Postgres, bypassing PgBouncer. Transaction pooling cannot hold a
+      # session-level advisory lock across statements, so Flyway's migration lock would not actually
+      # protect concurrent deploys from racing each other.
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-prabhix}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8080
+    networks:
+      - prabhix
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      # Vite also inlines at build time. Unlike marketing, the console is a static SPA served by
+      # nginx with no proxy, so the browser calls this URL directly — it must be host-reachable.
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-}
+        VITE_GOOGLE_SSO_ENABLED: ${VITE_GOOGLE_SSO_ENABLED:-false}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # BusyBox wget: nginx:alpine has no curl.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - prabhix
+
+  marketing:
+    build:
+      context: ./marketing
+      dockerfile: Dockerfile
+      # Next inlines NEXT_PUBLIC_* into the bundle at build time, so these must be build args.
+      # Passing them under `environment` instead does nothing, and an unset NEXT_PUBLIC_ORG_SLUG
+      # does not fail the build — it silently ships a site with no storefront, chat widget or
+      # visitor beacon. `.dockerignore` excludes .env.local, so nothing backfills these.
+      args:
+        # Container-internal, not browser-facing. Browser calls go to the same-origin
+        # `/api/backend` prefix, which the Next server proxies via the next.config.ts rewrite, so
+        # this value is only ever resolved from inside this container — where `localhost` would be
+        # the Next server itself. Named distinctly from NEXT_PUBLIC_API_URL so a host-dev value in
+        # .env (localhost:8080) cannot leak in and break the image.
+        NEXT_PUBLIC_API_URL: ${MARKETING_INTERNAL_API_URL:-http://backend:8080}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_CONSOLE_URL: ${NEXT_PUBLIC_CONSOLE_URL:-http://localhost:5173}
+        # MobiStack is a separate application with its own repository and stack, not part of this
+        # Compose project. Defaults to the public host; override to a local port only if you are
+        # running that project too.
+        NEXT_PUBLIC_MOBISTACK_URL: ${NEXT_PUBLIC_MOBISTACK_URL:-https://mobistack.prabhixtechnologies.com}
+        NEXT_PUBLIC_ORG_SLUG: ${NEXT_PUBLIC_ORG_SLUG:-}
+        NEXT_PUBLIC_ORG_ID: ${NEXT_PUBLIC_ORG_ID:-}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # BusyBox wget: node:alpine has no curl.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - prabhix
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - web
+      - marketing
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - prabhix
+
+  # Dev SMTP catcher — matches SMTP_PORT:1025 default in application.yml.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    networks:
+      - prabhix
+
+  prometheus:
+    profiles:
+      - monitoring
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./docker/prometheus/secrets/bearer_token:/etc/prometheus/secrets/bearer_token:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    networks:
+      - prabhix
+
+  grafana:
+    profiles:
+      - monitoring
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
+    networks:
+      - prabhix

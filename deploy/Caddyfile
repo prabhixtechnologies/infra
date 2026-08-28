@@ -1,0 +1,66 @@
+# Prabhix production reverse proxy — automatic TLS via Let's Encrypt.
+# Caddy obtains and renews certificates; no separate certbot cron.
+{
+	email admin@prabhixtechnologies.com
+	# JSON access logs for log shipping / fail2ban.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+		format json
+	}
+}
+
+# Shared security headers and Razorpay CSP — checkout silently fails without these origins.
+(security_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.razorpay.com https://*.prabhixtechnologies.com; frame-src https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+		-Server
+	}
+	encode gzip zstd
+}
+
+# Marketing site — apex + www
+prabhixtechnologies.com, www.prabhixtechnologies.com {
+	import security_headers
+	reverse_proxy marketing:3000
+}
+
+# OneOps — the operator console (React SPA behind nginx).
+oneops.prabhixtechnologies.com {
+	import security_headers
+	reverse_proxy web:80
+}
+
+# The console used to live here. Kept as a permanent redirect so existing bookmarks, and the
+# links in transactional email already delivered to people's inboxes, keep working.
+app.prabhixtechnologies.com {
+	import security_headers
+	redir https://oneops.prabhixtechnologies.com{uri} permanent
+}
+
+# MobiStack is a separate deployment with its own compose stack, so there is no upstream here.
+# Point mobistack.prabhixtechnologies.com at that host in DNS. If it is ever co-located, add:
+#   mobistack.prabhixtechnologies.com {
+#   	import security_headers
+#   	reverse_proxy mobistack:80
+#   }
+
+# Spring Boot API
+api.prabhixtechnologies.com {
+	import security_headers
+	reverse_proxy backend:8080 {
+		# Preserve client IP and proto for rate limiting and absolute URL generation.
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}
+
+# mail.prabhixtechnologies.com — MX/IMAP/SMTP only; no HTTP service to proxy.
+# DNS A record points to this host for PTR alignment; Caddy intentionally does not serve HTTP here.
+# Mail ports (25/587/993) are handled by the mailserver compose profile, not Caddy.

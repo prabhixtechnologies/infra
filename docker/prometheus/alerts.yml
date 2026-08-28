@@ -1,0 +1,97 @@
+groups:
+  - name: prabhix-platform
+    rules:
+      - alert: ApiHighErrorRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: API 5xx error rate above 5%
+          description: More than 5% of HTTP requests are failing with 5xx over the last 5 minutes.
+
+      - alert: ApiHighLatencyP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(http_server_requests_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: API p99 latency above 2s
+          description: 99th percentile request latency has exceeded 2 seconds for 10 minutes.
+
+      - alert: MailOutboxBacklog
+        expr: prabhix_mail_outbox_pending > 500
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Mail outbox backlog is high
+          description: Pending mail outbox rows exceed 500 for 10 minutes.
+
+      - alert: MailOutboxFailures
+        expr: prabhix_mail_outbox_failed > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Mail outbox has failed rows
+          description: Failed mail outbox rows are present and not clearing.
+
+      - alert: ChatSseConnectionsHigh
+        expr: prabhix_realtime_sse_connections > 50000
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Chat/SSE connection count is very high
+          description: Active SSE connections exceed 50k — verify load balancer and Redis fan-out health.
+
+      - alert: DbPoolSaturated
+        expr: |
+          hikaricp_connections_pending > 0
+          or
+          (
+            hikaricp_connections_active
+            /
+            hikaricp_connections_max
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Database connection pool saturated
+          description: HikariCP pool has pending threads or is above 90% utilization.
+
+      - alert: RedisUnavailable
+        expr: |
+          up{job="prabhix-backend"} == 1
+          and
+          (
+            increase(http_server_requests_seconds_count{uri=~".*",status="503"}[5m]) > 0
+            and
+            sum(rate(http_server_requests_seconds_count{status="503"}[5m])) > 0.1
+          )
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Possible Redis or dependency outage
+          description: Elevated 503 responses while backend is up — check Redis connectivity and health endpoints.
+
+      - alert: BackendDown
+        expr: up{job="prabhix-backend"} == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Backend metrics scrape failing
+          description: Prometheus cannot scrape the backend actuator endpoint.

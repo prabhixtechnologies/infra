@@ -1,0 +1,64 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.p12
+deploy/.env.prod
+# Holds a real platform-admin bearer token in production; only the example belongs in git.
+docker/prometheus/secrets/bearer_token
+!docker/prometheus/secrets/bearer_token.example
+mail-server/data/
+mail-server/state/
+
+# --- Java / Maven ---
+target/
+# Parallel/isolated test runs use alternate build directories (target-it, target-mail, ...).
+# Plain `target/` does not match those, so they would otherwise be committed as build output.
+target-*/
+*.class
+*.jar
+# Both build wrappers ship their bootstrap jar in-tree on purpose: without it a clean clone
+# cannot run ./mvnw or ./gradlew at all, which is the whole point of a wrapper.
+!.mvn/wrapper/maven-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+.mvn/timing.properties
+
+# --- Android ---
+# Machine-specific SDK path; every developer's differs.
+local.properties
+.gradle/
+.cxx/
+*.apk
+*.aab
+
+# --- Node ---
+node_modules/
+dist/
+dist-ssr/
+build/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+.vite/
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Editors / OS ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# --- Test / coverage ---
+coverage/
+.nyc_output/

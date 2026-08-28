@@ -1,0 +1,132 @@
+# Production overrides — pre-built images, hardened defaults, secrets from deploy/.env.prod.
+
+services:
+  postgres:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  redis:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  pgbouncer:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  backend:
+    image: prabhixtechnologies/prabhix-backend:${TAG:-latest}
+    build: !reset null
+    restart: always
+    # deploy.sh sources deploy/.env.prod and passes --env-file for interpolation.
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      VIRTUAL_THREADS: "true"
+      SWAGGER_ENABLED: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_URL: jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-prabhix}?prepareThreshold=0
+      DB_USERNAME: ${DB_USERNAME:-prabhix}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env.prod}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DB_POOL_MIN: ${DB_POOL_MIN:-5}
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env.prod}
+      JWT_ISSUER: ${JWT_ISSUER:-prabhix-platform}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-PT15M}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-P30D}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      MARKETING_URL: ${MARKETING_URL:?set MARKETING_URL}
+      CONSOLE_URL: ${CONSOLE_URL:?set CONSOLE_URL}
+      API_URL: ${API_URL:?set API_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@prabhixtechnologies.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Prabhix Technologies}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-support@prabhixtechnologies.com}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-SMTP_RELAY}
+      MAIL_OUTBOX_ENABLED: ${MAIL_OUTBOX_ENABLED:-true}
+      MAIL_IMAP_ENABLED: ${MAIL_IMAP_ENABLED:-false}
+      MAIL_LMTP_TOKEN: ${MAIL_LMTP_TOKEN:-}
+      MAIL_TRACKING_ENABLED: ${MAIL_TRACKING_ENABLED:-false}
+      MAIL_TRACKING_SECRET: ${MAIL_TRACKING_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-postfix}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      INVOICE_PREFIX: ${INVOICE_PREFIX:-PBX}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-ap-south-1}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "10"
+
+  web:
+    image: prabhixtechnologies/prabhix-web:${TAG:-latest}
+    build: !reset null
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  marketing:
+    image: prabhixtechnologies/prabhix-marketing:${TAG:-latest}
+    build: !reset null
+    restart: always
+    # NEXT_PUBLIC_* values are inlined when the image is built, so setting them here only helps
+    # if the image was built with the same values. They are declared for parity with the build
+    # args in .github/workflows/ci.yml, which is the place that actually bakes them in.
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL}
+      # Without this the header "Sign in" link falls back to the compiled-in default.
+      NEXT_PUBLIC_CONSOLE_URL: ${NEXT_PUBLIC_CONSOLE_URL:?set NEXT_PUBLIC_CONSOLE_URL}
+      NEXT_PUBLIC_MOBISTACK_URL: ${NEXT_PUBLIC_MOBISTACK_URL:-https://mobistack.prabhixtechnologies.com}
+      # Prabhix's own tenant. Blank disables the storefront, chat widget and visitor beacon, so
+      # these must be set or the public site quietly loses those features.
+      NEXT_PUBLIC_ORG_SLUG: ${NEXT_PUBLIC_ORG_SLUG:?set NEXT_PUBLIC_ORG_SLUG}
+      NEXT_PUBLIC_ORG_ID: ${NEXT_PUBLIC_ORG_ID:?set NEXT_PUBLIC_ORG_ID}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  caddy:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  mailpit:
+    profiles:
+      - never
+    # Mailpit is dev-only; prod uses real SMTP or the mailserver profile.
