@@ -41,7 +41,7 @@ trap rollback ERR
 
 log "Pulling images (tag=$TAG)"
 export TAG
-$COMPOSE --env-file "$ENV_FILE" pull backend web marketing
+$COMPOSE --env-file "$ENV_FILE" pull backend web admin marketing
 
 log "Starting infrastructure (postgres, pgbouncer, redis)"
 $COMPOSE --env-file "$ENV_FILE" up -d postgres pgbouncer redis
@@ -73,7 +73,7 @@ done
 log "Backend is ready"
 
 log "Deploying frontends and caddy"
-$COMPOSE --env-file "$ENV_FILE" up -d web marketing caddy
+$COMPOSE --env-file "$ENV_FILE" up -d web admin marketing caddy
 
 log "Pruning dangling images"
 docker image prune -f >/dev/null 2>&1 || true

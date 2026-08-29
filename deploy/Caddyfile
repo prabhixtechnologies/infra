@@ -12,14 +12,26 @@
 	}
 }
 
-# Shared security headers and Razorpay CSP — checkout silently fails without these origins.
+# Headers every host gets. Transport-level concerns only — the CSP is deliberately not here.
+#
+# It used to be, spelled out in full, while web/security-headers.conf spelled out its own copy. Only
+# one of the two could ever win (Caddy's `header` replaces what the upstream sent, so nginx's copy
+# was dead weight in production), and nothing failed when they disagreed, so the ineffective copy
+# could be edited with apparent success. Each app now owns its own policy, and can therefore be as
+# strict as its own contents allow: the console names a hash for its inline script, and the
+# marketing site carries a per-request nonce, neither of which a shared string could express.
+#
+# The `?` prefix means "set only if the response does not already carry one", so an app's policy
+# passes through untouched and anything without one still gets a floor rather than nothing.
 (security_headers) {
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options SAMEORIGIN
 		Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.razorpay.com https://*.prabhixtechnologies.com; frame-src https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+		# Floor for hosts that serve no HTML of their own: the API, and the redirect-only hosts.
+		# Deliberately far stricter than any app policy, because a document is not expected here.
+		?Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';"
 		-Server
 	}
 	encode gzip zstd
@@ -31,10 +43,20 @@ prabhixtechnologies.com, www.prabhixtechnologies.com {
 	reverse_proxy marketing:3000
 }
 
-# OneOps — the operator console (React SPA behind nginx).
+# OneOps — the operator console sold to customers (React SPA behind nginx).
 oneops.prabhixtechnologies.com {
 	import security_headers
 	reverse_proxy web:80
+}
+
+# Prabhix's own console: the same tenant pages plus the platform-wide Ops Hub. A separate image, not
+# the same one on a second name, so the customer product does not ship the cross-tenant code.
+#
+# Both hosts sit under prabhixtechnologies.com, which is what lets the session cookie cover both and
+# means signing in on one carries over to the other.
+admin.prabhixtechnologies.com {
+	import security_headers
+	reverse_proxy admin:80
 }
 
 # The console used to live here. Kept as a permanent redirect so existing bookmarks, and the

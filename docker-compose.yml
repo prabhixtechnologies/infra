@@ -108,6 +108,8 @@ services:
     networks:
       - prabhix
 
+  # The OneOps product console, sold to customers. Same source tree as `admin` below; the APP build
+  # arg decides which of the two entry points is bundled.
   web:
     build:
       context: ./web
@@ -115,6 +117,7 @@ services:
       # Vite also inlines at build time. Unlike marketing, the console is a static SPA served by
       # nginx with no proxy, so the browser calls this URL directly — it must be host-reachable.
       args:
+        APP: oneops
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-}
         VITE_GOOGLE_SSO_ENABLED: ${VITE_GOOGLE_SSO_ENABLED:-false}
@@ -122,6 +125,29 @@ services:
     depends_on:
       - backend
     # BusyBox wget: nginx:alpine has no curl.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - prabhix
+
+  # Prabhix's own console: the tenant pages plus the platform-wide Ops Hub, and no billing. Served on
+  # its own hostname so the customer product never carries the cross-tenant code.
+  admin:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        APP: admin
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        # No Razorpay key: the admin app has no billing pages to check out from.
+        VITE_GOOGLE_SSO_ENABLED: ${VITE_GOOGLE_SSO_ENABLED:-false}
+    restart: unless-stopped
+    depends_on:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 30s
@@ -173,6 +199,7 @@ services:
     depends_on:
       - backend
       - web
+      - admin
       - marketing
     ports:
       - "80:80"

@@ -53,6 +53,11 @@ services:
       CONSOLE_URL: ${CONSOLE_URL:?set CONSOLE_URL}
       API_URL: ${API_URL:?set API_URL}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      # Parent domain of every console hostname, so one sign-in covers admin. and oneops. A cookie
+      # domain the response is not served from is dropped by the browser without comment, which
+      # looks exactly like a broken login, so this is required rather than defaulted.
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:?set SESSION_COOKIE_DOMAIN}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       # The storefront, chat widget and visitor beacon are public endpoints guarded by Origin
       # rather than a token, and each reads its own allowlist. Left unset they default to
       # http://localhost:3000, so production rejects the real site with 403 — and only in a
@@ -94,6 +99,18 @@ services:
 
   web:
     image: prabhixtechnologies/prabhix-web:${TAG:-latest}
+    build: !reset null
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Built from the same source tree as `web` but with APP=admin, so it is a separate image rather
+  # than the same one served on a second hostname.
+  admin:
+    image: prabhixtechnologies/prabhix-admin:${TAG:-latest}
     build: !reset null
     restart: always
     logging:

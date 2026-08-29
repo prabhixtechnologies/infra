@@ -49,6 +49,10 @@ out/
 .turbo/
 .vite/
 
+# Derived from the built bundle by web/scripts/generate-security-headers.mjs — the CSP hashes only
+# match the artifact they were computed from, so a committed copy would go stale on the next build.
+security-headers.generated.conf
+
 # --- Logs ---
 *.log
 npm-debug.log*
