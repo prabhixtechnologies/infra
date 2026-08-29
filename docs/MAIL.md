@@ -49,9 +49,26 @@ an unreachable host still advertised itself as usable; and nothing distinguished
 
 - The chains no longer have a logging tail, and outside `dev`/`test`/`local` the router **throws**
   when nothing can deliver. `OutboxWorker` treats that like any other failure, so the row retries
-  with backoff and ends `DEAD` — never `SENT`.
+  with backoff and ends `DEAD` — never `SENT`. The exception message names each transport it
+  rejected and why, and that string becomes `mail_outbox.last_error`.
 - `healthy()` does a TCP connect to the configured host, cached for 15s so it costs one socket per
   drain rather than one per message.
+
+`SesTransport.healthy()` had the same shape of bug — it checked that a region was configured and
+nothing else, so a completely unusable setup reported healthy. It now asks SES, cached for a minute:
+
+| State | Reported |
+|---|---|
+| Domain and address both unknown to SES | DOWN — every send would be rejected |
+| Verification pending | DOWN, naming the DKIM CNAMEs still to publish |
+| Account sending disabled | DOWN |
+| No credentials resolvable | DOWN — what an instance with no role looks like |
+| Account in the sandbox | **UP**, with a note: sends to verified recipients do work |
+| `ses:GetAccount` denied | **UP**, unconfirmed — a send-only IAM policy is correct least privilege |
+
+The last row is the reason this is not simply "ask SES and believe it". Being denied a read does not
+mean a send would fail, and treating it as DOWN would take the transport out of service for being
+configured properly.
 
 The rows already written that way are corrected by migration `V60`, which marks them `DEAD` and
 clears `sent_at`. They are marked `DEAD` rather than `FAILED` deliberately: `FAILED` is retryable,
