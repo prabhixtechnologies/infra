@@ -37,6 +37,24 @@ local.properties
 # above. Losing the keystore means never being able to update the app for existing installs or on
 # Play, so it belongs in a password manager or secret store — not here, and not in git.
 keystore.properties
+# Firebase config. Not a credential in the way the keystore is — the API key in it is restricted to
+# the registered package names — but it ties the repository to one Firebase project, which is exactly
+# what a fork or a second environment must not inherit. app/google-services.json.template records
+# the shape and how to fill it.
+google-services.json
+
+# --- iOS / Xcode ---
+# Generated from mobile/ios/project.yml by xcodegen. Committing it would mean two sources of truth
+# for the same thing, and the project file is the one that cannot be reviewed in a diff.
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+# Also generated, from the entitlements block in project.yml.
+mobile/ios/PrabhixOperator/*.entitlements
+# Holds the signing team id and the developer's LAN address. Config.xcconfig.template records the
+# shape.
+Config.xcconfig
 
 # --- Node ---
 node_modules/

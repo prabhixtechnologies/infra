@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
-# Verifies the Phase 2 claim end to end against the deployed domain: one sign-in covers both
+# Checks the shared sign-in end to end against the deployed domain: one sign-in covers both
 # consoles, the native body-refresh path is untouched, and revoking a session kills both.
+#
+# Run from the server, where DNS and TLS are the real thing:
+#   TEST_EMAIL=you@example.com TEST_PASSWORD=... bash deploy/verify-sso.sh
+#
+# Worth running after any change to auth or to the cookie attributes. Cookie behaviour cannot be
+# checked on localhost — Domain= and Secure both behave differently there — so a passing local test
+# says nothing about whether a browser will accept the cookie in production.
+#
+# Note it signs in twice and revokes a session, so it leaves a couple of dead device sessions behind.
 set -uo pipefail
 
 API=https://api.prabhixtechnologies.com/api/v1

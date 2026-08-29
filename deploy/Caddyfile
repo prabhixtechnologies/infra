@@ -20,30 +20,44 @@
 # could be edited with apparent success. Each app now owns its own policy, and can therefore be as
 # strict as its own contents allow: the console names a hash for its inline script, and the
 # marketing site carries a per-request nonce, neither of which a shared string could express.
-#
-# The `?` prefix means "set only if the response does not already carry one", so an app's policy
-# passes through untouched and anything without one still gets a floor rather than nothing.
 (security_headers) {
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options SAMEORIGIN
 		Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-		# Floor for hosts that serve no HTML of their own: the API, and the redirect-only hosts.
-		# Deliberately far stricter than any app policy, because a document is not expected here.
-		?Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';"
 		-Server
 	}
 	encode gzip zstd
 }
 
-# Marketing site — apex + www
+# For hosts that serve no HTML document of their own: the API and the redirect-only names.
+# Deliberately far stricter than any app policy, because a document is not expected here.
+#
+# This floor is NOT applied to the app hosts, and that is the whole point of it being a separate
+# snippet. It used to be in `security_headers` with a `?` prefix — "set only if the response does not
+# already carry one" — which reads as a safe default and is not one for a host that serves HTML. When
+# the marketing container was left on an image built before its CSP middleware existed, it sent no
+# policy, so the floor applied to a real document and `default-src 'none'` blocked every stylesheet,
+# script and font on the page. The site returned 200 and rendered as unstyled text.
+#
+# An app that fails to send its own policy should degrade to being unprotected, not to being broken:
+# the first is caught by the CSP checks in deploy/smoke.ps1, the second is caught by a customer.
+(no_document_headers) {
+	import security_headers
+	header {
+		?Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none';"
+	}
+}
+
+# Marketing site — apex + www. Sends its own per-request nonce CSP from src/middleware.ts.
 prabhixtechnologies.com, www.prabhixtechnologies.com {
 	import security_headers
 	reverse_proxy marketing:3000
 }
 
-# OneOps — the operator console sold to customers (React SPA behind nginx).
+# OneOps — the operator console sold to customers (React SPA behind nginx, which serves the
+# generated security-headers.conf carrying the hash of the inline theme bootstrap).
 oneops.prabhixtechnologies.com {
 	import security_headers
 	reverse_proxy web:80
@@ -62,7 +76,7 @@ admin.prabhixtechnologies.com {
 # The console used to live here. Kept as a permanent redirect so existing bookmarks, and the
 # links in transactional email already delivered to people's inboxes, keep working.
 app.prabhixtechnologies.com {
-	import security_headers
+	import no_document_headers
 	redir https://oneops.prabhixtechnologies.com{uri} permanent
 }
 
@@ -72,10 +86,11 @@ app.prabhixtechnologies.com {
 #   	import security_headers
 #   	reverse_proxy mobistack:80
 #   }
+# It serves HTML, so `security_headers` is correct there and `no_document_headers` is not.
 
 # Spring Boot API
 api.prabhixtechnologies.com {
-	import security_headers
+	import no_document_headers
 	reverse_proxy backend:8080 {
 		# Preserve client IP and proto for rate limiting and absolute URL generation.
 		header_up X-Forwarded-Proto {scheme}
@@ -91,7 +106,7 @@ api.prabhixtechnologies.com {
 # which reads as "the mail UI is broken" when in fact there has never been a mail web app. The mail
 # interface is a section of the console, so send people there.
 mail.prabhixtechnologies.com {
-	import security_headers
+	import no_document_headers
 	# Deliberately not forwarding {uri}: this host has no sub-paths of its own, and appending them
 	# would invent console routes like /inbox/settings that do not exist.
 	redir https://oneops.prabhixtechnologies.com/inbox permanent

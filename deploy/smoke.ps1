@@ -135,6 +135,56 @@ Test-Endpoint -Name "Marketing sitemap" -Url "$MarketingBase/sitemap.xml" -Asser
     if ($body -notmatch '/products/') { throw "sitemap lists no product pages" }
 }
 
+<#
+8 and 9. The page renders, not merely responds.
+
+Checks 2 and 3 assert a 200 and nothing more, which is how the marketing site once served every
+page completely unstyled without a single check failing. The container was running an image built
+before its CSP middleware existed, so it sent no policy of its own and inherited Caddy's
+`default-src 'none'` floor — meant for the API — which blocked every stylesheet, script and font.
+The document itself was fine, so the status was 200 and the sitemap was correct.
+
+So assert two things a bare status cannot express: that the host serves its own policy rather than
+the no-document floor, and that the assets the HTML references are actually permitted by it.
+#>
+function Test-DocumentCsp {
+    param([string]$Name, [string]$Url)
+
+    Test-Endpoint -Name "$Name CSP allows its own assets" -Url $Url -Assert {
+        param($r)
+        if ($r.StatusCode -ne 200) { throw "Expected 200, got $($r.StatusCode)" }
+
+        $csp = $r.Headers["Content-Security-Policy"]
+        if (-not $csp) {
+            throw "No Content-Security-Policy. The app must send its own; Caddy no longer supplies one for document hosts."
+        }
+        if ($csp -match "default-src\s+'none'") {
+            throw "Serving the no-document CSP floor ($csp). This host serves HTML, so every asset on the page is blocked. The app is not sending its own policy, most likely a stale image."
+        }
+
+        # A document that references no stylesheet is itself the symptom of a broken build.
+        $refs = [regex]::Matches($r.Content, '(?:href|src)="(/[^"]*\.(?:css|js))"') |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        $css = @($refs | Where-Object { $_ -like '*.css' })
+        if ($css.Count -eq 0) { throw "Page references no stylesheet at all" }
+
+        $base = ([uri]$Url).GetLeftPart([System.UriPartial]::Authority)
+        foreach ($ref in $refs) {
+            $assetUrl = "$base$ref"
+            try {
+                $a = Invoke-WebRequest -Uri $assetUrl -UseBasicParsing -TimeoutSec 30
+                if ($a.StatusCode -ne 200) { throw "status $($a.StatusCode)" }
+            }
+            catch {
+                throw "Asset referenced by the page does not load: $ref ($_)"
+            }
+        }
+    }
+}
+
+Test-DocumentCsp -Name "Marketing" -Url $MarketingBase
+Test-DocumentCsp -Name "Console (OneOps)" -Url $ConsoleBase
+
 Write-Host ""
 if ($failed -eq 0) {
     Write-Host "All smoke checks passed." -ForegroundColor Green

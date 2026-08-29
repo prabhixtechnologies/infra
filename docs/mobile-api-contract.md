@@ -279,9 +279,13 @@ UI must hide actions the user cannot perform. Full enum in `Permission.java`. Mo
 
 ---
 
-## Push notifications — **BACKEND FOLLOW-UP REQUIRED**
+## Push notifications
 
-No push-token endpoint exists today. Client apps implement against this proposed contract:
+Implemented. `PushTokenController` serves both endpoints below, and the backend sends through FCM or
+APNs depending on the registered platform, falling back to a logging provider when no credentials
+are configured. What is still needed is the credentials themselves: `google-services.json` in the
+Android module, and `PUSH_PROVIDER=FCM` with `FCM_PROJECT_ID` and `FCM_SERVICE_ACCOUNT_JSON` on the
+server. See `mobile/android/README.md`.
 
 ### POST `/devices/push-tokens` (authenticated)
 
@@ -318,7 +322,13 @@ Unregister on logout.
 
 Deep link: `prabhix://chat/{conversationId}` or `prabhix://mail/{threadId}`
 
-**Client behavior when endpoint 404:** Log once, continue; local notifications from SSE while foregrounded.
+**Client behavior when registration fails:** log once and continue. Without Firebase configured
+`FirebaseMessaging.getInstance()` throws before a token is ever obtained, so there is nothing to
+register; the app keeps working and gets its updates from SSE while open.
+
+**Two Android apps:** `com.prabhix.operator` and `com.prabhix.admin` register separately, each with
+its own token, and `deviceName` names the app as well as the phone so the sessions list can tell one
+from the other.
 
 ---
 

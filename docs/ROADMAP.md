@@ -25,20 +25,27 @@ Kept current so nobody discovers a gap at the worst possible moment.
 | Structured event logs reach the database | Against production: a good login, a bad password and an unknown email produced `auth.login.succeeded` ×1 and `auth.login.failed` ×2 in `event_logs`, and the Ops Hub overview reported `securityEventsLast24h: 2` |
 | Ops Hub is platform-admin only | Against production: `/api/v1/admin/platform/overview` → 401 with no token and with a forged token, 200 with the platform-admin token. The console guards `/ops` with `PlatformAdminRoute` |
 
-> Note on the marketing build: on Windows the final copy into `.next/standalone` can fail with
-> `EBUSY` when the dev server is running and holds a font file. "Compiled successfully" is the
-> real pass signal; the copy succeeds on a clean build.
+> Note on the marketing build: on Windows the final copy into `.next/standalone` fails
+> intermittently with `EBUSY`, usually on a `.wasm` file under `.next/server/edge-chunks/` and
+> sometimes on a font manifest. It is Defender scanning files Next.js has just written, not a build
+> error — everything up to `Collecting build traces` has already succeeded. A clean build does *not*
+> reliably avoid it, contrary to what this note used to claim; **re-running `npm run build` does**,
+> because the files have been scanned by then. Linux and the Docker build are unaffected.
+>
+> Use `npm start` rather than `next start` to serve the result. `output: "standalone"` excludes
+> `public/` and `.next/static/`, so `next start` warns and serves a different server than production;
+> `scripts/start-standalone.mjs` assembles the same layout the Dockerfile does.
 
 ## Not yet verified
 
 | Area | Why | How to close |
 |---|---|---|
-| iOS app compiles | No Xcode on the dev machine (Windows). **The iOS app has never been compiled** | Create the Xcode project per `mobile/ios/README.md` and build |
+| iOS app compiles | No Xcode on the dev machine (Windows). **The iOS app has never been compiled** | `cd mobile/ios && xcodegen generate && swift build`, then work through the errors. The project is now generated from the checked-in `project.yml`, and `.github/workflows/ios.yml` runs the whole thing on a macOS runner on demand, so no Mac is needed to get the first error list |
 | Mail transport end to end | Postfix/Dovecot/Rspamd never started | `docker compose -f mail-server/docker-compose.mail.yml --profile mailserver up`, then `swaks` per `mail-server/README.md` |
 | SES delivery and the new SNS bounce webhook | No AWS account wired | Set `MAIL_TRANSPORT=SES`, subscribe an SNS topic to `POST /api/v1/mail/webhooks/ses`, bounce a message at the SES simulator |
 | Razorpay against real keys | No test credentials configured | Add test keys, run a checkout, replay a webhook, and let one renewal cycle run |
 | ClamAV scanning | Scanner implemented, never run against a real clamd | Start clamd, set `prabhix.files.scan.provider=CLAMAV`, upload EICAR |
-| FCM / APNs delivery | Providers implemented, no credentials | Add `google-services.json` + FCM service account; APNs needs certs and a physical device |
+| FCM / APNs delivery | Providers implemented, no credentials | Android is wired and needs only `app/google-services.json` (four apps in one Firebase project) plus `PUSH_PROVIDER=FCM` and an `FCM_SERVICE_ACCOUNT_JSON` on the server — see `mobile/android/README.md`. iOS additionally needs `push_tokens` to record which app and APNs environment a token came from, because `ApnsPushProvider` sends every notification to the single configured `APNS_BUNDLE_ID` and there are now two iOS bundle ids |
 | SSE fan-out across multiple API instances | Single-instance dev only | Scale `backend` to 2 replicas and confirm presence events reach both |
 | PgBouncer under load | Backend now serves all traffic through it in the containerised stack, but never load-tested | Run sustained load and watch for prepared-statement errors (`prepareThreshold=0` is set; Flyway bypasses the pooler via `FLYWAY_URL`) |
 | Prometheus scrape auth | Rules and dashboards provisioned; scrape needs a real token | Put a platform-admin token in `docker/prometheus/secrets/bearer_token` |
@@ -94,14 +101,20 @@ trusting `InheritableThreadLocal`.
 Both apps are native (Android: Kotlin/Compose; iOS: SwiftUI) and both are still well short of the
 console. Treat the estimates below as real work, not polish.
 
-1. **Android now compiles and produces an APK.** `./gradlew :app:assembleDebug` is green and the
+Both platforms are now split into two apps, matching the web console: the OneOps product sold to
+customers and the private admin app. On Android these are product flavors with separate application
+ids, the platform screens confined to `app/src/admin/`, and a CI check that fails if they leak into
+the customer's APK. On iOS the two targets are declared in `mobile/ios/project.yml` but build
+identical screens, because the platform surface has not been written there yet.
+
+1. **Android now compiles and produces an APK.** `./gradlew :app:assembleOneopsDebug` is green and the
    wrapper jar is committed, so a clean clone can build. Fixing the first compile exposed three real
    defects, now closed: `MainActivity` extended `ComponentActivity` where `BiometricPrompt` requires
    a `FragmentActivity`; `Models.kt` used `@JsonIgnoreUnknownKeys`, which needs kotlinx.serialization
    1.8+ against the pinned 1.7.3 (redundant anyway — the shared `Json` sets `ignoreUnknownKeys`); and
    `AuthAuthenticator` → `TokenRefresher` → `AuthApi` → Retrofit → `OkHttpClient` formed a Dagger
    cycle, broken with a `Provider<TokenRefresher>`. It has still never run on a device or emulator.
-2. **A signed production release APK now builds.** `:app:assembleRelease` is green, signed from a
+2. **A signed production release APK now builds.** `:app:assembleOneopsRelease` is green, signed from a
    git-ignored `keystore.properties`, and verified to contain the production API URL rather than the
    emulator's `10.0.2.2`. Enabling the release build exposed a defect that would only have surfaced
    at runtime: `proguard-rules.pro` carried a Gson keep rule while the app uses Kotlinx
@@ -110,13 +123,21 @@ console. Treat the estimates below as real work, not polish.
    Kotlinx Serialization and Retrofit keep rules are now in place, and the resulting dex was checked
    for surviving `$$serializer` classes. Push is inert without `google-services.json`, which
    `PushTokenManager` catches, so the app works while open but gets no background notifications.
-2. **iOS has never been compiled and has no `.xcodeproj`** — `Package.swift` only builds `Core`, and
-   the dev machine is Windows. The project must be created by hand following `mobile/ios/README.md`.
-4. **Coverage is roughly a fifth of the console.** Present: auth, org select, dashboard, chat
+3. **iOS has never been compiled.** The dev machine is Windows, so this is blocked on tooling rather
+   than on decisions. What changed: the project is now generated from a checked-in
+   `mobile/ios/project.yml`, replacing six manual Xcode steps that had to be repeated identically on
+   every machine, and `.github/workflows/ios.yml` builds both targets on a macOS runner when started
+   by hand — so the first error list can be obtained without owning a Mac. Budget real time for the
+   shakedown; ~2,000 lines that have never seen a compiler will not build cleanly.
+4. **The iOS admin app has no admin screens.** Both targets exist and differ correctly in identity,
+   entitlements and compilation conditions, but the platform overview, tenant directory and "view as"
+   banner that Android and the web console have are not written for iOS.
+5. **Coverage is roughly a fifth of the console.** Present: auth, org select, dashboard, chat
    list/detail, mail list/detail with reply, and AI assist. Absent: commerce, billing, members,
    files, audit, logs, settings, mailboxes, domains, templates, tags admin, flags, site admin.
-5. **No automated tests on either platform.**
-6. **Offline is chat-only.** There is no outbound queue for mail on either platform.
+6. **No automated tests on either platform.** CI assembles both Android flavors and audits the APK
+   for leaked admin endpoints, which catches a broken build but asserts nothing about behaviour.
+7. **Offline is chat-only.** There is no outbound queue for mail on either platform.
 
 ### Mail
 
