@@ -114,14 +114,22 @@ services:
   # build` in this tree has no context for it, and an image reference that cannot be pulled would
   # fail `up` for everybody. Bring it in with `--profile identity` once the image exists.
   #
-  # No database yet. The auth tables move here in a later step, and until they do this service only
-  # signs and publishes keys, so giving it a datasource now would mean a connection pool against a
-  # schema it does not own.
+  # Its own database on the shared Postgres instance, created by
+  # docker/postgres/init/02-identity-database.sql. A separate database rather than a schema, so "the
+  # platform cannot read the users table" is enforced by the credentials rather than by convention.
+  #
+  # That script only runs on an empty data directory, so on a host whose volume already exists —
+  # production — the database has to be created by hand first. See docs/IDENTITY.md.
   identity:
     profiles:
       - identity
     image: prabhixtechnologies/prabhix-identity:${TAG:-latest}
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8081
       # Must match what products verify against, exactly — the check is string equality, so a
@@ -132,6 +140,28 @@ services:
       # out on restart, and with two replicas neither would accept the other's tokens.
       IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
       IDENTITY_RETIRED_PUBLIC_KEYS: ${IDENTITY_RETIRED_PUBLIC_KEYS:-}
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/${IDENTITY_DB_NAME:-prabhix_identity}
+      IDENTITY_DB_USER: ${POSTGRES_USER:-prabhix}
+      IDENTITY_DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      # The same Redis as the platform, on purpose: the deny list is one set of keys that identity
+      # writes and every product reads.
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      # Auth mail goes out over SMTP from here rather than through the platform, so that identity does
+      # not depend on a product that sits on top of it.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      IDENTITY_MAIL_FROM: ${IDENTITY_MAIL_FROM:-security@prabhixtechnologies.com}
+      CONSOLE_URL: ${CONSOLE_URL:-http://localhost:5173}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:5174}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Shared secret the platform presents to /internal/users/lookup. Blank disables the endpoint.
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     networks:
       - prabhix
