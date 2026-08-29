@@ -81,6 +81,28 @@ until $COMPOSE --env-file "$ENV_FILE" exec -T backend \
 done
 log "Backend is ready"
 
+# Mail that was logged instead of sent used to be recorded SENT, so nobody could tell the
+# difference between delivered and discarded. The router no longer selects the logging transport
+# outside dev, and V60 corrected the rows it had already written — so from here on any row at all is
+# a regression, and one worth stopping a deploy for. Silent mail loss is not something a dashboard
+# would surface later.
+log "Asserting no mail was delivered via the logging transport"
+logged_mail=$($COMPOSE --env-file "$ENV_FILE" exec -T postgres \
+  psql -U "${POSTGRES_USER:-prabhix}" -d "${POSTGRES_DB:-prabhix}" -tAc \
+  "SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'" \
+  2>/dev/null | tr -d '[:space:]')
+
+if [ -z "$logged_mail" ]; then
+  # A failed query must not read as a pass. Empty means psql could not answer, not zero rows.
+  log "Could not read mail_outbox to verify transport usage"
+  rollback
+fi
+if [ "$logged_mail" != "0" ]; then
+  log "$logged_mail outbox row(s) are marked SENT via the LOGGING transport — that mail was never delivered"
+  log "Inspect with: SELECT id, to_addresses, template_key, sent_at FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'"
+  rollback
+fi
+
 log "Deploying frontends"
 $COMPOSE --env-file "$ENV_FILE" up -d web admin marketing
 

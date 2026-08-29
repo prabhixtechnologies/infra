@@ -27,17 +27,56 @@ outright, with no per-seat vendor fee.
 
 ## Current production state (prabhixtechnologies.com)
 
-Mail is **deliberately not delivering** in production. `MAIL_TRANSPORT` is `SMTP_RELAY` pointed at
-`localhost`, so sends fail and retry into the outbox until `MAIL_OUTBOX_MAX_ATTEMPTS` is reached.
-The transport is set to a real value rather than `LOGGING` only because
-`MailTransportStartupValidator` refuses to boot on `LOGGING` outside dev.
+Mail is **not delivering** in production. `MAIL_TRANSPORT` is `SMTP_RELAY` pointed at `localhost`
+with nothing listening, so every send fails. The transport is set to a real value rather than
+`LOGGING` only because `MailTransportStartupValidator` refuses to boot on `LOGGING` outside dev.
 
-Two consequences worth knowing before relying on the platform: **password reset and email-OTP
-sign-in cannot complete**, so the password login is the only way in; and `/actuator/health`
-reports 503 because Spring's mail health indicator drags the aggregate down. Liveness and
-readiness are unaffected, and the container healthcheck targets
-`/actuator/health/readiness`, so this does not restart anything — but do not point an uptime
-monitor at plain `/actuator/health`.
+**Password reset and email-OTP sign-in therefore cannot complete**, and the password login is the
+only way in.
+
+### It used to be worse than that: mail was recorded as sent
+
+Until the router was fixed, undelivered mail was marked `SENT`. Every chain in
+`MailTransportRouter` ended in `LoggingTransport`, and the final fallback returned it even once the
+chain was exhausted. `LoggingTransport.send()` returns success, because from its point of view
+writing the line *is* the job — so `OutboxWorker` recorded `status = SENT`,
+`transport_used = LOGGING`, and moved on. The row kept the connection-refused error attached, which
+is the only reason it was diagnosable at all.
+
+Two things kept it hidden. `SelfHostedSmtpTransport.healthy()` returned an unconditional `true`, so
+an unreachable host still advertised itself as usable; and nothing distinguished "sent" from
+"logged" in any dashboard. Both are closed now:
+
+- The chains no longer have a logging tail, and outside `dev`/`test`/`local` the router **throws**
+  when nothing can deliver. `OutboxWorker` treats that like any other failure, so the row retries
+  with backoff and ends `DEAD` — never `SENT`.
+- `healthy()` does a TCP connect to the configured host, cached for 15s so it costs one socket per
+  drain rather than one per message.
+
+The rows already written that way are corrected by migration `V60`, which marks them `DEAD` and
+clears `sent_at`. They are marked `DEAD` rather than `FAILED` deliberately: `FAILED` is retryable,
+and releasing a weeks-old password reset into someone's inbox is worse than not sending it.
+
+`deploy/deploy.sh` then asserts the count stays at zero and rolls back if it does not:
+
+```sql
+SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT';
+```
+
+A regression fails the deploy rather than being discovered when a customer says they never got their
+password reset.
+
+### Health reporting
+
+`/actuator/health` reports `DOWN` while mail cannot be delivered, and that is now the intended
+meaning rather than an artefact. Spring's own mail indicator is disabled
+(`management.health.mail.enabled: false`): it probes `spring.mail.host` no matter which transport is
+configured, so it would report the whole application down under `MAIL_TRANSPORT=SES` for failing to
+reach an SMTP port that is not supposed to be open. `MailTransportHealthIndicator` asks the router
+what it would send through instead.
+
+Liveness and readiness are separate health groups that exclude it, and the container healthcheck
+targets `/actuator/health/readiness`, so broken mail still does not restart or drain anything.
 
 ### What the domain's DNS already dictates
 

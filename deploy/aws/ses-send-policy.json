@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendOnlyAsOurOwnDomain",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "arn:aws:ses:ap-south-1:*:identity/prabhixtechnologies.com",
+      "Condition": {
+        "StringLike": {
+          "ses:FromAddress": "*@prabhixtechnologies.com"
+        }
+      }
+    },
+    {
+      "Sid": "ReadSendQuotaAndIdentityStatus",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetAccount",
+        "ses:GetEmailIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
