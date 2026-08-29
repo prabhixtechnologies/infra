@@ -105,6 +105,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SERVER_PORT: 8080
+      # Trust for identity-issued RS256 tokens, alongside this service's own HS256 ones. Blank until
+      # identity is running, and it must be set *before* AUTH_UPSTREAM is flipped — otherwise the
+      # first token identity issues is one the backend cannot verify. See docs/IDENTITY.md.
+      IDENTITY_ISSUER: ${IDENTITY_ISSUER:-}
+      # Fetched over the internal network, not from the issuer URL. The issuer is an identifier that
+      # has to match the token's iss claim exactly; where the keys are served from is a separate
+      # question. Going out through Caddy would resolve to whatever AUTH_UPSTREAM currently points
+      # at — the backend itself before cutover — so it would 404 precisely when it is needed.
+      IDENTITY_JWKS_URI: ${IDENTITY_JWKS_URI:-http://identity:8081/.well-known/jwks.json}
     networks:
       - prabhix
 

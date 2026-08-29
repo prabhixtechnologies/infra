@@ -105,13 +105,32 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    `psql -f Identity/scripts/import-platform-users.sql`. It preserves ids, so the platform's existing
    foreign keys (`created_by`, `assignee_id`, `organization_memberships.user_id`) keep working against
    its local mirror. Check for email collisions first — the script does this and stops.
-3. Teach the backend to verify via JWKS **while still accepting its own HS256 tokens**. Both at once
-   means already-issued tokens keep working through the switch, so nobody is signed out.
+3. Set `IDENTITY_ISSUER` on the **backend** and restart it. It now verifies identity's RS256 tokens
+   as well as its own HS256 ones. Both at once is what keeps already-issued tokens working, so
+   nobody is signed out. This must happen *before* step 4 — with `AUTH_UPSTREAM` flipped and the
+   issuer untrusted, sign-in succeeds and then every subsequent request is a 401.
+
+   Confirm it took effect in the backend log: `Loaded N identity verification key(s)`. The keys are
+   fetched from `IDENTITY_JWKS_URI`, which defaults to the identity container directly rather than
+   the public issuer URL — the latter routes through Caddy to whatever `AUTH_UPSTREAM` names, which
+   is still the backend at this point.
 4. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
 5. After one refresh-token lifetime (`IDENTITY_REFRESH_TTL`, 30 days) no HS256 token can still be in
    circulation. Drop HS256 verification from the backend then, not before.
 
-Rollback at any point before step 5 is unsetting `AUTH_UPSTREAM`.
+Rollback at any point before step 5 is unsetting `AUTH_UPSTREAM`. Leaving `IDENTITY_ISSUER` set
+costs nothing: with nothing minting RS256 tokens, nothing presents one.
+
+What the backend does with an identity token is the other half of the change. Such a token carries no
+organization and no permissions, so both are resolved per request: the tenant comes from
+`X-Prabhix-Org` validated against an active membership, and the permissions from `PermissionResolver`
+against this database. Claims in the token are never a source of authority — `JwtServiceIdentityTest`
+pins that, including that a correctly signed token asserting `padm` and `PLATFORM_ADMIN` gets
+neither.
+
+A subject with no row in the platform's own `users` table is refused with "not provisioned on the
+platform" rather than a credential error, because that is what it is: identity knows the person and
+the platform has not been told about them. Step 2 is what prevents it.
 
 BCrypt makes step 2 safe without anyone resetting a password: a BCrypt hash carries its own cost
 factor, so the platform's strength-10 hashes and MobiStack's strength-12 hashes both verify.
