@@ -114,6 +114,10 @@ services:
       # question. Going out through Caddy would resolve to whatever AUTH_UPSTREAM currently points
       # at — the backend itself before cutover — so it would 404 precisely when it is needed.
       IDENTITY_JWKS_URI: ${IDENTITY_JWKS_URI:-http://identity:8081/.well-known/jwks.json}
+      # Fills in the local users row for anyone who signed up through identity after the bulk import.
+      # The same shared secret the identity service checks; blank leaves the mirror import-only.
+      IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
     networks:
       - prabhix
 
