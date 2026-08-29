@@ -19,11 +19,23 @@ Operations guide for EC2 + Docker Compose deployments.
    cp deploy/.env.prod.example deploy/.env.prod
    # Fill every [M] variable — especially JWT_SECRET, DB_PASSWORD, Razorpay, S3
    ```
-5. **DNS** — point A records for `@`, `www`, `oneops`, `api` to the Elastic IP.
+5. **DNS** — point A records for `@`, `www`, `oneops`, `admin`, `api` to the Elastic IP.
    Also point `app` there: Caddy serves it purely to redirect to `oneops`, so dropping the record
    would break bookmarks and the links in transactional email already sitting in people's inboxes.
    For mail: `mail` A record + MX (see [mail-server/README.md](../mail-server/README.md)).
    `mobistack` is a separate deployment — point it at that host, not this one.
+
+   A subdomain with no record of its own does not fail loudly. The registrar's wildcard answers
+   instead, so the name resolves to a parking IP and the browser reports a TLS trust error rather
+   than anything DNS-shaped — and Caddy, never receiving a request, never requests a certificate.
+   Confirm each name resolves to the Elastic IP:
+
+   ```powershell
+   "@","www","oneops","admin","api","app" | ForEach-Object {
+     $n = if ($_ -eq "@") { "prabhixtechnologies.com" } else { "$_.prabhixtechnologies.com" }
+     "$n -> $((Resolve-DnsName $n -Type A).IPAddress -join ',')"
+   }
+   ```
 6. **Deploy:**
    ```bash
    cd /opt/prabhix
@@ -42,7 +54,17 @@ Operations guide for EC2 + Docker Compose deployments.
 
 ## Routine deploy
 
-CI pushes images to Docker Hub on merge to `main`. On the server:
+CI pushes images to Docker Hub on merge to `main`. Moving them onto the server is **always manual** —
+no SSH private key is stored in GitHub, so nothing in Actions can reach the host. From your
+workstation:
+
+```powershell
+.\deploy\deploy-remote.ps1                 # deploy :latest
+.\deploy\deploy-remote.ps1 -Tag 78a9ec6    # deploy a specific tag
+```
+
+That pulls the repo on the host, runs `deploy/deploy.sh`, then runs the smoke checks. To do the same
+by hand on the server:
 
 ```bash
 cd /opt/prabhix
@@ -51,9 +73,44 @@ export TAG=<short-sha-from-ci>   # or latest
 bash deploy/deploy.sh
 ```
 
-Or trigger GitHub Actions **Deploy** workflow (`workflow_dispatch`) which SSHes and runs `deploy/deploy.sh`.
-
 Flyway migrations run automatically when the new backend container starts.
+
+### If CI has not pushed the image you need
+
+`deploy.sh` pulls from Docker Hub, so it can only deploy what CI managed to push. When the **Docker
+images** job is failing, the registry still holds the previous build and a deploy silently reinstalls
+it — which is how a fixed marketing bug came back once already. Check the job before deploying:
+
+```powershell
+# What the registry actually has, per image
+"prabhix-backend","prabhix-web","prabhix-admin","prabhix-marketing" | ForEach-Object {
+  $r = Invoke-RestMethod "https://hub.docker.com/v2/repositories/prabhixtechnologies/$_"
+  "$_ last pushed: $($r.last_updated)"
+}
+```
+
+When the job fails at its **Log in to Docker Hub** step, every build-and-push step after it is
+skipped, so the registry keeps serving the previous build while CI reports only a red run. A Docker
+Hub personal access token is only valid when paired with the username of the account that issued it,
+so `DOCKERHUB_USERNAME` must be that account — `prabhixtechnologies` — not the name of a CI identity.
+
+To ship without CI, build and push the image yourself, then deploy as above:
+
+```powershell
+docker build --provenance=false --sbom=false --platform linux/amd64 `
+  -t prabhixtechnologies/prabhix-marketing:latest `
+  --build-arg NEXT_PUBLIC_API_URL=https://api.prabhixtechnologies.com `
+  --build-arg NEXT_PUBLIC_SITE_URL=https://prabhixtechnologies.com `
+  --build-arg NEXT_PUBLIC_CONSOLE_URL=https://oneops.prabhixtechnologies.com `
+  --build-arg NEXT_PUBLIC_MOBISTACK_URL=https://mobistack.prabhixtechnologies.com `
+  --build-arg NEXT_PUBLIC_ORG_SLUG=<slug> --build-arg NEXT_PUBLIC_ORG_ID=<id> `
+  -f marketing/Dockerfile marketing
+docker push prabhixtechnologies/prabhix-marketing:latest
+```
+
+`NEXT_PUBLIC_*` values are inlined at build time, so they must be passed as `--build-arg`. The
+`--provenance=false --sbom=false` flags matter: without them Buildx emits a manifest list with an
+attestation manifest, which the older Docker on the host cannot `docker load`.
 
 ---
 
