@@ -109,14 +109,50 @@ app.prabhixtechnologies.com {
 #   }
 # It serves HTML, so `security_headers` is correct there and `no_document_headers` is not.
 
-# Spring Boot API
+# Spring Boot API — one origin for clients, whichever service is behind it.
+#
+# Authentication is moving into the Identity service, and routing it through this host rather than
+# giving it its own name is what makes that a deployment change instead of a client change: the web
+# apps, both Android apps and every link already sitting in someone's inbox keep calling
+# api.prabhixtechnologies.com. It also avoids a second CORS origin and a second cookie domain for
+# the sign-in flow, which is the part of this that is easy to get subtly wrong. The extractions after
+# it — mail is the intended next one — become a routing change here.
+#
+# AUTH_UPSTREAM is the cutover switch, and it defaults to the backend on purpose. These paths carry
+# live sign-in traffic: hardcoding identity:8081 before that container exists would 502 every login
+# on the next `docker compose up`, and rolling back would mean editing the proxy config under
+# pressure. Flipping one line in deploy/.env.prod is the whole cutover, and the same line is the
+# whole rollback.
 api.prabhixtechnologies.com {
 	import no_document_headers
+
+	# Order matters: Caddy evaluates handle blocks in the order written, and the bare `handle` at the
+	# end is the catch-all. Putting it first would swallow everything.
+	handle /api/v1/auth/* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
+	# OIDC discovery and JWKS. Every product reads these before it can verify a single token, so they
+	# have to be served from the origin named in the issuer claim. While AUTH_UPSTREAM still points
+	# at the backend they 404, which is correct: nothing is issuing RS256 tokens yet.
+	handle /.well-known/* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
 	# The backend needs the client IP and original scheme/host for rate limiting and absolute URL
 	# generation. Caddy sets X-Forwarded-For, -Proto and -Host on its own, so the explicit header_up
 	# lines that used to be here only produced "Unnecessary header_up" warnings on every start.
-	reverse_proxy backend:8080
+	handle {
+		reverse_proxy backend:8080
+	}
 }
+
+# id.prabhixtechnologies.com is deliberately absent until its A record exists. Caddy asks Let's
+# Encrypt for a certificate per site name at startup, and a name that does not resolve fails the
+# HTTP-01 challenge and retries with backoff — noise in the logs of a proxy that is otherwise fine,
+# for a hostname nothing yet points at. The issuer is api.prabhixtechnologies.com for now, which is
+# where discovery and JWKS are served above; moving it later invalidates every token in flight, so it
+# is a one-time change to make before the platform starts trusting the new tokens, not after.
 
 # mail.prabhixtechnologies.com exists for MX/IMAP/SMTP: its A record points here so PTR aligns, and
 # ports 25/587/993 are served by the mailserver compose profile rather than Caddy.

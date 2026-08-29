@@ -97,6 +97,25 @@ services:
         max-size: "20m"
         max-file: "10"
 
+  identity:
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # Defaulted rather than `${...:?}`, even though a blank key cannot work here.
+      #
+      # Compose interpolates every service in the file, including ones behind an inactive profile, so
+      # a required variable would fail `config` and `up` for the entire stack on a box that has no
+      # reason to run identity yet — the whole platform, unable to deploy, because of a service
+      # nobody asked for. SigningKeyProvider refuses to start on a blank key outside a local profile,
+      # so the check happens where it belongs: in the container that needs it.
+      IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
+      SWAGGER_ENABLED: "false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "10"
+
   web:
     image: prabhixtechnologies/prabhix-web:${TAG:-latest}
     build: !reset null

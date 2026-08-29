@@ -108,6 +108,34 @@ services:
     networks:
       - prabhix
 
+  # Prabhix Identity — signs the tokens every product verifies.
+  #
+  # Behind a profile, because it lives in a sibling repository and is built there: `docker compose
+  # build` in this tree has no context for it, and an image reference that cannot be pulled would
+  # fail `up` for everybody. Bring it in with `--profile identity` once the image exists.
+  #
+  # No database yet. The auth tables move here in a later step, and until they do this service only
+  # signs and publishes keys, so giving it a datasource now would mean a connection pool against a
+  # schema it does not own.
+  identity:
+    profiles:
+      - identity
+    image: prabhixtechnologies/prabhix-identity:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8081
+      # Must match what products verify against, exactly — the check is string equality, so a
+      # trailing slash or http-for-https invalidates every token. api.prabhixtechnologies.com rather
+      # than id., because that is where the Caddyfile serves discovery until id. has an A record.
+      IDENTITY_ISSUER: ${IDENTITY_ISSUER:-https://api.prabhixtechnologies.com}
+      # PKCS#8 PEM. Blank is refused outside a local profile: an ephemeral key would sign every user
+      # out on restart, and with two replicas neither would accept the other's tokens.
+      IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
+      IDENTITY_RETIRED_PUBLIC_KEYS: ${IDENTITY_RETIRED_PUBLIC_KEYS:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+    networks:
+      - prabhix
+
   # The OneOps product console, sold to customers. Same source tree as `admin` below; the APP build
   # arg decides which of the two entry points is bundled.
   web:
@@ -205,6 +233,13 @@ services:
       - web
       - admin
       - marketing
+    environment:
+      # Which service answers /api/v1/auth/* and /.well-known/*. Defaults to the backend, so nothing
+      # changes until the identity service is deployed; setting it to identity:8081 is the cutover and
+      # unsetting it is the rollback. Caddy substitutes {$AUTH_UPSTREAM} when it loads the config, so
+      # a change here needs the container recreated — which deploy.sh does anyway, for the Caddyfile
+      # bind-mount reason below.
+      AUTH_UPSTREAM: ${AUTH_UPSTREAM:-backend:8080}
     ports:
       - "80:80"
       - "443:443"
