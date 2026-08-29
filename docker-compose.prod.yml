@@ -138,6 +138,18 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  # Built from the sibling Mailroom repository by its own CI, so there is nothing to build here even
+  # in development — the image is the interface between the two repos.
+  mailroom:
+    image: prabhixtechnologies/prabhix-mailroom:${TAG:-latest}
+    build: !reset null
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   marketing:
     image: prabhixtechnologies/prabhix-marketing:${TAG:-latest}
     build: !reset null

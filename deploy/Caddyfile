@@ -184,16 +184,16 @@ api.prabhixtechnologies.com {
 # where discovery and JWKS are served above; moving it later invalidates every token in flight, so it
 # is a one-time change to make before the platform starts trusting the new tokens, not after.
 
-# mail.prabhixtechnologies.com exists for MX/IMAP/SMTP: its A record points here so PTR aligns, and
-# ports 25/587/993 are served by the mailserver compose profile rather than Caddy.
+# Prabhix Mailroom — a mail client for a person's own address.
 #
-# It answers on HTTPS purely so a browser does not dead-end. With no site block Caddy issued no
-# certificate for the name, so visiting it failed the TLS handshake with nothing to explain why —
-# which reads as "the mail UI is broken" when in fact there has never been a mail web app. The mail
-# interface is a section of the console, so send people there.
+# This name has always resolved here for MX/IMAP/SMTP, so that PTR aligns; ports 25/587/993 are still
+# served by the mailserver compose profile rather than by Caddy, and nothing about that changes. What
+# changes is 443: it used to redirect to the console's shared-inbox screen, because there was no mail
+# web app to send anybody to. Now there is.
+#
+# Mailroom is not the console's inbox. That one is a support queue — assignment, SLA clocks, canned
+# replies. This is somebody's own mail, with folders and stars and nobody else's tickets in it.
 mail.prabhixtechnologies.com {
-	import no_document_headers
-	# Deliberately not forwarding {uri}: this host has no sub-paths of its own, and appending them
-	# would invent console routes like /inbox/settings that do not exist.
-	redir https://oneops.prabhixtechnologies.com/inbox permanent
+	import security_headers
+	reverse_proxy mailroom:80
 }

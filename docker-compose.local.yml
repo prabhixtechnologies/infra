@@ -28,8 +28,9 @@ services:
       MARKETING_URL: http://localhost:3000
       CONSOLE_URL: http://localhost:5173
       ADMIN_URL: http://localhost:5174
+      MAILROOM_URL: http://localhost:5175
       API_URL: http://localhost:8080
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:8080
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080
       # Host-only and insecure locally. Two hostnames cannot be shared across ports, so on localhost
       # the shared-session behaviour is only exercised end to end in a real deployment; a Secure
       # cookie over plain http is also refused outright by some browsers.
@@ -45,6 +46,10 @@ services:
   admin:
     ports:
       - "5174:80"
+
+  mailroom:
+    ports:
+      - "5175:80"
 
   marketing:
     ports:

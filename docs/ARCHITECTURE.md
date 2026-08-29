@@ -15,8 +15,13 @@ A single platform that serves two audiences from one codebase:
 | `oneops.prabhixtechnologies.com` | Operators — customer organizations | `web/` built with `APP=oneops` |
 | `admin.prabhixtechnologies.com` | Prabhix staff — the platform itself | `web/` built with `APP=admin` |
 | `api.prabhixtechnologies.com` | Both surfaces + integrations | `backend/` (Spring Boot) |
-| `mail.prabhixtechnologies.com` | MX / IMAP / SMTP endpoint | `mail-server/` (Postfix + Dovecot) |
+| `mail.prabhixtechnologies.com` | Anyone with a hosted address — personal mail | `../Mailroom/web`, and MX / IMAP / SMTP on the same host via `mail-server/` |
 | `mobistack.prabhixtechnologies.com` | MobiStack customers | Separate deployment, not in this repo |
+
+One hostname serves two unrelated things there, which is worth stating plainly: Caddy serves the
+Mailroom client on 443, and Postfix and Dovecot answer on 25, 587 and 993. They share the name
+because a person typing it means their mail either way, and they share the Elastic IP because the MX
+record has to resolve to the machine that accepts the mail.
 
 `app.prabhixtechnologies.com` is the console's former host and now permanently redirects to
 `oneops.` — see `deploy/Caddyfile`.

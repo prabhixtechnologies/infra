@@ -8,6 +8,8 @@ param(
     [string]$ApiBase = "http://localhost:8080",
     [string]$MarketingBase = "http://localhost:3000",
     [string]$ConsoleBase = "http://localhost:5173",
+    # Mailroom. Skipped when empty, for a deployment that does not run it.
+    [string]$MailroomBase = "",
     # Needed for the public storefront checks. Skipped when empty.
     [string]$OrgSlug = ""
 )
@@ -184,6 +186,26 @@ function Test-DocumentCsp {
 
 Test-DocumentCsp -Name "Marketing" -Url $MarketingBase
 Test-DocumentCsp -Name "Console (OneOps)" -Url $ConsoleBase
+
+if ($MailroomBase) {
+    Test-DocumentCsp -Name "Mailroom" -Url $MailroomBase
+
+    # Mailroom has no password form: with no issuer baked in there is nowhere to sign in, and the app
+    # says so on screen. That is a correct-looking page for a broken deploy, so check the build instead
+    # of the render — the issuer is inlined into the bundle, so its absence is visible in the JavaScript.
+    Test-Endpoint -Name "Mailroom was built with an identity issuer" -Url $MailroomBase -Assert {
+        param($r)
+        $scripts = [regex]::Matches($r.Content, 'src="(/assets/index-[^"]*\.js)"') |
+            ForEach-Object { $_.Groups[1].Value }
+        if ($scripts.Count -eq 0) { throw "Page references no entry script" }
+
+        $base = ([uri]$MailroomBase).GetLeftPart([System.UriPartial]::Authority)
+        $bundle = (Invoke-WebRequest -Uri "$base$($scripts[0])" -UseBasicParsing -TimeoutSec 30).Content
+        if ($bundle -notmatch '/oauth2/authorize') {
+            throw "The bundle has no authorize URL, so this image was built without VITE_IDENTITY_ISSUER"
+        }
+    }
+}
 
 Write-Host ""
 if ($failed -eq 0) {

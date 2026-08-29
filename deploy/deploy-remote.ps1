@@ -91,4 +91,5 @@ Write-Host "==> Running smoke checks" -ForegroundColor Cyan
     -ApiBase "https://api.prabhixtechnologies.com" `
     -MarketingBase "https://prabhixtechnologies.com" `
     -ConsoleBase "https://oneops.prabhixtechnologies.com" `
+    -MailroomBase "https://mail.prabhixtechnologies.com" `
     -OrgSlug "prabhix-technologies"

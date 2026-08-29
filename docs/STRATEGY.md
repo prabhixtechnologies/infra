@@ -3,10 +3,11 @@
 `docs/ROADMAP.md` is the honest inventory of what is built today. This is the forward plan: what is
 being built, in what order, and why that order.
 
-**Status.** Phases A through D are built and tested, and A and B are not yet cut over in production —
+**Status.** Phases A through F are built and tested. A and B are not yet cut over in production —
 `AUTH_UPSTREAM` still points at the backend, which is deliberate and is documented step by step in
-[IDENTITY.md](IDENTITY.md#cutover-order). Phases E and F are unstarted. The per-phase notes below say
-which is which, so nothing here should be read as a description of what production does today.
+[IDENTITY.md](IDENTITY.md#cutover-order). AWS hardening is deferred by decision. The per-phase notes
+below say which is which, so nothing here should be read as a description of what production does
+today.
 
 The thesis in one paragraph: **Prabhix becomes an identity provider that happens to own products,
 rather than products that each own a login.** Every surface — OneOps, the admin console, MobiStack,
@@ -23,7 +24,7 @@ follows from that sentence.
 | `Identity` | Who you are. Credentials, lockout, sessions, refresh rotation, magic links, OTP, SSO linking, and the OAuth/OIDC protocol surface. | What you can do. No organization, shop, role or permission appears in its schema. |
 | `Platform` | OneOps and the admin console: organizations, memberships, roles, permissions, mail, chat, files, commerce, billing. | Authentication. |
 | `MobiStack` | Two things that are being separated — a global component-compatibility commons, and per-shop inventory. | Authentication. |
-| `Mailroom` | Personal mailboxes with folders. | Authentication, and its own transport — Postfix/Dovecot already exist in `Platform/mail-server`. |
+| `Mailroom` | Personal mailboxes with folders: a web client and an Android app. | Authentication, its own mailbox API — that lives in the platform, which owns the mail schema — and its own transport, since Postfix/Dovecot already exist in `Platform/mail-server`. |
 
 Each product keeps a thin local `users` mirror keyed by the identity `sub`, so existing foreign keys
 (`created_by`, `assignee_id`, `organization_memberships.user_id`) keep working.
@@ -242,18 +243,50 @@ acquisition through network effects; inventory is the paid product.
 
 ## Phase F — Mailroom
 
-**Unstarted; the repository holds only a README.** Personal mailboxes with folders, which the current
-schema cannot express: `mail_mailboxes` is
-org-scoped and shared, there is thread *status* rather than folders, compose is reply-only, and
-`mail_thread_drafts` and `mail_aliases` have schema but no API.
+**Done.** Personal mailboxes with folders, which the schema could not express before: `mail_mailboxes`
+was org-scoped and shared, there was thread *status* rather than folders, compose was reply-only, and
+`mail_thread_drafts` and `mail_aliases` had schema but no API.
 
-Build the `mailbox` API in the platform backend first, then the clients. Mail is the natural *second*
-extraction after identity — 22 tables, IMAP pollers, outbox workers, SES webhooks, already cleanly
-packaged — but not concurrently with it.
+Built in order — API first, then the clients, because a client written against an imagined contract
+gets rewritten when the real one lands.
 
-Web on `mail.prabhixtechnologies.com`, replacing the redirect to the console. Android as
-`com.prabhix.mailroom`. Both are OIDC clients of Identity, so it is also the honest test of whether
-Identity works as a general provider: Mailroom is the first product with no legacy auth of its own.
+**`V64__mailbox_folders_and_flags.sql`** and `/api/v1/mailbox`:
+
+- **Folders, not statuses.** `mail_folders` with a `kind` for the six system folders so code can find
+  "the trash folder for this mailbox" without matching on a name a person is free to rename.
+  `mail_thread_folders` is one row per thread rather than a many-to-many, because what somebody means
+  by "move to Archive" is that it is no longer in the inbox. Existing threads were backfilled from the
+  status they had; only `SPAM` and `TRASH` carried a location, and everything else went to the inbox —
+  a resolved ticket is still a thread you can find.
+- **Flags belong to a reader, not a thread.** A shared mailbox has several readers and
+  `mail_threads.unread_count` cannot be true for all of them at once. `mail_thread_flags` is keyed on
+  `(thread_id, user_id)`; absence of a row means unread, so marking a new arrival unread only has to
+  clear the rows that say otherwise rather than write one per reader per thread.
+- **Filing an arrival is not the same as filing a new thread.** A reply to an archived thread brings it
+  back to the inbox; a message to a thread in Spam leaves it there. Deleting a custom folder moves its
+  threads to the inbox rather than deleting mail.
+- **Standalone drafts.** `mail_thread_drafts.thread_id` became nullable with a partial unique index, so
+  one reply draft per thread per author still holds while a person may have any number of unsent new
+  messages.
+- **Ownership is recorded rather than inferred.** `mail_mailboxes.owner_user_id`, backfilled only for
+  personal mailboxes with exactly one member — anything else is a guess, and a wrong guess here hands
+  one person's mail to another.
+
+**Web** on `mail.prabhixtechnologies.com`, replacing the redirect to the console: three panes, mail
+HTML behind DOMPurify and a mail-specific CSP that permits remote images but no scripts and no forms,
+autosaved drafts. **Android** as `com.prabhix.mailroom`, one module and one flavor.
+
+Both are OIDC clients of Identity — `prabhix-mailroom` and `prabhix-mailroom-android`, separate so a
+redirect registered for a browser cannot be used from an app — and neither has a password form. That
+made Mailroom the honest test of Identity as a general provider, being the first product with no legacy
+auth of its own, and it passed: the clients contain no authentication code beyond a redirect and a code
+exchange.
+
+The two clients differ where a phone and a desktop differ rather than sharing a core. Android shows the
+`text/plain` alternative instead of rendering HTML, has no autosaved draft and no reply-all; `Mailroom/
+android/README.md` lists each omission and why. Mail is still the natural *second* service extraction
+after identity — 22 tables, IMAP pollers, outbox workers, SES webhooks, already cleanly packaged — and
+that has not been done.
 
 ---
 
@@ -296,8 +329,8 @@ independent of the apps, so redeploying a product cannot take the database down 
 - **Do not add surfaces before the existing ones are finished.** The count is already around ten —
   marketing, OneOps web and Android, admin web and Android, the Identity login UI, Mailroom web and
   Android, MobiStack web and Android — before iOS adds four or five. Breadth is what turns a system
-  into a collection of prototypes. Specifically: Mailroom Android does not start until Mailroom web is
-  real.
+  into a collection of prototypes. Specifically: Mailroom Android did not start until Mailroom web was
+  real, and iOS does not start until all nine of those are finished.
 - **Do not rewrite git history** without a separate decision. MobiStack has commits authored from an
   employer address, and removing them means a force push where every SHA changes and the deployed tag
   stops matching any commit.

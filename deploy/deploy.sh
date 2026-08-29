@@ -50,7 +50,7 @@ trap rollback ERR
 
 log "Pulling images (tag=$TAG)"
 export TAG
-$COMPOSE --env-file "$ENV_FILE" pull backend web admin marketing
+$COMPOSE --env-file "$ENV_FILE" pull backend web admin mailroom marketing
 
 log "Starting infrastructure (postgres, pgbouncer, redis)"
 $COMPOSE --env-file "$ENV_FILE" up -d postgres pgbouncer redis
@@ -104,7 +104,7 @@ if [ "$logged_mail" != "0" ]; then
 fi
 
 log "Deploying frontends"
-$COMPOSE --env-file "$ENV_FILE" up -d web admin marketing
+$COMPOSE --env-file "$ENV_FILE" up -d web admin mailroom marketing
 
 # Recreated unconditionally, not just when the image changes. The Caddyfile arrives as a single-file
 # bind mount, and a pull that rewrites it gives the file a new inode that the running container is

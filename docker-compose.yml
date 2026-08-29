@@ -170,6 +170,7 @@ services:
       IDENTITY_MAIL_FROM: ${IDENTITY_MAIL_FROM:-security@prabhixtechnologies.com}
       CONSOLE_URL: ${CONSOLE_URL:-http://localhost:5173}
       ADMIN_URL: ${ADMIN_URL:-http://localhost:5174}
+      MAILROOM_URL: ${MAILROOM_URL:-http://localhost:5175}
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -182,7 +183,7 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
       TWILIO_MESSAGING_SERVICE_SID: ${TWILIO_MESSAGING_SERVICE_SID:-}
-      # CONSOLE_URL and ADMIN_URL above also seed the OAuth clients' redirect URIs, as
+      # CONSOLE_URL, ADMIN_URL and MAILROOM_URL above also seed the OAuth clients' redirect URIs, as
       # {base}/auth/callback. Derived rather than configured separately so the two cannot drift: a
       # redirect URI that does not match the app it belongs to fails at /authorize, not at deploy.
       # Shared secret the platform presents to /internal/users/lookup. Blank disables the endpoint.
@@ -207,6 +208,9 @@ services:
         # Set only after identity is the auth upstream. Set, this app redirects to the hosted login
         # page instead of rendering a password form, so setting it early makes sign-in impossible.
         VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
+        # Adds the "My mail" link. This console's inbox is the shared team queue; personal mail is a
+        # different product on a different host.
+        VITE_MAILROOM_URL: ${MAILROOM_URL:-}
     restart: unless-stopped
     depends_on:
       - backend
@@ -238,11 +242,42 @@ services:
         # Same issuer as the OneOps build on purpose: one hosted login page for both, which is what
         # makes signing in to one carry over to the other.
         VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
+        VITE_MAILROOM_URL: ${MAILROOM_URL:-}
     restart: unless-stopped
     depends_on:
       - backend
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - prabhix
+
+  # Prabhix Mailroom: a mail client for a person's own address, on its own hostname. Built from the
+  # sibling Mailroom repository rather than from this one — it is a separate product with its own
+  # release cadence, and the only thing it shares with the consoles is the identity provider.
+  #
+  # Deliberately not a third build target of ./web. The consoles are two views of one operations
+  # product; this is a different application whose entire screen is one mailbox, and folding it in
+  # would put mail-rendering code in the bundle of two apps that do not render mail.
+  mailroom:
+    image: prabhixtechnologies/prabhix-mailroom:${TAG:-latest}
+    build:
+      context: ../Mailroom/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        # Mailroom has no password form. Blank here means the app tells the visitor it is
+        # misconfigured, rather than showing an empty screen or a sign-in that cannot work.
+        VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
+        VITE_ONEOPS_URL: ${VITE_ONEOPS_URL:-http://localhost:5173}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
