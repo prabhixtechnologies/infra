@@ -61,6 +61,16 @@ api.prabhixtechnologies.com {
 	}
 }
 
-# mail.prabhixtechnologies.com — MX/IMAP/SMTP only; no HTTP service to proxy.
-# DNS A record points to this host for PTR alignment; Caddy intentionally does not serve HTTP here.
-# Mail ports (25/587/993) are handled by the mailserver compose profile, not Caddy.
+# mail.prabhixtechnologies.com exists for MX/IMAP/SMTP: its A record points here so PTR aligns, and
+# ports 25/587/993 are served by the mailserver compose profile rather than Caddy.
+#
+# It answers on HTTPS purely so a browser does not dead-end. With no site block Caddy issued no
+# certificate for the name, so visiting it failed the TLS handshake with nothing to explain why —
+# which reads as "the mail UI is broken" when in fact there has never been a mail web app. The mail
+# interface is a section of the console, so send people there.
+mail.prabhixtechnologies.com {
+	import security_headers
+	# Deliberately not forwarding {uri}: this host has no sub-paths of its own, and appending them
+	# would invent console routes like /inbox/settings that do not exist.
+	redir https://oneops.prabhixtechnologies.com/inbox permanent
+}
