@@ -173,6 +173,15 @@ services:
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Phone sign-in. Blank account SID disables it, and the endpoints then refuse rather than
+      # accepting a request and never delivering. For Indian numbers set the messaging service SID
+      # rather than a bare from-number: DLT sender-id and template registration hang off the
+      # messaging service, and without them the carrier drops the message while Twilio still
+      # returns success — a failure invisible from this side.
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      TWILIO_MESSAGING_SERVICE_SID: ${TWILIO_MESSAGING_SERVICE_SID:-}
       # CONSOLE_URL and ADMIN_URL above also seed the OAuth clients' redirect URIs, as
       # {base}/auth/callback. Derived rather than configured separately so the two cannot drift: a
       # redirect URI that does not match the app it belongs to fails at /authorize, not at deploy.
