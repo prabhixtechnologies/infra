@@ -139,6 +139,36 @@ api.prabhixtechnologies.com {
 		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
 	}
 
+	# The OAuth2 and OpenID Connect surface, and the hosted login page it redirects to.
+	#
+	# /login and /assets are here because the login page has to be served from this origin. That is
+	# the whole mechanism of single sign-on: the session cookie is set on the origin that rendered the
+	# form, so a second product's /oauth2/authorize finds an existing session and returns a code
+	# without asking for a password again. Serve the page from a product's own hostname and the
+	# browser ends up with one session per product, which is the opposite of what this is for.
+	#
+	# Like the paths above, these 404 while AUTH_UPSTREAM still points at the backend. That is
+	# correct: nothing is completing an authorization code flow until identity is the upstream.
+	handle /oauth2/* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
+	handle /userinfo {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
+	handle /connect/* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
+	handle /login* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
+	handle /assets/* {
+		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+	}
+
 	# The backend needs the client IP and original scheme/host for rate limiting and absolute URL
 	# generation. Caddy sets X-Forwarded-For, -Proto and -Host on its own, so the explicit header_up
 	# lines that used to be here only produced "Unnecessary header_up" warnings on every start.

@@ -173,6 +173,9 @@ services:
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # CONSOLE_URL and ADMIN_URL above also seed the OAuth clients' redirect URIs, as
+      # {base}/auth/callback. Derived rather than configured separately so the two cannot drift: a
+      # redirect URI that does not match the app it belongs to fails at /authorize, not at deploy.
       # Shared secret the platform presents to /internal/users/lookup. Blank disables the endpoint.
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
