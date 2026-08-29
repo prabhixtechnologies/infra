@@ -1,4 +1,4 @@
-# Prabhix Operator Mobile API Contract
+# Prabhix Mobile API Contract
 
 Shared contract for the native Android (Kotlin) and iOS (Swift) operator apps. Derived from the Spring Boot backend at `backend/` — **do not guess**; update this doc when controllers change.
 

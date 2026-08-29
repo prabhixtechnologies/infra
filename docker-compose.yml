@@ -134,8 +134,9 @@ services:
     networks:
       - prabhix
 
-  # Prabhix's own console: the tenant pages plus the platform-wide Ops Hub, and no billing. Served on
-  # its own hostname so the customer product never carries the cross-tenant code.
+  # Prabhix's own console: the platform-wide Ops Hub and cross-tenant logs, and nothing that acts on
+  # a single organization. Served on its own hostname so the customer product never carries the
+  # cross-tenant code, and so this one never carries the product.
   admin:
     build:
       context: ./web
@@ -145,6 +146,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         # No Razorpay key: the admin app has no billing pages to check out from.
         VITE_GOOGLE_SSO_ENABLED: ${VITE_GOOGLE_SSO_ENABLED:-false}
+        # Where "Open in OneOps" sends staff. Support means looking at the customer's own screens,
+        # which live in the other app — this console has no tenant pages of its own.
+        VITE_ONEOPS_URL: ${VITE_ONEOPS_URL:-http://localhost:5173}
     restart: unless-stopped
     depends_on:
       - backend

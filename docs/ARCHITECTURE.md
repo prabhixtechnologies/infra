@@ -12,7 +12,8 @@ A single platform that serves two audiences from one codebase:
 | Surface | Audience | App |
 |---|---|---|
 | `prabhixtechnologies.com` | Public — prospects, candidates, press, shoppers | `marketing/` (Next.js, SSR/SSG) |
-| `oneops.prabhixtechnologies.com` | Operators — customer organizations | `web/` (React + Vite SPA) |
+| `oneops.prabhixtechnologies.com` | Operators — customer organizations | `web/` built with `APP=oneops` |
+| `admin.prabhixtechnologies.com` | Prabhix staff — the platform itself | `web/` built with `APP=admin` |
 | `api.prabhixtechnologies.com` | Both surfaces + integrations | `backend/` (Spring Boot) |
 | `mail.prabhixtechnologies.com` | MX / IMAP / SMTP endpoint | `mail-server/` (Postfix + Dovecot) |
 | `mobistack.prabhixtechnologies.com` | MobiStack customers | Separate deployment, not in this repo |
@@ -28,9 +29,35 @@ The distinction that matters, because it is easy to blur:
   and visitor beacon call `/api/v1/{commerce,chat,visitor}/public/{orgSlug}/...`. These are
   unauthenticated endpoints scoped to Prabhix's own organization, guarded by an `Origin`
   allowlist rather than a token. The marketing app holds no JWT and no operator capability.
-- **`web/` (OneOps) is the operator console.** Everything behind a login lives here: the shared
-  inbox, the agent side of chat, visitor analytics, storefront administration, staff and roles,
-  billing, logs.
+- **`web/` (OneOps) is the product.** Everything that acts on one organization lives here: the
+  shared inbox, the agent side of chat, visitor analytics, storefront administration, staff and
+  roles, billing, logs. It is what customers buy — and what Prabhix's own team uses, because the
+  company runs its business as a customer of its own product.
+- **The admin console is a control tower, not a second copy of the product.** It mounts the
+  platform surfaces and nothing else: the tenant directory, the marketing pipeline (leads,
+  subscribers, applications) and platform-wide event logs. There is no inbox here, no chat, no shop
+  and no settings, because each of those acts on a single organization and this console's subject is
+  the platform.
+
+  The line is **operating the platform** versus **working inside one organization**. It is not a
+  matter of who may see what — it is what the page is *about*. A page that cannot be rendered
+  without naming an organization belongs in OneOps. Billing is in OneOps for the same reason from
+  the other direction: the company that owns the platform has no subscription to manage.
+
+  **Support is a handoff, not a page.** There is no admin API for a customer's mail, chat or
+  orders — `/admin/platform/*` returns counts and directory rows precisely so an operator can judge
+  the platform's health without reading anybody's mail. Reading a customer's data means the ordinary
+  tenant endpoints with `X-Prabhix-Org` naming them, which the server allows for platform admins and
+  records. So "Open" in the tenant directory opens **OneOps** in a new tab with `?viewAs=<orgId>`;
+  OneOps honours it only after the server confirms the caller is a platform admin, and shows an
+  unmissable banner naming the customer. Support staff then look at exactly the screen the customer
+  is describing, rather than a second implementation of it that drifts.
+
+  This was got wrong twice, in instructive ways. First admin was the whole of OneOps plus one
+  Platform link — indistinguishable on screen, and ambiguous about whose data any page held. Then
+  the tenant pages were gated behind choosing an organization, which fixed the behaviour but left
+  admin still *containing* the entire product: 22 of 23 feature directories, 75 of the bundle's
+  chunks. Both times the mistake was treating the split as a visibility problem.
 - **A capability is not a product.** Helpdesk is a section of OneOps, not a separate deployment.
   `marketing/src/content/products.ts` encodes this with a `kind` of `app` or `module`, and only
   an `app` gets an "Open app" link. Getting this wrong is what previously advertised

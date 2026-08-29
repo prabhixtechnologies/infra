@@ -103,9 +103,28 @@ console. Treat the estimates below as real work, not polish.
 
 Both platforms are now split into two apps, matching the web console: the OneOps product sold to
 customers and the private admin app. On Android these are product flavors with separate application
-ids, the platform screens confined to `app/src/admin/`, and a CI check that fails if they leak into
-the customer's APK. On iOS the two targets are declared in `mobile/ios/project.yml` but build
-identical screens, because the platform surface has not been written there yet.
+ids. On iOS the two targets are declared in `mobile/ios/project.yml` but build identical screens,
+because the platform surface has not been written there yet — the iOS split is still cosmetic.
+
+**The split is now structural rather than a matter of visibility, on web and on Android.** Admin
+mounts the platform surfaces and nothing else; the product is not merely hidden from it but absent.
+On Android the product's screens, Room database, SSE client, send queue, push and Retrofit APIs live
+in `app/src/oneops/`, each flavor supplies its own `PrabhixNavHost`, and `SessionLifecycle` is the
+seam that let the data layer divide — `AuthRepository` calling `RealtimeHub` directly had kept a Hilt
+provider for it in both apps, so nothing could be stripped. On web the tenant routes moved to
+`routes-tenant.tsx`, which only the OneOps entry point imports, because a module-scope
+`lazy(() => import(...))` is emitted into every bundle importing the file that declares it.
+
+Support is a handoff: admin's tenant directory opens OneOps with `?viewAs=<orgId>`, honoured only
+after the server confirms a platform admin, with a banner naming the customer. Prabhix's own team
+uses OneOps for its own inbox and shop, as customer #1.
+
+Two earlier attempts are worth remembering, because both looked finished. The first shipped admin as
+the entire customer product with one page appended — it built and stripped correctly but was
+indistinguishable from OneOps in use, and the release APKs differed by 0.1 MB. The second gated the
+tenant screens behind choosing an organization, which fixed the behaviour while admin still contained
+22 of 23 feature directories and 75 of the web bundle's chunks. Admin is now 21 chunks and 686 KB
+against OneOps' 74 and 949 KB; the APKs are 2.56 MB against 2.95 MB.
 
 1. **Android now compiles and produces an APK.** `./gradlew :app:assembleOneopsDebug` is green and the
    wrapper jar is committed, so a clean clone can build. Fixing the first compile exposed three real
