@@ -50,7 +50,7 @@ Kept current so nobody discovers a gap at the worst possible moment.
 | PgBouncer under load | Backend now serves all traffic through it in the containerised stack, but never load-tested | Run sustained load and watch for prepared-statement errors (`prepareThreshold=0` is set; Flyway bypasses the pooler via `FLYWAY_URL`) |
 | Prometheus scrape auth | Rules and dashboards provisioned; scrape needs a real token | Put a platform-admin token in `docker/prometheus/secrets/bearer_token` |
 | Most of the log taxonomy is declared but never emitted | `LogEventCode` defines 80+ codes. Only three call sites emit anything: `AccessLogFilter` (HTTP requests, deliberately not persisted), `GlobalExceptionHandler` (unhandled errors) and now `AuthService` (login succeeded/failed, account locked, token reused, logout, refresh). Mail, billing, files, chat, commerce and AI codes are unused, so the Ops Hub and the Event Logs page can only ever show auth and error activity | Emit the remaining codes from the services that own them. Events raised on a path that then throws must use `StructuredEventLogger.logNow`, since the `AFTER_COMMIT` listener drops anything whose transaction rolls back |
-| Email verification link has no page | `EmailVerificationService` emails `{CONSOLE_URL}/auth/verify-email?token=…`, but the console has no such route — the link 404s. The magic-link and password-reset links had the same defect and are now fixed | Add a `/verify-email` route and page in `web/src/routes.tsx` that posts the token, then point the service at it |
+| Admin and API-key endpoints reject a valid bearer token | `contract.live.test.ts` gets 200s across the console but `401 TOKEN_INVALID` on `/settings/api-keys`, `/admin/platform/*` and `/admin/site/*` — with the same token, in the same run. A permissions failure would be `403 FORBIDDEN`, and `TOKEN_INVALID` is only thrown by `JwtService` on a parse or signature failure, so something is re-parsing the token differently on those paths | Run the live contract test with a platform-admin account and trace which filter rejects it. Suspect a second authentication filter matching those paths and refusing a JWT |
 
 ---
 
@@ -58,6 +58,15 @@ Kept current so nobody discovers a gap at the worst possible moment.
 
 Closed in the last pass, with tests, and green through `mvn test` + `smoke.ps1`:
 
+- **Two emailed links that went nowhere.** Email verification pointed at
+  `{CONSOLE_URL}/auth/verify-email`, a route that never existed, so no address could be verified by
+  clicking the link. Invitations pointed at `/invites/accept?token=`, while the route is
+  `/invite/:token` — a query parameter where a path segment was expected, and plural where the route
+  is singular — so an invitee fell through the catch-all to a protected page and landed on the
+  sign-in form with no account to sign in with. Both now match `routes-shell.tsx`.
+  `/verify-email` is deliberately outside `publicRoutes`, because that group redirects an
+  authenticated visitor to `/` and the usual case is somebody already signed in who requested the
+  email from their settings — under that guard they were bounced before the token was consumed.
 - **API key scope narrowing** — a key can now be created with an explicit subset of the creator's
   permissions, validated at creation and still re-intersected on every request.
 - **Mailbox credentials** — IMAP/SMTP passwords are settable through the API, encrypted at rest and
