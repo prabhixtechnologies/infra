@@ -2,13 +2,31 @@
 # Caddy obtains and renews certificates; no separate certbot cron.
 {
 	email admin@prabhixtechnologies.com
-	# JSON access logs for log shipping / fail2ban.
-	log {
+
+	# Two loggers, deliberately: Caddy's own diagnostics on stderr where `docker logs caddy` reads
+	# them, and HTTP access logs in a file for shipping and fail2ban.
+	#
+	# This used to be a single unnamed `log` block pointing at the file. An unnamed block *replaces*
+	# the default logger rather than adding to it, so every TLS and ACME message went to the file
+	# too and `docker logs caddy` returned nothing at all. A proxy serving a certificate no client
+	# would trust was therefore indistinguishable from a healthy one, and the only record of why sat
+	# in a file inside the container.
+	#
+	# The file was also misnamed: access logging is not implied by configuring a sink, it needs the
+	# `log` directive on the sites themselves. Without it the file held startup diagnostics and not
+	# one access entry, which is why the site snippet below now enables it.
+	log default {
+		output stderr
+		format console
+		exclude http.log.access
+	}
+	log access {
 		output file /var/log/caddy/access.log {
 			roll_size 50mb
 			roll_keep 5
 		}
 		format json
+		include http.log.access
 	}
 }
 
@@ -29,6 +47,9 @@
 		-Server
 	}
 	encode gzip zstd
+	# Every host imports this snippet, directly or via no_document_headers, so one `log` here is what
+	# turns access logging on everywhere without repeating it per site.
+	log
 }
 
 # For hosts that serve no HTML document of their own: the API and the redirect-only names.
@@ -91,11 +112,10 @@ app.prabhixtechnologies.com {
 # Spring Boot API
 api.prabhixtechnologies.com {
 	import no_document_headers
-	reverse_proxy backend:8080 {
-		# Preserve client IP and proto for rate limiting and absolute URL generation.
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-Host {host}
-	}
+	# The backend needs the client IP and original scheme/host for rate limiting and absolute URL
+	# generation. Caddy sets X-Forwarded-For, -Proto and -Host on its own, so the explicit header_up
+	# lines that used to be here only produced "Unnecessary header_up" warnings on every start.
+	reverse_proxy backend:8080
 }
 
 # mail.prabhixtechnologies.com exists for MX/IMAP/SMTP: its A record points here so PTR aligns, and
