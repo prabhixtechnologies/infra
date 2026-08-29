@@ -1,0 +1,10 @@
+# Attributes the work to the company rather than to an individual.
+#
+# git log, git shortlog and git blame read this and substitute the name on the left for any commit
+# authored by an identity on the right, so past commits present under one umbrella without rewriting
+# a single SHA. That matters: history rewriting needs a force push, changes every commit id, and
+# would leave the deployed image tag pointing at a commit that no longer exists.
+#
+# Note what this does not do — GitHub's web UI ignores .mailmap and still shows the original author
+# on a commit page. It applies to git itself, which is where blame and shortlog are actually read.
+Prabhix Technologies <engineering@prabhixtechnologies.com> Abhishek <abhishek@prabhixtechnologies.com>
