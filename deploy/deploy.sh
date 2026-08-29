@@ -72,8 +72,17 @@ until $COMPOSE --env-file "$ENV_FILE" exec -T backend \
 done
 log "Backend is ready"
 
-log "Deploying frontends and caddy"
-$COMPOSE --env-file "$ENV_FILE" up -d web admin marketing caddy
+log "Deploying frontends"
+$COMPOSE --env-file "$ENV_FILE" up -d web admin marketing
+
+# Recreated unconditionally, not just when the image changes. The Caddyfile arrives as a single-file
+# bind mount, and a pull that rewrites it gives the file a new inode that the running container is
+# not attached to — so a new site block appears on disk, `caddy reload` says it worked, and the
+# hostname still fails its TLS handshake because Caddy never saw the block and never asked for a
+# certificate. Recreating re-resolves the mount. It costs about a second and keeps its certificates,
+# which live in the caddy_data volume.
+log "Recreating caddy so a changed Caddyfile actually takes effect"
+$COMPOSE --env-file "$ENV_FILE" up -d --force-recreate caddy
 
 log "Pruning dangling images"
 docker image prune -f >/dev/null 2>&1 || true

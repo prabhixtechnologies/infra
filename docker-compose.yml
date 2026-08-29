@@ -205,6 +205,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      # A single-file bind mount follows the inode, not the path. `git pull` writes a replacement
+      # file rather than editing in place, so after a pull that touches the Caddyfile the container
+      # keeps serving the old contents — and `caddy reload` reports success while changing nothing,
+      # because it re-reads the same stale inode. deploy.sh recreates this container for that reason.
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
