@@ -177,6 +177,17 @@ What is left:
 
 1. **No E2E coverage** — both apps have unit tests. Playwright on login → inbox → reply would be the
    highest-value next test.
+2. **Client schemas can drift from the API without any test noticing.** Six console pages were broken
+   at once — dashboard, live chat, feature flags, billing, and two settings panels — because their Zod
+   schemas required fields the API omits. The API is configured `non_null`, so a null field is left
+   out of the JSON; `.nullable()` still demands the key, so each page failed on exactly the rows where
+   the value is unset (an unassigned thread, an unused API key, an org not on trial). Every request
+   was a 200, so nothing in the logs pointed at it. Use `.nullish()` in response schemas — see the
+   note at the top of `web/src/lib/schemas/common.ts`. `web/src/lib/schemas/contract.live.test.ts`
+   fetches all 47 console endpoints and parses each with the real schema; it skips unless
+   `PBX_CONTRACT_EMAIL` / `PBX_CONTRACT_PASSWORD` are set. Worth running against staging on every
+   release, and worth pointing at a seeded tenant in CI, since fixture-based tests cannot catch this
+   class of bug — they encode the same wrong assumption as the schema.
 2. **`marketing` has 2 advisories** from PostCSS bundled inside Next 15.5.x; clearing them needs a
    Next 16 major bump.
 
