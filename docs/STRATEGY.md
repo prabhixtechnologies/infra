@@ -3,10 +3,10 @@
 `docs/ROADMAP.md` is the honest inventory of what is built today. This is the forward plan: what is
 being built, in what order, and why that order.
 
-**Status.** Phases A and B are built and tested, and not yet cut over in production — `AUTH_UPSTREAM`
-still points at the backend, which is deliberate and is documented step by step in
-[IDENTITY.md](IDENTITY.md#cutover-order). Phases C through F are unstarted. The per-phase notes below
-say which is which, so nothing here should be read as a description of what production does today.
+**Status.** Phases A through D are built and tested, and A and B are not yet cut over in production —
+`AUTH_UPSTREAM` still points at the backend, which is deliberate and is documented step by step in
+[IDENTITY.md](IDENTITY.md#cutover-order). Phases E and F are unstarted. The per-phase notes below say
+which is which, so nothing here should be read as a description of what production does today.
 
 The thesis in one paragraph: **Prabhix becomes an identity provider that happens to own products,
 rather than products that each own a login.** Every surface — OneOps, the admin console, MobiStack,
@@ -58,11 +58,13 @@ such route. Magic-link and password-reset had the same defect and were fixed; th
 
 ## Phase B — Identity becomes a provider, not a login endpoint
 
-**Built for web, not yet cut over. Android is outstanding.** Spring Authorization Server is wired in,
-the four first-party clients are seeded from configuration with PKCE S256 mandatory and exact-match
-redirect URIs, the hosted login page is served from Identity's origin, and both consoles redirect to
-it behind `VITE_IDENTITY_ISSUER`. What remains is moving the two Android apps onto AppAuth over Custom
-Tabs and deleting their native password forms.
+**Built, not yet cut over.** Spring Authorization Server is wired in, the four first-party clients are
+seeded from configuration with PKCE S256 mandatory and exact-match redirect URIs, the hosted login page
+is served from Identity's origin, and both consoles redirect to it behind `VITE_IDENTITY_ISSUER`. Both
+Android apps now sign in through AppAuth over a Custom Tab and have no password field at all: their
+login, OTP, magic-link and refresh calls are deleted, refresh goes to Identity's token endpoint, and
+each variant's redirect scheme is its own application id — including the `.debug` suffix, so a debug
+build cannot receive a code minted for the release build.
 
 Today Identity is a **token issuer**: an app posts credentials and gets a JWT. That works for
 first-party apps and cannot work for a thousand sites, because every one of those sites would be
@@ -116,7 +118,7 @@ MFA/TOTP and SAML land here, after parity — not as part of the extraction.
 
 ## Phase C — Who may create an account, and where they may go
 
-**Unstarted.** Two requirements that sound contradictory and are not: anyone may self-serve, but OneOps accounts are
+**Built.** Two requirements that sound contradictory and are not: anyone may self-serve, but OneOps accounts are
 created only by a tenant admin. They are different layers.
 
 **An identity may be created by anyone** — email, Google SSO, or phone OTP. It grants access to
@@ -126,16 +128,23 @@ nothing. It is only a verified way of proving who you are.
 only a tenant admin can create one. If the invited person has no identity yet, the invite creates one,
 which is how `InvitationService` already works.
 
-What is missing is the domain restriction:
+The domain restriction is now in place:
 
 - `organization_domains` — a domain per tenant, proved by a **DNS TXT record**, with `verified_at`.
+  Public providers (`gmail.com` and the rest) are refused outright: claiming one would let a tenant
+  restrict or auto-join half the internet.
 - The invite path refuses addresses outside a verified domain, so "an admin can only create accounts
-  for their domain" is enforced rather than trusted.
+  for their domain" is enforced rather than trusted. A tenant that has claimed nothing is unrestricted,
+  which is what keeps this from breaking every existing organization.
 - Optional **domain auto-join** falls out for free: anyone with a verified `@customer.com` address
-  joins that tenant automatically, if the tenant enables it.
+  joins that tenant automatically, if the tenant enables it. Only permitted on a verified domain.
+- A DNS resolver outage is reported as an outage, not as a failed verification, so a customer is never
+  told their correctly-published record is wrong.
 
-Phone OTP needs a real SMS provider. `SMS_OTP` and `WHATSAPP_OTP` already exist as challenge
-purposes, so this is a transport, not a redesign.
+Phone OTP runs over Twilio behind an `SmsSender` seam, with a `DisabledSmsSender` that refuses
+explicitly rather than accepting a request and dropping the message. Numbers are normalised to E.164
+and must be verified before they can be used to sign in, and a number already verified against one
+account cannot be claimed by another.
 
 SCIM comes when an enterprise customer asks to sync from their own directory. Not before.
 
@@ -143,10 +152,9 @@ SCIM comes when an enterprise customer asks to sync from their own directory. No
 
 ## Phase D — Platform roles, before the team arrives
 
-**Unstarted, and the one to do before hiring rather than after.** Platform staff access is currently
-one boolean, `users.platform_admin`. The first support hire would
-get break-glass token revocation and every tenant's data. That is not a defensible policy, and
-retrofitting authorization onto people who already have access is far harder than granting it
+**Built.** Platform staff access used to be one boolean, `users.platform_admin`. The first support hire
+would have got break-glass token revocation and every tenant's data. That is not a defensible policy,
+and retrofitting authorization onto people who already have access is far harder than granting it
 correctly on day one.
 
 | Role | May |
@@ -157,8 +165,26 @@ correctly on day one.
 | `SECURITY` | Token revocation, audit trail, session termination. |
 | `OWNER` | All of the above, including granting roles. |
 
-Impersonation stays time-boxed, reason-required, audit-logged and banner-visible. The break-glass
-endpoint `/internal/users/{id}/revoke-tokens` narrows to `SECURITY` and `OWNER`.
+Grants live in `platform_staff_roles` as events — who granted, when, why — because "who gave this
+person the ability to revoke anyone's session" is a question that gets asked and a boolean column
+cannot answer it. Existing admins were backfilled to `OWNER`, since that is what the flag meant;
+narrowing an individual is then a deliberate decision rather than a side effect of a migration.
+
+Two paths are narrowed, and they are the two that matter:
+
+- **Break glass.** `/admin/platform/staff/break-glass/users/{id}/revoke-tokens` requires `SECURITY` or
+  `OWNER`, takes a mandatory reason, and writes its audit row synchronously.
+- **Reaching into a tenant you are not a member of** requires `SUPPORT` or `OWNER`. Not `BILLING`,
+  not `OPERATOR` — whoever is replaying a stuck mail queue has no reason to read the mail in it. The
+  role lookup sits behind the branch that only runs when staff name an organization, so ordinary
+  traffic pays nothing for it.
+
+`users.platform_admin` survives as the coarse "is staff at all" gate that the security config and
+twenty call sites read, but `PlatformStaffService` is its only writer — set on the first grant, cleared
+on the last revocation — so it cannot drift from the table it summarises. Revoking the last `OWNER` is
+refused: recovering from that means editing the database by hand, during whatever incident prompted it.
+
+Impersonation stays audit-logged and banner-visible.
 
 ---
 
