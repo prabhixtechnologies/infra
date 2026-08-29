@@ -2,6 +2,10 @@
 .env
 .env.*
 !.env.example
+# `.env.*` above also swallowed deploy/.env.prod.example, so the template the runbook tells you to
+# copy was absent from a fresh clone while appearing to exist locally. The real file stays ignored
+# by its own rule below.
+!.env.*.example
 *.pem
 *.key
 *.jks

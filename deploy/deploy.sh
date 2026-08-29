@@ -9,8 +9,15 @@ cd "$REPO_ROOT"
 
 ENV_FILE="${ENV_FILE:-deploy/.env.prod}"
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
-TAG="${TAG:-latest}"
 MAX_WAIT="${MAX_WAIT:-120}"
+
+# Remembered before the env file is sourced, and reapplied after.
+#
+# deploy/.env.prod carries its own `TAG=latest` for Compose's variable substitution, and
+# `set -a && source` below would overwrite whatever the caller asked for with it. That silently
+# turned `TAG=<sha> bash deploy/deploy.sh` into a deploy of `latest` — worst of all when the
+# requested tag was an older build someone was trying to roll back to.
+REQUESTED_TAG="${TAG:-}"
 
 log() { echo "[deploy $(date -Iseconds)] $*"; }
 
@@ -21,6 +28,8 @@ fi
 
 # shellcheck disable=SC1090
 set -a && source "$ENV_FILE" && set +a
+
+TAG="${REQUESTED_TAG:-${TAG:-latest}}"
 
 PREVIOUS_TAG=""
 if docker inspect prabhix-backend-1 &>/dev/null 2>&1; then

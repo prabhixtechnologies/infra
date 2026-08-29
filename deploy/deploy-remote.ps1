@@ -38,12 +38,26 @@ function Invoke-Remote {
     param([string]$Script)
     $lf = $Script.Replace("`r`n", "`n")
     $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($lf))
-    # stderr is merged into stdout by ssh itself. Left separate, PowerShell turns each stderr line
-    # into an error record, which $ErrorActionPreference = "Stop" would escalate into a thrown
-    # exception on ordinary progress output.
-    & ssh -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new `
-        "$User@$HostAddress" "echo $b64 | base64 -d | bash" 2>&1 |
-        ForEach-Object { Write-Host $_ }
+
+    <#
+    stderr is merged into stdout on the remote side, and $ErrorActionPreference is relaxed for the
+    duration of the call.
+
+    Both are needed. Plenty of healthy tools report progress on stderr — `git pull` announces
+    "From https://github.com/..." there, and `docker compose` writes every container transition
+    there — and PowerShell turns each such line into a NativeCommandError. Under
+    $ErrorActionPreference = "Stop" the first one aborts the deploy while it is still succeeding.
+    #>
+    $prior = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & ssh -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new `
+            "$User@$HostAddress" "echo $b64 | base64 -d | bash 2>&1" |
+            ForEach-Object { Write-Host $_ }
+    }
+    finally {
+        $ErrorActionPreference = $prior
+    }
 }
 
 Write-Host "==> Deploying tag '$Tag' to $User@$HostAddress" -ForegroundColor Cyan
