@@ -190,8 +190,8 @@ Impersonation stays audit-logged and banner-visible.
 
 ## Phase E — MobiStack: a commons and a tenant, not one confused thing
 
-**Unstarted.** MobiStack currently holds two products with **opposite data-sharing rules**, both behind a single
-"organization" concept. That is the whole source of the confusion: "organization" means something
+**Built.** MobiStack held two products with **opposite data-sharing rules**, both behind a single
+"organization" concept. That was the whole source of the confusion: "organization" meant something
 different on each side.
 
 **Component compatibility** — does this screen fit that model — is only valuable *shared across every
@@ -203,16 +203,37 @@ tenants is a breach.
 
 One is a commons. The other is a tenant.
 
-- **A global compatibility graph, not org-scoped.** `devices`, `components`, `compatibility_edges`,
-  carrying `contributed_by`, `verified_by`, `confidence` and `disputed`. Any signed-in identity reads
-  it. Contributions are proposals; trusted contributors' edits auto-apply and everyone else's queue
-  for review. Reputation is earned by accepted contributions. **No organization is involved** — an
-  identity and a reputation score are enough.
-- **Shops stay tenants** for inventory, exactly as they are.
-- **Inventory references the catalog** by `component_id`. That join is what makes both halves worth
-  more together: "I have 12 of this part, and it fits these 40 models."
+What was built, in `V23__compatibility_commons.sql`:
 
-"Organization creation" then means exactly one thing: creating a shop.
+- **A global compatibility graph, not shop-scoped.** `catalog_brands`, `catalog_devices`,
+  `catalog_components` and `catalog_fitments`, none of which has a `shop_id` column at all. The edge
+  carries `contributed_by`, `verified_by`, `confirmations`, `disputes` and `disputed` — counts rather
+  than a boolean, because "one person said so" and "forty shops fitted it and two objected" are
+  different claims and whoever is ordering the part needs to tell them apart. A disputed edge is kept
+  and ranked last, never deleted: a missing edge invites the same wrong claim to be re-added next week
+  by somebody who never saw the argument.
+- **Contributions are proposals.** A trusted contributor's change applies immediately, everyone else's
+  queues, and a *dispute* always queues regardless of standing — it removes information others rely on,
+  so it is the one action where being wrong is worse than being slow. A *confirmation* is exempt in the
+  other direction and always applies: it only increments a counter, and it is the signal most likely to
+  be offered by somebody who will not fill in a form.
+- **Reputation is granted, not computed.** An automatic promotion at N accepted contributions is a
+  thing to game — submit N trivially-correct rows, then the wrong one that matters.
+- **No workspace is involved.** `/api/v1/commons` is exempt from `WorkspaceGuardFilter`, for writes as
+  well as reads. Somebody looks up what fits before they have a shop, and an unpaid shop can still
+  contribute.
+- **Reviewing is a different authority** from `COMPATIBILITY_APPROVE`, which is about a shop's own
+  private groups. `COMMONS_REVIEW` changes what every other shop reads.
+- **Shops stay tenants** for inventory, exactly as they are. The per-shop `brands`, `device_models` and
+  `compatibility_groups` tables are untouched — nothing was migrated behind anyone's back, because a
+  rewrite would have to guess which of a hundred shops' conflicting private opinions is the true one,
+  which is precisely what the review queue is for.
+- **Inventory references the catalog** by `product_variants.catalog_component_id`, nullable, linked one
+  variant at a time. That join is what makes both halves worth more together, and it is the whole point
+  of `findStockForCatalogDevice`: the existing per-shop lookup can only find what a shop itself recorded,
+  so a shop that never built its private graph gets an empty answer while holding the part on a shelf.
+
+"Organization creation" now means exactly one thing: creating a shop.
 
 It also settles the commercial model without deciding it separately — the commons is free and drives
 acquisition through network effects; inventory is the paid product.
