@@ -3,6 +3,11 @@
 `docs/ROADMAP.md` is the honest inventory of what is built today. This is the forward plan: what is
 being built, in what order, and why that order.
 
+**Status.** Phases A and B are built and tested, and not yet cut over in production — `AUTH_UPSTREAM`
+still points at the backend, which is deliberate and is documented step by step in
+[IDENTITY.md](IDENTITY.md#cutover-order). Phases C through F are unstarted. The per-phase notes below
+say which is which, so nothing here should be read as a description of what production does today.
+
 The thesis in one paragraph: **Prabhix becomes an identity provider that happens to own products,
 rather than products that each own a login.** Every surface — OneOps, the admin console, MobiStack,
 Mailroom, the marketing site, and the thousand sites intended after them — redirects to one place to
@@ -27,7 +32,8 @@ Each product keeps a thin local `users` mirror keyed by the identity `sub`, so e
 
 ## Phase A — Prove the split on the platform
 
-Nothing else should be built on the identity service until one product actually runs on it.
+**Built, not yet cut over.** Nothing else should be built on the identity service until one product
+actually runs on it.
 
 - Backend verifies via **JWKS**, while still accepting its own HS256 tokens. Both at once is what
   keeps already-issued tokens working through the switch, so nobody is signed out.
@@ -35,7 +41,11 @@ Nothing else should be built on the identity service until one product actually 
   `PermissionResolver` already has. Strictly better than today, where permissions freeze into the JWT
   at login and a revoked role keeps working for up to 15 minutes.
 - Active tenant moves to the **`X-Prabhix-Org` header**, validated against membership rather than read
-  from a token claim. That retires `AuthService.selectOrganization`.
+  from a token claim. Applied to identity tokens; the HS256 path keeps `selectOrganization` until
+  HS256 is dropped, so the two can coexist through the switch.
+- The local `users` mirror fills itself in from `/internal/users/lookup` on the first request naming a
+  subject this database has not seen, since the bulk import only covers the population at the time.
+  It never writes `platform_admin`: staff authority is granted here and nowhere else.
 - Flip `AUTH_UPSTREAM` to `identity:8081`. Drop HS256 only after one refresh-token lifetime.
 
 Procedure and rollback: [IDENTITY.md](IDENTITY.md).
@@ -47,6 +57,12 @@ such route. Magic-link and password-reset had the same defect and were fixed; th
 ---
 
 ## Phase B — Identity becomes a provider, not a login endpoint
+
+**Built for web, not yet cut over. Android is outstanding.** Spring Authorization Server is wired in,
+the four first-party clients are seeded from configuration with PKCE S256 mandatory and exact-match
+redirect URIs, the hosted login page is served from Identity's origin, and both consoles redirect to
+it behind `VITE_IDENTITY_ISSUER`. What remains is moving the two Android apps onto AppAuth over Custom
+Tabs and deleting their native password forms.
 
 Today Identity is a **token issuer**: an app posts credentials and gets a JWT. That works for
 first-party apps and cannot work for a thousand sites, because every one of those sites would be
@@ -100,7 +116,7 @@ MFA/TOTP and SAML land here, after parity — not as part of the extraction.
 
 ## Phase C — Who may create an account, and where they may go
 
-Two requirements that sound contradictory and are not: anyone may self-serve, but OneOps accounts are
+**Unstarted.** Two requirements that sound contradictory and are not: anyone may self-serve, but OneOps accounts are
 created only by a tenant admin. They are different layers.
 
 **An identity may be created by anyone** — email, Google SSO, or phone OTP. It grants access to
@@ -127,7 +143,8 @@ SCIM comes when an enterprise customer asks to sync from their own directory. No
 
 ## Phase D — Platform roles, before the team arrives
 
-Platform staff access is currently one boolean, `users.platform_admin`. The first support hire would
+**Unstarted, and the one to do before hiring rather than after.** Platform staff access is currently
+one boolean, `users.platform_admin`. The first support hire would
 get break-glass token revocation and every tenant's data. That is not a defensible policy, and
 retrofitting authorization onto people who already have access is far harder than granting it
 correctly on day one.
@@ -147,7 +164,7 @@ endpoint `/internal/users/{id}/revoke-tokens` narrows to `SECURITY` and `OWNER`.
 
 ## Phase E — MobiStack: a commons and a tenant, not one confused thing
 
-MobiStack currently holds two products with **opposite data-sharing rules**, both behind a single
+**Unstarted.** MobiStack currently holds two products with **opposite data-sharing rules**, both behind a single
 "organization" concept. That is the whole source of the confusion: "organization" means something
 different on each side.
 
@@ -178,7 +195,8 @@ acquisition through network effects; inventory is the paid product.
 
 ## Phase F — Mailroom
 
-Personal mailboxes with folders, which the current schema cannot express: `mail_mailboxes` is
+**Unstarted; the repository holds only a README.** Personal mailboxes with folders, which the current
+schema cannot express: `mail_mailboxes` is
 org-scoped and shared, there is thread *status* rather than folders, compose is reply-only, and
 `mail_thread_drafts` and `mail_aliases` have schema but no API.
 

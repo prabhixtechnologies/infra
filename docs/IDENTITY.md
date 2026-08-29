@@ -114,12 +114,22 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    fetched from `IDENTITY_JWKS_URI`, which defaults to the identity container directly rather than
    the public issuer URL — the latter routes through Caddy to whatever `AUTH_UPSTREAM` names, which
    is still the backend at this point.
-4. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
-5. After one refresh-token lifetime (`IDENTITY_REFRESH_TTL`, 30 days) no HS256 token can still be in
+4. Set `IDENTITY_SERVICE_TOKEN` to the same value on **both** the backend and identity. This is what
+   lets the backend fill in a local `users` row for anyone who signs up through identity after the
+   import. Blank, such a person is refused with "not provisioned on the platform" — correct before
+   step 2 and a bug after it.
+5. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
+6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
+   password form into a redirect to the hosted login page. Set earlier, the apps redirect to an
+   `/oauth2/authorize` that Caddy is still routing to the backend, which 404s — so sign-in is not
+   merely unchanged, it is impossible.
+7. After one refresh-token lifetime (`IDENTITY_REFRESH_TTL`, 30 days) no HS256 token can still be in
    circulation. Drop HS256 verification from the backend then, not before.
 
-Rollback at any point before step 5 is unsetting `AUTH_UPSTREAM`. Leaving `IDENTITY_ISSUER` set
-costs nothing: with nothing minting RS256 tokens, nothing presents one.
+Rollback before step 6 is unsetting `AUTH_UPSTREAM`. After step 6 it is that plus rebuilding the
+consoles without `VITE_IDENTITY_ISSUER`, so treat 6 as the point of no easy return and leave a gap
+between it and 5. Leaving `IDENTITY_ISSUER` set costs nothing: with nothing minting RS256 tokens,
+nothing presents one.
 
 What the backend does with an identity token is the other half of the change. Such a token carries no
 organization and no permissions, so both are resolved per request: the tenant comes from
@@ -128,9 +138,14 @@ against this database. Claims in the token are never a source of authority — `
 pins that, including that a correctly signed token asserting `padm` and `PLATFORM_ADMIN` gets
 neither.
 
-A subject with no row in the platform's own `users` table is refused with "not provisioned on the
-platform" rather than a credential error, because that is what it is: identity knows the person and
-the platform has not been told about them. Step 2 is what prevents it.
+A subject with no row in the platform's own `users` table is fetched from `/internal/users/lookup` on
+the first request naming it, and only refused with "not provisioned on the platform" if identity does
+not know them either or no service token is configured. Step 2 handles the existing population in
+bulk; this handles everyone who signs up afterwards.
+
+The mirror never writes `platform_admin`. Staff authority is granted in the platform's database and
+nowhere else, so a compromised identity service cannot elevate itself here — which is the blast radius
+the split exists to remove.
 
 BCrypt makes step 2 safe without anyone resetting a password: a BCrypt hash carries its own cost
 factor, so the platform's strength-10 hashes and MobiStack's strength-12 hashes both verify.
