@@ -195,6 +195,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-}
         VITE_GOOGLE_SSO_ENABLED: ${VITE_GOOGLE_SSO_ENABLED:-false}
+        # Set only after identity is the auth upstream. Set, this app redirects to the hosted login
+        # page instead of rendering a password form, so setting it early makes sign-in impossible.
+        VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
     restart: unless-stopped
     depends_on:
       - backend
@@ -223,6 +226,9 @@ services:
         # Where "Open in OneOps" sends staff. Support means looking at the customer's own screens,
         # which live in the other app — this console has no tenant pages of its own.
         VITE_ONEOPS_URL: ${VITE_ONEOPS_URL:-http://localhost:5173}
+        # Same issuer as the OneOps build on purpose: one hosted login page for both, which is what
+        # makes signing in to one carry over to the other.
+        VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
     restart: unless-stopped
     depends_on:
       - backend
