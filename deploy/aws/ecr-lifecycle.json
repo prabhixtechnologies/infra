@@ -2,12 +2,12 @@
   "rules": [
     {
       "rulePriority": 1,
-      "description": "Expire untagged images after a day. They are layers orphaned by the next push of a moving tag, nothing can deploy them, and they are pure storage cost.",
+      "description": "Expire untagged images after 7 days. Every push replaces the `latest` tag, which leaves the previous image untagged but still billed; nothing can deploy an untagged image, so keeping them past a week only pays for storage.",
       "selection": {
         "tagStatus": "untagged",
         "countType": "sinceImagePushed",
         "countUnit": "days",
-        "countNumber": 1
+        "countNumber": 7
       },
       "action": {
         "type": "expire"
@@ -15,11 +15,11 @@
     },
     {
       "rulePriority": 2,
-      "description": "Keep the 30 most recent images. More history than any rollback has needed, and it bounds the bill.",
+      "description": "Keep the 20 most recent SHA-tagged images. deploy.sh rolls back by pinning TAG to a previous short SHA, so this is the depth of the rollback window - roughly a month of deploys.",
       "selection": {
         "tagStatus": "any",
         "countType": "imageCountMoreThan",
-        "countNumber": 30
+        "countNumber": 20
       },
       "action": {
         "type": "expire"
