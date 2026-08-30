@@ -77,35 +77,38 @@ Flyway migrations run automatically when the new backend container starts.
 
 ### If CI has not pushed the image you need
 
-`deploy.sh` pulls from Docker Hub, so it can only deploy what CI managed to push. When the **Docker
+`deploy.sh` pulls from Amazon ECR, so it can only deploy what CI managed to push. When the **Docker
 images** job is failing, the registry still holds the previous build and a deploy silently reinstalls
-it — which is how a fixed marketing bug came back once already. Check the job before deploying:
+it — which is how a fixed marketing bug came back once already. Check what the registry actually has
+before deploying:
 
 ```powershell
-# What the registry actually has, per image
+# Newest tag pushed, per image
 "prabhix-backend","prabhix-web","prabhix-admin","prabhix-marketing" | ForEach-Object {
-  $r = Invoke-RestMethod "https://hub.docker.com/v2/repositories/prabhixtechnologies/$_"
-  "$_ last pushed: $($r.last_updated)"
+  $t = aws ecr describe-images --region ap-south-1 --repository-name "prabhix/$_" `
+         --query 'sort_by(imageDetails,&imagePushedAt)[-1].[imagePushedAt,imageTags]' --output text
+  "$_ last pushed: $t"
 }
 ```
 
-When the job fails at its **Log in to Docker Hub** step, every build-and-push step after it is
-skipped, so the registry keeps serving the previous build while CI reports only a red run. A Docker
-Hub personal access token is only valid when paired with the username of the account that issued it,
-so `DOCKERHUB_USERNAME` must be that account — `prabhixtechnologies` — not the name of a CI identity.
+CI reaches ECR by assuming `arn:aws:iam::029096972251:role/prabhix-github-ecr-push` through GitHub's
+OIDC provider, so there is no registry secret to expire or mistype. If that step fails it is a trust
+policy or permissions problem on the role, not a credential on the repository.
 
 To ship without CI, build and push the image yourself, then deploy as above:
 
 ```powershell
+$registry = "029096972251.dkr.ecr.ap-south-1.amazonaws.com"
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $registry
 docker build --provenance=false --sbom=false --platform linux/amd64 `
-  -t prabhixtechnologies/prabhix-marketing:latest `
+  -t "$registry/prabhix/prabhix-marketing:latest" `
   --build-arg NEXT_PUBLIC_API_URL=https://api.prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_SITE_URL=https://prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_CONSOLE_URL=https://oneops.prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_MOBISTACK_URL=https://mobistack.prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_ORG_SLUG=<slug> --build-arg NEXT_PUBLIC_ORG_ID=<id> `
   -f marketing/Dockerfile marketing
-docker push prabhixtechnologies/prabhix-marketing:latest
+docker push "$registry/prabhix/prabhix-marketing:latest"
 ```
 
 `NEXT_PUBLIC_*` values are inlined at build time, so they must be passed as `--build-arg`. The

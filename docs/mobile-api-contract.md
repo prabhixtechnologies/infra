@@ -240,21 +240,27 @@ To chat with a live visitor: use `visitorId` when creating/finding a conversatio
 ```json
 {
   "kpis": {
-    "openThreads": 0,
-    "avgFirstResponseMinutes": 0.0,
-    "slaBreaches": 0,
+    "openConversations": 0,
+    "unassignedConversations": 0,
+    "visitorsToday": 0,
+    "ordersLast30Days": 0,
+    "revenueLast30Days": 0,
     "seatsUsed": 0,
     "seatsLimit": 0,
     "mrr": 0,
     "currency": "INR"
   },
   "recentActivity": [{ "id", "type", "description", "actor", "createdAt" }],
-  "threadsTrend": [{ "date", "value" }],
-  "responseTimeTrend": [{ "date", "value" }]
+  "ordersTrend": [{ "date", "value" }],
+  "visitorsTrend": [{ "date", "value" }]
 }
 ```
 
-Combine with `GET /chat/conversations/counts` for chat-specific operator metrics.
+`mrr` and `revenueLast30Days` are in the organization's minor unit — paise for `INR`.
+Both trends carry exactly 14 points, one per day including days with no rows.
+
+Mail queue and SLA figures used to appear here. They belong to the helpdesk and now come from
+Mailroom instead. Combine this with `GET /chat/conversations/counts` for per-agent chat metrics.
 
 ---
 
