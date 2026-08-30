@@ -204,4 +204,21 @@ api.prabhixtechnologies.com {
 mail.prabhixtechnologies.com {
 	import security_headers
 	reverse_proxy mailroom:80
+
+	# The mailroom container is behind a compose profile, because its image is published by the
+	# Mailroom repository and tagged with that repository's commits rather than this one's. So on a
+	# host where that profile is not enabled this name resolves, terminates TLS, and then fails —
+	# and a bare 502 from Caddy reads as an outage rather than as a service that was never deployed.
+	#
+	# Only 502 and 503 are rewritten. A 500 from a Mailroom that is genuinely running and genuinely
+	# broken must keep saying so, rather than being dressed up as "not deployed yet".
+	handle_errors 502 503 {
+		header Content-Type "text/plain; charset=utf-8"
+		respond "Prabhix Mailroom is not deployed on this host yet.
+
+The hostname is live and TLS is valid, but no Mailroom container is running behind it.
+Enable it with COMPOSE_PROFILES=mailroom once its image has been published, and set
+MAILROOM_TAG to the Mailroom commit you want.
+" 503
+	}
 }
