@@ -53,17 +53,40 @@ services:
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-oneops}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-oneops}
-      DB_NAME: ${POSTGRES_DB:-oneops}
+      # A wildcard, not a database name, and the difference matters. The entrypoint writes exactly
+      # one `[databases]` entry from this value, so a literal name proxies that database and refuses
+      # every other by name — which is how identity failed: its URL pointed at pgbouncer/identity,
+      # the map held only oneops, and the connection was rejected as an unknown database rather than
+      # as a misconfiguration. `*` makes pgbouncer forward whatever database the client asked for to
+      # the same server, so oneops and identity share one pooler instead of needing one each.
+      #
+      # This widens what the pooler will connect to, not who may connect: Postgres still
+      # authenticates and authorises every session, and a role with no rights on a database gets
+      # nothing by asking pgbouncer for it.
+      DB_NAME: "*"
       POOL_MODE: transaction
       # max_client_conn: backend replicas × DB_POOL_MAX (e.g. 4 × 20 = 80) is tiny vs operator SSE
       # scale; 10k client slots leave headroom for burst reconnects without opening 10k PG backends.
       MAX_CLIENT_CONN: 10000
-      # default_pool_size: caps server connections per db/user. 50 × useful parallelism across
-      # tenants keeps Postgres under max_db_connections while serving many idle SSE-heavy instances.
-      DEFAULT_POOL_SIZE: 50
-      MIN_POOL_SIZE: 10
-      RESERVE_POOL_SIZE: 10
-      MAX_DB_CONNECTIONS: 80
+      # These four are sized against the server's real ceiling, which is smaller than it looks:
+      # `show max_connections` on the RDS instance reports 79, derived from the instance memory, not
+      # a round number somebody chose. The whole box shares it.
+      #
+      # The previous values — pool 50, reserve 10, 80 per database — were written for a single
+      # database and already reached the ceiling on their own. They are per database and per user,
+      # so the wildcard above turns them into twice that, and the failure mode is not a slow pool:
+      # it is `FATAL: too many connections`, on whichever service happens to reconnect next.
+      #
+      # Budget: ~10 for rdsadmin and monitoring, ~15 for MobiStack's Hikari pool, which talks to RDS
+      # directly and not through here, leaving ~54. Two pools of 20 plus a reserve of 5 is 50.
+      #
+      # 20 is not a downgrade in capacity. Transaction pooling means a server connection is held for
+      # the length of a transaction, not a session, so 20 of them serve the backend's 20 Hikari
+      # clients and the thousands of idle SSE connections behind them without queueing.
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      MAX_DB_CONNECTIONS: 25
       SERVER_RESET_QUERY: "DISCARD ALL"
       AUTH_TYPE: plain
     healthcheck:
