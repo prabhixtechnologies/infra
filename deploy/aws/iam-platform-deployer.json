@@ -173,6 +173,7 @@
         "iam:GetRole",
         "iam:PutRolePolicy",
         "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
         "iam:AttachRolePolicy",
         "iam:ListAttachedRolePolicies",
         "iam:UpdateAssumeRolePolicy",

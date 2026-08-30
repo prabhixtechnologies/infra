@@ -118,6 +118,36 @@ The second command lists the Sids that are really in force. If `EcrRepositoryLif
 from that list, the document was truncated on the way in, which is the failure this whole file exists
 to catch.
 
+`iam:ListRolePolicies` is in `GithubOidcRolesOnlyByName` for the same reason, and was added after
+hitting the role-shaped version of the same dead end. The instance role denied a pull from a newly
+created repository, so the question was which inline policy on that role to widen — and it could not
+be answered, because listing the role's inline policies was denied while reading a named one was
+allowed. That leaves only guessing names, which found `SesSend` on the second attempt and never
+found the ECR one. Being able to read a policy you cannot enumerate is not a useful pairing.
+
+An artefact of that dead end is worth knowing: the ECR grant now lives in an inline policy named
+`EcrPull`, matching `ecr-pull-policy.json`, and the older inline policy that granted the same pull
+rights under an unknown name is still attached. It is a strict subset, so it changes nothing, but
+once `ListRolePolicies` is in force it should be enumerated and deleted.
+
+## Why the instance may pull `prabhix/third-party/*`
+
+Nothing in the production stack pulls from Docker Hub any more. Our own images come from our private
+ECR, and the official base images — Caddy, nginx, Node, Postgres, Redis, Maven, Temurin — come from
+`public.ecr.aws/docker/library`, which AWS mirrors and which needs no credential.
+
+PgBouncer is the exception that shaped this statement: it is not a Docker Official Image, so AWS does
+not mirror it, and it runs in production. It is copied into `prabhix/third-party/pgbouncer` by
+`mirror-third-party.ps1`, so `ecr-pull-policy.json` grants the instance role that path as a wildcard
+rather than a name — the point of the prefix is that mirroring the next such image should not also
+require an IAM edit before the box can start.
+
+`PublicGalleryToken` grants `ecr-public:GetAuthorizationToken` and `sts:GetServiceBearerToken`. The
+gallery does allow anonymous pulls, and the box was verified doing exactly that, so this is not
+required for a deploy to work. It raises the pull rate limit from the unauthenticated tier to the
+authenticated one, which matters when a single `compose up` pulls several images at once and a
+throttled base image would fail a restart for a reason unrelated to the deploy.
+
 ## Verifying the policy took effect
 
 Run all four. The first two are the ones that were denied while the policy appeared to be attached,

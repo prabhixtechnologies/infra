@@ -54,19 +54,32 @@ aws ecr describe-repositories --region ap-south-1
 
 ## Container images: ECR instead of Docker Hub
 
-Two problems with Docker Hub here. The credentials are a long-lived username and token copied into
-four repositories' secrets, and the images are pulled across the public internet into an instance
-that is already inside AWS. ECR in `ap-south-1` removes both: CI authenticates with a token that
-expires in twelve hours and is never stored, and the instance pulls over the AWS network using the
-role it already has.
+Two problems with Docker Hub. The credentials were a long-lived username and token copied into four
+repositories' secrets, and the images were pulled across the public internet into an instance that
+is already inside AWS. ECR in `ap-south-1` removes both: CI authenticates with a token that expires
+in twelve hours and is never stored, and the instance pulls over the AWS network using the role it
+already has.
 
-Both sides are switched by one variable, and clearing it is the rollback:
+**Nothing pulls from Docker Hub any more, and there is no fallback that does.** The migration ran
+behind a switch — an unset `AWS_CI_ROLE_ARN` in CI, a blank `REGISTRY` on the box — and both are
+gone. The four repositories moved, the switch was deleted, and the Docker Hub path with it. Rolling
+back now means restoring that code, not flipping a variable.
 
-- **CI** — repository variable `AWS_CI_ROLE_ARN`. Set, the workflow assumes the role and pushes to
-  ECR. Unset, it logs in to Docker Hub exactly as before. The four repositories can move one at a
-  time.
-- **The box** — `REGISTRY` in `deploy/.env.prod`. Set to the registry host, `deploy.sh`
-  authenticates to ECR before pulling. Blank, it keeps using the Docker Hub namespace.
+Three sources feed the stack, and each is there for a reason:
+
+- **Our images** — private ECR, `029096972251.dkr.ecr.ap-south-1.amazonaws.com/prabhix/*`. Pushed by
+  CI over OIDC, pulled by the instance role.
+- **Official base images** — `public.ecr.aws/docker/library/*`. Caddy, nginx, Node, Postgres, Redis,
+  Maven and Temurin are Docker Official Images, and AWS mirrors them into its public gallery, so the
+  Dockerfiles and compose files name the gallery rather than Docker Hub. Anonymous pulls work; the
+  instance role also carries `ecr-public:GetAuthorizationToken` for the higher authenticated limit.
+- **Third-party images we run** — mirrored into `prabhix/third-party/*` by
+  `mirror-third-party.ps1`. Only PgBouncer today. These have no gallery mirror, and leaving them on
+  Docker Hub would put an anonymous rate limit on the critical path of a production restart.
+
+What is deliberately still on Docker Hub: mailpit, Prometheus and Grafana in the dev compose, and
+Postfix, Dovecot and Rspamd behind the `mailserver` profile. None runs in production. Mirror the
+mail-server three before enabling that profile.
 
 ### 1. Create the repositories
 
@@ -125,26 +138,24 @@ Then set the ARN as a repository variable — Settings → Secrets and variables
 AWS_CI_ROLE_ARN = arn:aws:iam::029096972251:role/PrabhixGitHubActions
 ```
 
-The Docker Hub secrets can stay where they are. They become unused, and they are what the rollback
-falls back to.
+The Docker Hub secrets were deleted along with the code that read them.
 
 ### 4. Let the instance pull
 
-```bash
-aws iam create-policy \
-  --policy-name PrabhixEcrPull \
-  --policy-document file://deploy/aws/ecr-pull-policy.json
+The grant is an inline policy on the role behind the instance profile, `prabhix-ec2-ecr-pull`, not a
+customer managed one — see README-iam.md for why the name matters:
 
-aws iam attach-role-policy \
-  --role-name PrabhixTechnologies \
-  --policy-arn arn:aws:iam::029096972251:policy/PrabhixEcrPull
+```bash
+aws iam put-role-policy \
+  --role-name prabhix-ec2-ecr-pull \
+  --policy-name EcrPull \
+  --policy-document file://deploy/aws/ecr-pull-policy.json
 ```
 
 Read-only on purpose: the box runs images, it does not build them. A compromised instance can pull
 what it already runs and cannot replace it with something else.
 
-`deploy.sh` runs `aws ecr get-login-password` itself when `REGISTRY` looks like an ECR host, so the
-box needs the AWS CLI:
+`deploy.sh` runs `aws ecr get-login-password` itself before pulling, so the box needs the AWS CLI:
 
 ```bash
 # On the box, as root.
@@ -156,19 +167,26 @@ unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install --update
 aws sts get-caller-identity
 ```
 
-Then verify a pull works before changing `REGISTRY`, so the first failure is not during a deploy:
+Then verify a pull works outside a deploy, so the first failure is not during one. Check all three
+sources, because they fail independently and only the first needs a credential:
 
 ```bash
 REG=029096972251.dkr.ecr.ap-south-1.amazonaws.com
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin "$REG"
-docker pull "$REG/prabhix-backend:latest"
+docker pull "$REG/prabhix/backend:latest"                    # ours
+docker pull "$REG/prabhix/third-party/pgbouncer:1.22.1-p0"   # mirrored
+docker pull public.ecr.aws/docker/library/caddy:2-alpine     # official, anonymous
 ```
+
+The mirrored pull is the one worth running after any IAM change. `ecr-pull-policy.json` grants
+`prabhix/third-party/*` as a prefix, and a policy that enumerates repositories by name instead —
+which is what was in force first — denies it with a message about `ecr:BatchGetImage` that reads
+like a missing login rather than a missing path.
 
 ### 5. Switch the box over
 
-Set `REGISTRY` in `deploy/.env.prod` to the registry host and deploy normally. `deploy.sh` logs in
-and pulls from ECR. To roll back, blank the line and deploy again — the Docker Hub images are still
-there until their tags are deleted.
+`REGISTRY` in `deploy/.env.prod` names the registry host. `deploy.sh` authenticates and pulls from
+it. There is no Docker Hub fallback to blank it back to.
 
 ## Cache: ElastiCache Valkey instead of the Redis container
 

@@ -17,7 +17,7 @@ volumes:
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: public.ecr.aws/docker/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-oneops}
@@ -38,8 +38,12 @@ services:
   # Transaction-mode pooler: multiplexes many Hikari client connections onto a small set of
   # Postgres server connections. Requires prepareThreshold=0 on the JDBC URL (see backend DB_URL).
   # Flyway must bypass PgBouncer — set FLYWAY_URL to postgres:5432 once application.yml supports it.
+  #
+  # PgBouncer is not a Docker Official Image, so AWS does not mirror it and there is nothing to
+  # point at in the public gallery. It runs in production, so it is mirrored into our own private
+  # registry by deploy/aws/mirror-third-party.ps1 instead of pulled from Docker Hub at deploy time.
   pgbouncer:
-    image: edoburu/pgbouncer:1.22.1-p0
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/third-party/pgbouncer:1.22.1-p0
     restart: unless-stopped
     depends_on:
       postgres:
@@ -71,7 +75,7 @@ services:
       - prabhix
 
   redis:
-    image: redis:7-alpine
+    image: public.ecr.aws/docker/library/redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
@@ -352,7 +356,7 @@ services:
       - prabhix
 
   caddy:
-    image: caddy:2-alpine
+    image: public.ecr.aws/docker/library/caddy:2-alpine
     restart: unless-stopped
     depends_on:
       - backend
@@ -384,6 +388,13 @@ services:
       - caddy_config:/config
     networks:
       - prabhix
+
+  # The three images below still come from Docker Hub, and that is deliberate rather than missed.
+  # None of them is a Docker Official Image, so AWS does not mirror any of them into the public
+  # gallery, and none of them runs in production: mailpit is a developer's SMTP catcher, and
+  # Prometheus and Grafana sit behind the `monitoring` profile, which the production box does not
+  # enable. Mirroring an image into our registry is worth doing for what we deploy, not for what
+  # only ever runs on a laptop.
 
   # Dev SMTP catcher — matches SMTP_PORT:1025 default in application.yml.
   mailpit:

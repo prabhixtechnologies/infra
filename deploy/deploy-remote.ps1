@@ -1,7 +1,7 @@
 # deploy-remote.ps1 — manual production deploy from a Windows workstation.
 #
 # Deploys are deliberately manual: no SSH private key is stored in GitHub, so there is no Actions
-# workflow that can reach the host. CI's job ends at pushing images to Docker Hub; this script is
+# workflow that can reach the host. CI's job ends at pushing images to Amazon ECR; this script is
 # what moves them onto the server.
 #
 # Usage:
