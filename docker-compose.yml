@@ -178,7 +178,11 @@ services:
   identity:
     profiles:
       - identity
-    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/identity:${TAG:-latest}
+    # Its own tag, for the same reason Mailroom has one: this image is built by the sibling Identity
+    # repository and tagged with that repository's commits, so following TAG asks ECR for a Platform
+    # commit sha that was never pushed there. The error is "manifest unknown", which reads like a
+    # missing image rather than a tag from the wrong history.
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/identity:${IDENTITY_TAG:-${TAG:-latest}}
     restart: unless-stopped
     depends_on:
       postgres:
