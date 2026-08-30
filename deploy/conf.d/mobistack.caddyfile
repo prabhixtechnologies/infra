@@ -8,10 +8,11 @@
 # That is done: the name resolves to this instance, Caddy completed a tls-alpn-01 challenge for it,
 # and the hostname answers 200. To roll back, rename it to .example and recreate caddy.
 #
-# One name is still wrong and is not served here: api.mobistack.prabhixtechnologies.com resolves to
-# 103.21.187.18, which is not this box. Nothing in this file claims that name, so a request for it
-# fails in TLS rather than reaching MobiStack. MobiStack's API is reachable on the path-based routes
-# below, under its own hostname, so this is a stale record to delete rather than a route to add.
+# api.mobistack.prabhixtechnologies.com used to resolve to 103.21.187.18, which was not this box,
+# and nothing claimed it, so a request for it failed in TLS. The record now points here, and an
+# unclaimed name on an instance that answers on 443 is the worst of both: a certificate error rather
+# than either a working host or NXDOMAIN. It is served below, as an API-only host, matching how
+# api.prabhixtechnologies.com relates to the platform.
 #
 # Upstreams are MobiStack's `container_name` values, not its compose service names, and that is not
 # a style choice.
@@ -77,4 +78,16 @@ mobistack.prabhixtechnologies.com {
 	handle {
 		reverse_proxy mobistack-web:80
 	}
+}
+
+# API-only host. Everything here is JSON or a file download, never a framed document, so the
+# document headers the sibling host needs would be noise — no_document_headers is the right snippet.
+#
+# MobiStack's canonical origin stays mobistack.prabhixtechnologies.com: magic links, invoices and
+# redirects are all built from FIXFLOW_PUBLIC_ORIGIN and are unaffected by this name existing. This
+# is a second way in, not a second identity.
+api.mobistack.prabhixtechnologies.com {
+	import no_document_headers
+
+	reverse_proxy mobistack-backend:8080
 }
