@@ -154,10 +154,66 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 
 ---
 
+## Secrets
+
+Five variables are secrets: `POSTGRES_PASSWORD`, `DB_PASSWORD`, `IDENTITY_DB_PASSWORD`,
+`JWT_SECRET`, `IDENTITY_SIGNING_KEY`. The other 58 in `deploy/.env.prod` are hostnames, URLs and
+feature flags, and stay in the file.
+
+`SECRETS_SOURCE` in `deploy/.env.prod` decides where the five come from:
+
+| Value | Behaviour |
+| --- | --- |
+| `env` | Read from `deploy/.env.prod`, as they always were |
+| `aws` | Read from Secrets Manager at deploy time; the env file's copies are ignored |
+
+Three secrets hold them, split by what forces a rotation:
+
+| Secret | Holds |
+| --- | --- |
+| `prabhix/prod/database` | `POSTGRES_PASSWORD`, `DB_PASSWORD`, `IDENTITY_DB_PASSWORD` |
+| `prabhix/prod/jwt` | `JWT_SECRET` |
+| `prabhix/prod/identity-signing-key` | `IDENTITY_SIGNING_KEY` |
+
+Each is a JSON object keyed by variable name, so adding a variable does not change any code.
+
+### Moving to Secrets Manager
+
+Needs `deploy/aws/secrets-policy.json` attached to the instance role (`prabhix-ec2-ecr-pull`) —
+the instance has no Secrets Manager access by default and every step below fails with `AccessDenied`
+until it does.
+
+```bash
+cd /opt/prabhix
+bash deploy/aws/secrets-bootstrap.sh          # copy in, verify by checksum, change nothing
+SECRETS_SOURCE=aws bash deploy/deploy.sh      # prove a deploy works reading from AWS
+bash deploy/aws/secrets-bootstrap.sh --prune  # comment them out of .env.prod, keeping a backup
+sed -i 's/^SECRETS_SOURCE=env/SECRETS_SOURCE=aws/' deploy/.env.prod
+```
+
+The bootstrap runs on the host, not from a workstation: the values are already on that disk, and
+copying them to a laptop to upload them would put them somewhere new.
+
+### Running compose by hand afterwards
+
+The compose files declare the secrets as `${VAR:?}`, so once they are out of the env file a bare
+`docker compose up` refuses to start rather than bringing containers up on blank passwords:
+
+```bash
+eval "$(bash deploy/secrets-env.sh)"    # then any docker compose command works
+```
+
+`ps` and `logs` need this too — they interpolate the same variables.
+
+---
+
 ## Rotating JWT_SECRET
 
 1. Generate a new 64+ character random string.
-2. Update `JWT_SECRET` in `deploy/.env.prod`.
+2. Update it:
+   - `SECRETS_SOURCE=aws`: `aws secretsmanager put-secret-value --secret-id prabhix/prod/jwt
+     --secret-string '{"JWT_SECRET":"..."}'`
+   - `SECRETS_SOURCE=env`: edit `JWT_SECRET` in `deploy/.env.prod`
 3. Redeploy backend: `docker compose ... up -d backend`
 4. **All existing refresh tokens invalidate** on next access-token refresh cycle (15 min TTL).
    Communicate a brief re-login window to users.

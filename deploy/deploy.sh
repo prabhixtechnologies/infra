@@ -29,6 +29,34 @@ fi
 # shellcheck disable=SC1090
 set -a && source "$ENV_FILE" && set +a
 
+# Secrets come from AWS Secrets Manager, not from the env file.
+#
+# Defaulting to `env` is the same reasoning as AUTH_UPSTREAM in the Caddyfile: the switch ships
+# before the thing it switches to, so nothing changes on the next deploy and the cutover is one line
+# in deploy/.env.prod. Its rollback is the same line.
+#
+# There is no fallback from aws to env. A deploy that quietly reverted to a stale password in the env
+# file would come up healthy on the old value and drift from the rotation that was the reason for
+# moving, and nothing downstream would notice until the old password was retired.
+SECRETS_SOURCE="${SECRETS_SOURCE:-env}"
+if [ "$SECRETS_SOURCE" = "aws" ]; then
+  log "Reading secrets from AWS Secrets Manager"
+  # Command substitution swallows a non-zero exit, so the failure has to be checked separately:
+  # without this, an AccessDenied would eval to nothing and the deploy would carry on to compose
+  # with every password unset.
+  # Through bash rather than executed directly: these files are edited on Windows and arrive without
+  # an executable bit, which would fail as "Permission denied" — an error that reads like a
+  # credentials problem.
+  if ! secret_exports=$(bash "$SCRIPT_DIR/secrets-env.sh"); then
+    log "Could not read secrets — refusing to deploy with unset passwords"
+    exit 1
+  fi
+  eval "$secret_exports"
+  unset secret_exports
+else
+  log "Secrets from $ENV_FILE (set SECRETS_SOURCE=aws to use Secrets Manager)"
+fi
+
 TAG="${REQUESTED_TAG:-${TAG:-latest}}"
 
 PREVIOUS_TAG=""
