@@ -121,8 +121,20 @@ services:
       # The same shared secret the identity service checks; blank leaves the mirror import-only.
       IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+    # The extra alias is what lets MobiStack share this network.
+    #
+    # MobiStack also has a service called `backend`. Docker's embedded DNS registers the service
+    # name as a network alias and offers no way to opt out, so with both products on one network the
+    # name `backend` returns two addresses and Caddy round-robins between two unrelated
+    # applications — roughly half of this platform's API traffic answered by MobiStack's backend.
+    #
+    # `prabhix-backend` cannot collide, so the Caddyfile targets that instead. The plain `backend`
+    # alias is still registered by Docker and still works for anything on this network that is not
+    # sharing it with another product; it is simply no longer what the proxy relies on.
     networks:
-      - prabhix
+      prabhix:
+        aliases:
+          - prabhix-backend
 
   # Prabhix Identity — signs the tokens every product verifies.
   #
@@ -228,8 +240,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    # Same reasoning as the backend's alias above: MobiStack also has a service called `web`.
     networks:
-      - prabhix
+      prabhix:
+        aliases:
+          - prabhix-web
 
   # Prabhix's own console: the platform-wide Ops Hub and cross-tenant logs, and nothing that acts on
   # a single organization. Served on its own hostname so the customer product never carries the

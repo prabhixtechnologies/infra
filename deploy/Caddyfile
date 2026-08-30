@@ -81,7 +81,7 @@ prabhixtechnologies.com, www.prabhixtechnologies.com {
 # generated security-headers.conf carrying the hash of the inline theme bootstrap).
 oneops.prabhixtechnologies.com {
 	import security_headers
-	reverse_proxy web:80
+	reverse_proxy prabhix-web:80
 }
 
 # Prabhix's own console: the same tenant pages plus the platform-wide Ops Hub. A separate image, not
@@ -137,14 +137,14 @@ api.prabhixtechnologies.com {
 	# Order matters: Caddy evaluates handle blocks in the order written, and the bare `handle` at the
 	# end is the catch-all. Putting it first would swallow everything.
 	handle /api/v1/auth/* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	# OIDC discovery and JWKS. Every product reads these before it can verify a single token, so they
 	# have to be served from the origin named in the issuer claim. While AUTH_UPSTREAM still points
 	# at the backend they 404, which is correct: nothing is issuing RS256 tokens yet.
 	handle /.well-known/* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	# The OAuth2 and OpenID Connect surface, and the hosted login page it redirects to.
@@ -158,30 +158,30 @@ api.prabhixtechnologies.com {
 	# Like the paths above, these 404 while AUTH_UPSTREAM still points at the backend. That is
 	# correct: nothing is completing an authorization code flow until identity is the upstream.
 	handle /oauth2/* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	handle /userinfo {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	handle /connect/* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	handle /login* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	handle /assets/* {
-		reverse_proxy {$AUTH_UPSTREAM:backend:8080}
+		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	# The backend needs the client IP and original scheme/host for rate limiting and absolute URL
 	# generation. Caddy sets X-Forwarded-For, -Proto and -Host on its own, so the explicit header_up
 	# lines that used to be here only produced "Unnecessary header_up" warnings on every start.
 	handle {
-		reverse_proxy backend:8080
+		reverse_proxy prabhix-backend:8080
 	}
 }
 

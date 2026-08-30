@@ -22,8 +22,14 @@
 #
 # Container names do not collide, so they are what this file targets. The prerequisite is therefore
 # stricter than "the containers are running": MobiStack has to be on a network this proxy can see,
-# with names that cannot clash. That is what the unified compose stack in the Infra repository is
-# for, and enabling this file before then is the outage described above.
+# with names that cannot clash.
+#
+# That prerequisite is now met, without waiting for the unified compose stack. Both products carry
+# explicit network aliases — `prabhix-backend` and `prabhix-web` in this repository's compose file,
+# `mobistack-backend` and `mobistack-web` in MobiStack's docker-compose.shared.yml — and the
+# siblings of this file, along with MobiStack's own nginx, target those instead of the bare service
+# names. The colliding `backend` and `web` aliases still exist, because Docker registers them and
+# offers no way not to; nothing routes on them any more.
 #
 # See deploy/RUNBOOK-consolidate.md for the order.
 
@@ -50,6 +56,22 @@ mobistack.prabhixtechnologies.com {
 	handle /actuator/health* {
 		reverse_proxy mobistack-backend:8080
 	}
+
+	# Routed here rather than left to fall through to the web container, which would also reach a
+	# backend — its nginx proxies these two paths as well.
+	#
+	# The nginx in the currently published web image still proxies them to the bare name `backend`,
+	# which on a shared network resolves to this platform's backend as readily as to MobiStack's. The
+	# effect is MobiStack's own API documentation intermittently serving Prabhix's OpenAPI document
+	# on MobiStack's hostname. web/nginx.conf has been corrected to use `mobistack-backend`, but that
+	# fix only reaches the box on the next published image, and these two lines do not depend on it.
+	handle /swagger-ui* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /v3/api-docs* {
+		reverse_proxy mobistack-backend:8080
+	}
+
 	handle {
 		reverse_proxy mobistack-web:80
 	}
