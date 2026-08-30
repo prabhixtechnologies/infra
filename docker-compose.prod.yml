@@ -57,9 +57,15 @@ services:
         max-file: "5"
 
   backend:
-    # REGISTRY is the ECR host, e.g. 123456789012.dkr.ecr.ap-south-1.amazonaws.com. Defaulted to the
-    # Docker Hub namespace so a box that has not migrated keeps working, which makes setting this
-    # variable the whole cutover and unsetting it the whole rollback.
+    # REGISTRY is the ECR host. It used to default to a Docker Hub namespace so a box that had not
+    # migrated kept working; that default is gone along with Docker Hub, and the comment describing
+    # it was left behind as the only remaining trace.
+    #
+    # One shared TAG for the four images built from this repository, on purpose. identity and
+    # mailroom take their own because they are built from other repositories, where a sha from this
+    # history does not exist — that is the only reason those two are pinned separately, and giving
+    # these four the same treatment would add a second release pointer per service that compose
+    # prefers over TAG, which is how a requested tag or a rollback ends up silently ignored.
     image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/backend:${TAG:-latest}
     build: !reset null
     restart: always
