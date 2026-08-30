@@ -404,12 +404,17 @@ services:
       - admin
       - marketing
     environment:
-      # Which service answers /api/v1/auth/* and /.well-known/*. Defaults to the backend, so nothing
-      # changes until the identity service is deployed; setting it to identity:8081 is the cutover and
-      # unsetting it is the rollback. Caddy substitutes {$AUTH_UPSTREAM} when it loads the config, so
-      # a change here needs the container recreated — which deploy.sh does anyway, for the Caddyfile
-      # bind-mount reason below.
+      # Which service answers /api/v1/auth/* — live sign-in traffic. Defaults to the backend, so
+      # nothing changes until the identity service is deployed; setting it to identity:8081 is the
+      # cutover and unsetting it is the rollback. Caddy substitutes {$AUTH_UPSTREAM} when it loads the
+      # config, so a change here needs the container recreated — which deploy.sh does anyway, for the
+      # Caddyfile bind-mount reason below.
       AUTH_UPSTREAM: ${AUTH_UPSTREAM:-backend:8080}
+      # Which service answers the hosted login page, discovery, JWKS and /oauth2/*. Defaults to
+      # identity, unlike the line above: nothing in production calls these until an app is built with
+      # VITE_IDENTITY_ISSUER, so there is no traffic to break and a page nobody can load is a page
+      # nobody can check.
+      OIDC_UPSTREAM: ${OIDC_UPSTREAM:-identity:8081}
     ports:
       - "80:80"
       - "443:443"

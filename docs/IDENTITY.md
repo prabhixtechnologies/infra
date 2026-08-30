@@ -12,11 +12,12 @@ or permission in its schema. Each product resolves those per request from its ow
                               │
         ┌─────────────────────┼──────────────────────────┐
         │                     │                          │
-  /api/v1/auth/*        /.well-known/*              everything else
-        │                     │                          │
+  /api/v1/auth/*      /login, /oauth2/*,           everything else
+        │             /.well-known/*, /userinfo,          │
+        │             /connect/*, /assets/*               │
         ▼                     ▼                          ▼
-   {$AUTH_UPSTREAM}     {$AUTH_UPSTREAM}            backend:8080
-   default backend:8080                                  │
+   {$AUTH_UPSTREAM}    {$OIDC_UPSTREAM}            backend:8080
+   default backend:8080  default identity:8081            │
                                                    verifies tokens
                                                    via JWKS ────────► identity:8081
 ```
@@ -29,22 +30,35 @@ change in the same file.
 
 ---
 
-## The cutover switch
+## The two cutover switches
 
-`AUTH_UPSTREAM` in `deploy/.env.prod` is the whole cutover, and the same line is the whole rollback.
+The routing is split because the two halves carry very different risk.
+
+`OIDC_UPSTREAM` — the hosted login page, discovery, JWKS, and the authorization endpoints.
 
 | Value | Effect |
 | --- | --- |
-| unset (default `backend:8080`) | Auth stays on the platform. `/.well-known/*` 404s, which is correct — nothing is issuing RS256 tokens yet. |
-| `identity:8081` | Identity serves sign-in and publishes discovery and JWKS. |
+| unset (default `identity:8081`) | Identity serves the login page and publishes discovery and JWKS. |
+| `prabhix-backend:8080` | The backend answers, which means 404: it serves none of these paths. |
 
-It defaults to the backend on purpose. These paths carry live sign-in traffic: hardcoding
+Defaulted **to identity**, because nothing in production calls these paths until an app is built with
+`VITE_IDENTITY_ISSUER`. There is no traffic to break, and leaving them on the backend has a cost: the
+login page cannot be loaded, so nothing about it can be checked before the day it has to work.
+
+`AUTH_UPSTREAM` — the legacy JSON auth API at `/api/v1/auth/*`, which every product calls today.
+
+| Value | Effect |
+| --- | --- |
+| unset (default `backend:8080`) | Sign-in stays on the platform. |
+| `identity:8081` | Identity answers sign-in for every existing client. |
+
+This one defaults to the backend on purpose. It carries live sign-in traffic: hardcoding
 `identity:8081` before that container exists would 502 every login on the next `docker compose up`,
 and rolling back would mean editing proxy config under pressure.
 
-**Do not flip it on its own.** Identity issues RS256 tokens without `organizationId` or permissions.
-A backend still verifying HS256 would reject every one of them, so every request after a successful
-login would 401. The flip and the backend cutover ship together — see the order below.
+**Do not flip `AUTH_UPSTREAM` on its own.** Identity issues RS256 tokens without `organizationId` or
+permissions. A backend still verifying HS256 would reject every one of them, so every request after a
+successful login would 401. The flip and the backend cutover ship together — see the order below.
 
 ---
 
@@ -101,8 +115,12 @@ in flight, so it is a one-time change to make **before** the platform starts tru
 Platform first, MobiStack second. MobiStack is live and its auth is entangled with billing gating in
 `WorkspaceGuardFilter` and per-device session limits.
 
+0. Load `https://api.prabhixtechnologies.com/login` and sign in on it by hand, for each method the
+   deployment offers. `OIDC_UPSTREAM` defaults to identity, so this works before any of the steps
+   below and independently of them: no product is pointed at it yet, and a failure here costs
+   nothing. Doing it first is the point — every step after this one is harder to undo.
 1. Create the database and the signing key. Start identity with `--profile identity` while
-   `AUTH_UPSTREAM` still points at the backend, so nothing routes to it yet.
+   `AUTH_UPSTREAM` still points at the backend, so no existing client routes to it yet.
 2. Import the platform's users:
    `psql -f Identity/scripts/import-platform-users.sql`. It preserves ids, so the platform's existing
    foreign keys (`created_by`, `assignee_id`, `organization_memberships.user_id`) keep working against
@@ -113,18 +131,20 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    issuer untrusted, sign-in succeeds and then every subsequent request is a 401.
 
    Confirm it took effect in the backend log: `Loaded N identity verification key(s)`. The keys are
-   fetched from `IDENTITY_JWKS_URI`, which defaults to the identity container directly rather than
-   the public issuer URL — the latter routes through Caddy to whatever `AUTH_UPSTREAM` names, which
-   is still the backend at this point.
+   fetched from `IDENTITY_JWKS_URI`, which defaults to the identity container directly rather than the
+   public issuer URL. Both resolve to identity now, but the direct route does not depend on the proxy
+   or on TLS to fetch the keys the backend needs in order to accept anybody at all.
 4. Set `IDENTITY_SERVICE_TOKEN` to the same value on **both** the backend and identity. This is what
    lets the backend fill in a local `users` row for anyone who signs up through identity after the
    import. Blank, such a person is refused with "not provisioned on the platform" — correct before
    step 2 and a bug after it.
 5. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
 6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
-   password form into a redirect to the hosted login page. Set earlier, the apps redirect to an
-   `/oauth2/authorize` that Caddy is still routing to the backend, which 404s — so sign-in is not
-   merely unchanged, it is impossible.
+   password form into a redirect to the hosted login page.
+
+   `/oauth2/authorize` already works at this point — `OIDC_UPSTREAM` sent it to identity from step 0 —
+   so what makes this step last is not the routing but steps 3 and 4: with the issuer untrusted, the
+   redirect succeeds, the code exchanges, and then every API call the console makes is a 401.
 7. After one refresh-token lifetime (`IDENTITY_REFRESH_TTL`, 30 days) no HS256 token can still be in
    circulation. Drop HS256 verification from the backend then, not before.
 
