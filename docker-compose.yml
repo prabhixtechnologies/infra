@@ -210,13 +210,26 @@ services:
       # writes and every product reads.
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      # Auth mail goes out over SMTP from here rather than through the platform, so that identity does
-      # not depend on a product that sits on top of it.
+      # Auth mail goes out from here rather than through the platform, so that identity does not
+      # depend on a product that sits on top of it.
+      #
+      # AUTO means SES wherever SES_REGION is set and SMTP where it is not, so this file needs no
+      # per-environment override: locally the SMTP settings below carry it to mailpit, and on the
+      # production box the same variable the platform backend already uses selects SES.
+      IDENTITY_MAIL_TRANSPORT: ${IDENTITY_MAIL_TRANSPORT:-AUTO}
+      SES_REGION: ${SES_REGION:-}
+      # Blank means the instance role, which is how production sends. A static key is only for
+      # running outside AWS.
+      SES_ACCESS_KEY: ${SES_ACCESS_KEY:-}
+      SES_SECRET_KEY: ${SES_SECRET_KEY:-}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_AUTH: ${SMTP_AUTH:-false}
+      # security@, not the platform's no-reply@: a password-reset mail that cannot be replied to is
+      # one thing, but this address is also where somebody reports a sign-in they did not make.
       IDENTITY_MAIL_FROM: ${IDENTITY_MAIL_FROM:-security@prabhixtechnologies.com}
       CONSOLE_URL: ${CONSOLE_URL:-http://localhost:5173}
       ADMIN_URL: ${ADMIN_URL:-http://localhost:5174}
