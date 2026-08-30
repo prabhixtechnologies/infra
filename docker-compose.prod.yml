@@ -14,41 +14,37 @@
 # ~2.8 GiB of ceilings against ~3.7 GiB usable. These are ceilings, not reservations, so real usage
 # sits well below them; the remainder is page cache and the mail server when its profile is up.
 #
-# The postgres and pgbouncer limits below are transitional. 512m for postgres does not fit the
-# budget above once MobiStack's JVM lands here too, which is the arithmetic reason the RDS move has
-# to happen before the two boxes are collapsed into one.
-
 services:
+  # Both datastores now run as managed services, so both containers are parked behind `never` — a
+  # profile nothing activates — rather than deleted from the base file, because local development
+  # still wants them. Same trick mailpit uses at the bottom of this file.
+  #
+  # Reclaiming postgres's 512m is what makes the arithmetic above work: MobiStack's JVM could not
+  # have landed on this box while a database was also resident on it.
   postgres:
-    restart: always
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
+    profiles:
+      - never
 
-  # Redis runs on ElastiCache Valkey in production, so the container is switched off rather than
-  # deleted from the base file — local development still wants it. `never` is not a profile anything
-  # activates, which is the same trick mailpit uses at the bottom of this file.
   redis:
     profiles:
       - never
 
   # Points at whatever POSTGRES_HOST says: the local container before the RDS cutover, the RDS
   # endpoint after it. The pooler stays either way — RDS gives a connection ceiling, not a pooler,
-  # and t3.medium-sized instances have a low max_connections.
+  # and instances this size have a low max_connections.
   pgbouncer:
     restart: always
+    # !reset, because the base file waits for the postgres container to report healthy and that
+    # container no longer starts here. Left as-is, the pooler would wait forever on a service that
+    # compose has been told never to run, and the whole deploy would hang before the backend.
+    depends_on: !reset null
     environment:
       DB_HOST: ${POSTGRES_HOST:-postgres}
-      # RDS PostgreSQL 16 ships rds.force_ssl=1 in its default parameter group, so an unencrypted
-      # connection is refused outright. Harmless against the local container, which simply does not
-      # offer TLS and falls back — that is what `prefer` means, and why it is not `require` here.
-      # Set SERVER_TLS_SSLMODE=verify-full with the RDS CA bundle once the endpoint is fixed.
+      # RDS ships rds.force_ssl=1 in its default parameter group, so an unencrypted connection is
+      # refused outright — and the error it returns is "no pg_hba.conf entry for host ...", which
+      # reads like a firewall or an allowlist problem rather than a missing TLS negotiation.
+      # `prefer` is the default only so the local container, which offers no TLS, still works.
+      # Production sets `require`; move to verify-full once the RDS CA bundle is mounted here.
       SERVER_TLS_SSLMODE: ${PGBOUNCER_SERVER_TLS_SSLMODE:-prefer}
     deploy:
       resources:
@@ -183,8 +179,10 @@ services:
       resources:
         limits:
           memory: 384m
+    # The pooler, not the database: identity used to wait on the postgres container, which no
+    # longer runs here. It reaches its own database through pgbouncer like everything else.
     depends_on: !override
-      postgres:
+      pgbouncer:
         condition: service_healthy
     environment:
       # SerialGC here and nowhere else. Identity is the smallest heap on the box and its work is

@@ -63,21 +63,60 @@ log "Pulling images (tag=$TAG)"
 export TAG
 $COMPOSE --env-file "$ENV_FILE" pull backend web admin mailroom marketing
 
-# Redis is deliberately absent: production uses ElastiCache Valkey, and the container is parked
-# behind the `never` profile in docker-compose.prod.yml. Naming a service on the command line
-# implicitly enables its profile, so listing redis here would start it again regardless.
-log "Starting infrastructure (postgres, pgbouncer)"
-$COMPOSE --env-file "$ENV_FILE" up -d postgres pgbouncer
+# Both datastores are managed services in production and their containers sit behind the `never`
+# profile, so neither is named here — naming a service on the command line enables its profile,
+# which would start the very container the profile exists to keep down.
+#
+# A host with a dot in it is RDS; a bare name is the local container, which is how a developer runs
+# this script against a compose-only stack.
+POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+case "$POSTGRES_HOST" in
+  *.*) DB_IS_MANAGED=true ;;
+  *)   DB_IS_MANAGED=false ;;
+esac
 
-log "Waiting for postgres"
-until $COMPOSE --env-file "$ENV_FILE" exec -T postgres pg_isready -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do
-  sleep 2
-done
+if [ "$DB_IS_MANAGED" = false ]; then
+  log "Starting local postgres"
+  $COMPOSE --env-file "$ENV_FILE" up -d postgres
+  log "Waiting for postgres"
+  until $COMPOSE --env-file "$ENV_FILE" exec -T postgres pg_isready -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do
+    sleep 2
+  done
+else
+  log "Using managed database at $POSTGRES_HOST"
+fi
+
+log "Starting pgbouncer"
+$COMPOSE --env-file "$ENV_FILE" up -d pgbouncer
 
 log "Waiting for pgbouncer"
 until $COMPOSE --env-file "$ENV_FILE" exec -T pgbouncer pg_isready -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do
   sleep 2
 done
+
+# Runs a read-only query against whichever database is in use and echoes the single value.
+#
+# Against RDS this cannot go through `compose exec postgres`, because that container does not run.
+# It borrows the pooler's network namespace instead of joining the compose network by name, so it
+# does not have to guess the project-prefixed network name — and it exercises pgbouncer, which is
+# the path the application actually takes.
+query_db() {
+  local sql="$1"
+  if [ "$DB_IS_MANAGED" = false ]; then
+    $COMPOSE --env-file "$ENV_FILE" exec -T postgres \
+      psql -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" -tAc "$sql" 2>/dev/null |
+      tr -d '[:space:]'
+  else
+    docker run --rm \
+      --network "container:$($COMPOSE --env-file "$ENV_FILE" ps -q pgbouncer)" \
+      -e PGPASSWORD="${POSTGRES_PASSWORD:-}" \
+      -e PGCONNECT_TIMEOUT=15 \
+      "${PSQL_IMAGE:-postgres:18-alpine}" \
+      psql -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" \
+        -tAc "$sql" 2>/dev/null |
+      tr -d '[:space:]'
+  fi
+}
 
 log "Deploying backend (Flyway migrations run on Boot startup)"
 $COMPOSE --env-file "$ENV_FILE" up -d --no-deps backend
@@ -101,10 +140,8 @@ log "Backend is ready"
 # a regression, and one worth stopping a deploy for. Silent mail loss is not something a dashboard
 # would surface later.
 log "Asserting no mail was delivered via the logging transport"
-logged_mail=$($COMPOSE --env-file "$ENV_FILE" exec -T postgres \
-  psql -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" -tAc \
-  "SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'" \
-  2>/dev/null | tr -d '[:space:]')
+logged_mail=$(query_db \
+  "SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'")
 
 if [ -z "$logged_mail" ]; then
   # A failed query must not read as a pass. Empty means psql could not answer, not zero rows.
