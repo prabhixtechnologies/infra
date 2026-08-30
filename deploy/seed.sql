@@ -37,9 +37,12 @@
 
 \set ON_ERROR_STOP on
 
+-- admin@ rather than owner@ because this address has to receive mail. The default was owner@, which
+-- is not a mailbox at the domain's mail host, so the first magic link Identity ever sent to it was
+-- rejected — a seeded owner who cannot be sent a sign-in link or a password reset.
 \if :{?owner_email}
 \else
-  \set owner_email 'owner@prabhixtechnologies.com'
+  \set owner_email 'admin@prabhixtechnologies.com'
 \endif
 
 -- Shared with Identity/deploy/seed.sql, which defaults to the same value. Fixed rather than random
