@@ -1,0 +1,56 @@
+# MobiStack, co-located on this box.
+#
+# Disabled until DNS points here: Caddy requests a certificate for every name it is configured to
+# serve, so enabling this while mobistack.prabhixtechnologies.com still resolves to the old
+# instance produces failing ACME orders on a loop against a per-name weekly rate limit.
+#
+# To enable, on the box, after the A record has moved:
+#
+#   mv deploy/conf.d/mobistack.caddyfile.example deploy/conf.d/mobistack.caddyfile
+#   docker compose ... up -d --force-recreate caddy
+#
+# To roll back, rename it back and recreate caddy again.
+#
+# Upstreams are MobiStack's `container_name` values, not its compose service names, and that is not
+# a style choice.
+#
+# Both products name services `backend`, `web` and `postgres`. Docker's embedded DNS adds the
+# service name as a network alias and gives no way to opt out, so two containers on one network
+# answering to `backend` produce two A records for it — measured, not assumed. Caddy would then
+# round-robin between this platform's backend and MobiStack's, on a name this file's siblings
+# already use, and roughly half of all API traffic would reach the wrong application.
+#
+# Container names do not collide, so they are what this file targets. The prerequisite is therefore
+# stricter than "the containers are running": MobiStack has to be on a network this proxy can see,
+# with names that cannot clash. That is what the unified compose stack in the Infra repository is
+# for, and enabling this file before then is the outage described above.
+#
+# See deploy/RUNBOOK-consolidate.md for the order.
+
+mobistack.prabhixtechnologies.com {
+	# security_headers, not no_document_headers: this host serves an HTML application.
+	#
+	# The snippet deliberately carries no CSP, which is what lets MobiStack keep its own — the one
+	# in MobiStack's web/nginx.conf, with the Razorpay script, frame and connect allowances that a
+	# shared policy could not express. Caddy replaces upstream headers it also sets, so the CSP
+	# survives only because the snippet stays out of it.
+	import security_headers
+
+	# Restores what nginx sends and the shared snippet would otherwise overwrite. MobiStack is never
+	# framed, including by Prabhix's own hosts, so DENY rather than the snippet's SAMEORIGIN.
+	header X-Frame-Options DENY
+
+	# APK and IPA downloads, served by the backend rather than from static files.
+	handle /download/* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /api/* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /actuator/health* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle {
+		reverse_proxy mobistack-web:80
+	}
+}

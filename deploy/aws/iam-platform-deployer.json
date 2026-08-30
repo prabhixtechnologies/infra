@@ -1,0 +1,189 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AccountWideEnumeration",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:DescribeRepositories",
+        "logs:DescribeLogGroups",
+        "secretsmanager:ListSecrets",
+        "ssm:DescribeParameters",
+        "s3:ListAllMyBuckets",
+        "iam:ListOpenIDConnectProviders",
+        "iam:ListRoles"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrRepositoryLifecycle",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:PutLifecyclePolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:TagResource",
+        "ecr:SetRepositoryPolicy",
+        "ecr:GetRepositoryPolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:ListImages",
+        "ecr:BatchDeleteImage",
+        "ecr:DescribeImages"
+      ],
+      "Resource": "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/*"
+    },
+    {
+      "Sid": "ElastiCacheValkey",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeServerlessCaches",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:CreateServerlessCache",
+        "elasticache:ModifyServerlessCache",
+        "elasticache:ListTagsForResource",
+        "elasticache:AddTagsToResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchLogsForContainers",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:PutRetentionPolicy",
+        "logs:DescribeLogStreams",
+        "logs:TagResource"
+      ],
+      "Resource": "arn:aws:logs:ap-south-1:029096972251:log-group:/prabhix/*"
+    },
+    {
+      "Sid": "SecretsForRuntimeConfig",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:ap-south-1:029096972251:secret:prabhix/*"
+    },
+    {
+      "Sid": "SsmParametersForNonSecretConfig",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:DeleteParameter",
+        "ssm:AddTagsToResource"
+      ],
+      "Resource": "arn:aws:ssm:ap-south-1:029096972251:parameter/prabhix/*"
+    },
+    {
+      "Sid": "SesForOutboundMail",
+      "Effect": "Allow",
+      "Action": [
+        "ses:GetAccount",
+        "ses:PutAccountDetails",
+        "ses:CreateEmailIdentity",
+        "ses:GetEmailIdentity",
+        "ses:ListEmailIdentities",
+        "ses:PutEmailIdentityDkimAttributes",
+        "ses:PutEmailIdentityMailFromAttributes",
+        "ses:CreateConfigurationSet",
+        "ses:GetConfigurationSet",
+        "ses:SendEmail",
+        "ses:SendRawEmail",
+        "ses:GetSendQuota",
+        "ses:GetAccountSendingEnabled"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3ForUploadsAndBackups",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:GetBucketLocation",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketEncryption",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::prabhix-*",
+        "arn:aws:s3:::prabhix-*/*"
+      ]
+    },
+    {
+      "Sid": "GithubOidcProvider",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider"
+      ],
+      "Resource": "arn:aws:iam::029096972251:oidc-provider/token.actions.githubusercontent.com"
+    },
+    {
+      "Sid": "GithubOidcRolesOnlyByName",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:GetRole",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:TagRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::029096972251:role/prabhix-github-ecr-push",
+        "arn:aws:iam::029096972251:role/prabhix-ec2-ecr-pull"
+      ]
+    },
+    {
+      "Sid": "PassOnlyTheEc2PullRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::029096972251:role/prabhix-ec2-ecr-pull",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ec2.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "AttachTheInstanceProfileForEcrPulls",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "ec2:AssociateIamInstanceProfile",
+        "ec2:DescribeIamInstanceProfileAssociations",
+        "ec2:ReplaceIamInstanceProfileAssociation"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

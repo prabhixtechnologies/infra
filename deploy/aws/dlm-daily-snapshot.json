@@ -1,0 +1,29 @@
+{
+  "ResourceTypes": ["INSTANCE"],
+  "TargetTags": [
+    {
+      "Key": "Backup",
+      "Value": "daily"
+    }
+  ],
+  "Schedules": [
+    {
+      "Name": "DailyRootVolume",
+      "TagsToAdd": [
+        {
+          "Key": "CreatedBy",
+          "Value": "dlm-daily-snapshot"
+        }
+      ],
+      "CreateRule": {
+        "Interval": 24,
+        "IntervalUnit": "HOURS",
+        "Times": ["19:30"]
+      },
+      "RetainRule": {
+        "Count": 7
+      },
+      "CopyTags": true
+    }
+  ]
+}

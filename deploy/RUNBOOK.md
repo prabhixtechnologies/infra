@@ -135,7 +135,7 @@ Database migrations are **forward-only**. If a migration broke prod, restore DB 
 List backups:
 
 ```bash
-aws s3 ls s3://prabhix-backups/postgres/prabhix/
+aws s3 ls s3://prabhix-backups/postgres/oneops/
 ```
 
 Restore (destructive — stops backend first):
@@ -143,9 +143,9 @@ Restore (destructive — stops backend first):
 ```bash
 cd /opt/prabhix
 docker compose -f docker-compose.yml -f docker-compose.prod.yml stop backend
-aws s3 cp s3://prabhix-backups/postgres/prabhix/<TIMESTAMP>.sql.gz - | gunzip | \
+aws s3 cp s3://prabhix-backups/postgres/oneops/<TIMESTAMP>.sql.gz - | gunzip | \
   docker compose -f docker-compose.yml exec -T postgres \
-  psql -U prabhix -d prabhix
+  psql -U oneops -d oneops
 docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 ```
 

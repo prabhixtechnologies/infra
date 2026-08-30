@@ -92,3 +92,7 @@ Thumbs.db
 # --- Test / coverage ---
 coverage/
 .nyc_output/
+
+# Python bytecode from the deploy preflight scripts
+__pycache__/
+*.pyc
