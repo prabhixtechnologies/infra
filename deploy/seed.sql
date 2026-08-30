@@ -206,6 +206,54 @@ WHERE u.email = :'owner_email'
   );
 
 -- ---------------------------------------------------------------------------------------------
+-- The subscription
+-- ---------------------------------------------------------------------------------------------
+
+-- Every feature in the product is gated on a live subscription row: EntitlementService reaches the
+-- plan through it, and with no row each lookup raises SUBSCRIPTION_INACTIVE, which is a 402. In the
+-- running application the row is created by TrialSubscriptionService, on the OrganizationCreated
+-- event — which this script cannot publish, because it writes the organization with SQL. So a
+-- seeded database produced an organization nobody could use: signing in worked, and then chat, mail
+-- and AI all answered 402. Production was in exactly that state, and it showed on the public site,
+-- where the marketing chat widget could not open a conversation.
+--
+-- enterprise-custom rather than the starter plan a trial would have picked, for two reasons. This
+-- is the company's own tenant, so a subscription that lapses in a fortnight is wrong. And starter
+-- allows one mailbox and one mail domain, while the sections below create several of each: the
+-- inserts would go in regardless, being SQL, and the limit would then be discovered on the day
+-- somebody tried to add one through the console.
+--
+-- ACTIVE with no trial_ends_at, at whatever the plan charges, which for this plan is nothing.
+-- current_period_end is far out rather than empty because the column is NOT NULL. next_billing_at
+-- is left null on purpose: the renewal job selects on IS NOT NULL, so null is how a subscription
+-- says it never renews, and a date would eventually mean an invoice for a plan that costs nothing.
+INSERT INTO billing_subscriptions (organization_id, plan_id, status, seats,
+                                   current_period_start, current_period_end, next_billing_at,
+                                   locked_amount_paise, locked_per_seat_paise, currency)
+SELECT o.id, p.id, 'ACTIVE', p.included_seats,
+       now(), now() + interval '100 years', NULL,
+       p.amount_paise, p.per_seat_paise, o.currency
+FROM organizations o
+JOIN billing_plans p ON p.plan_key = 'enterprise-custom'
+WHERE o.slug = 'prabhix-platform'
+  AND NOT EXISTS (
+    SELECT 1 FROM billing_subscriptions s
+    WHERE s.organization_id = o.id
+      AND s.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED')
+  );
+
+-- seat_limit was set to 999 when the organization was inserted, which is a guess made before the
+-- plan was known. Membership is checked against the subscription's seats, so leaving the two
+-- disagreeing means the number shown in the console is not the number enforced.
+UPDATE organizations o
+SET seat_limit = s.seats
+FROM billing_subscriptions s
+WHERE s.organization_id = o.id
+  AND o.slug = 'prabhix-platform'
+  AND s.status IN ('TRIALING', 'ACTIVE', 'PAST_DUE', 'PAUSED')
+  AND o.seat_limit <> s.seats;
+
+-- ---------------------------------------------------------------------------------------------
 -- The mail domain
 -- ---------------------------------------------------------------------------------------------
 

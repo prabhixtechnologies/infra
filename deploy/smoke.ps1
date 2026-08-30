@@ -195,14 +195,21 @@ if ($MailroomBase) {
     # of the render — the issuer is inlined into the bundle, so its absence is visible in the JavaScript.
     Test-Endpoint -Name "Mailroom was built with an identity issuer" -Url $MailroomBase -Assert {
         param($r)
-        $scripts = [regex]::Matches($r.Content, 'src="(/assets/index-[^"]*\.js)"') |
-            ForEach-Object { $_.Groups[1].Value }
+        # @() matters. A pipeline that yields one item yields the item, not a one-element array, and
+        # there is only ever one index-*.js -- so $scripts was a string, $scripts[0] was its first
+        # character "/", and the request went to the site root. The check then searched the HTML page
+        # for the authorize URL, never found it, and reported the image as built without an issuer.
+        # $scripts.Count is 1 for a scalar too, so the guard below did not catch it either. This check
+        # could not have passed since it was written.
+        $scripts = @([regex]::Matches($r.Content, 'src="(/assets/index-[^"]*\.js)"') |
+            ForEach-Object { $_.Groups[1].Value })
         if ($scripts.Count -eq 0) { throw "Page references no entry script" }
 
         $base = ([uri]$MailroomBase).GetLeftPart([System.UriPartial]::Authority)
-        $bundle = (Invoke-WebRequest -Uri "$base$($scripts[0])" -UseBasicParsing -TimeoutSec 30).Content
+        $url = "$base$($scripts[0])"
+        $bundle = (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30).Content
         if ($bundle -notmatch '/oauth2/authorize') {
-            throw "The bundle has no authorize URL, so this image was built without VITE_IDENTITY_ISSUER"
+            throw "The bundle at $url has no authorize URL, so this image was built without VITE_IDENTITY_ISSUER"
         }
     }
 }

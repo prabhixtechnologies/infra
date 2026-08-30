@@ -87,13 +87,16 @@ if ($SkipSmoke) {
 }
 
 Write-Host "==> Running smoke checks" -ForegroundColor Cyan
+
+# OrgSlug is the organization deploy/seed.sql creates. It said prabhix-technologies, which is not in
+# the database -- the same wrong slug the marketing image was built with -- so the storefront and
+# origin-allowlist checks were not exercising the org the site actually calls.
+#
+# The comment lives here rather than inside the call because a comment between backtick-continued
+# lines ends the continuation, and PowerShell then tries to run the next argument as a command.
 & "$PSScriptRoot\smoke.ps1" `
     -ApiBase "https://api.prabhixtechnologies.com" `
     -MarketingBase "https://prabhixtechnologies.com" `
     -ConsoleBase "https://oneops.prabhixtechnologies.com" `
     -MailroomBase "https://mail.prabhixtechnologies.com" `
-    # The organization deploy/seed.sql creates. This said prabhix-technologies, which is not in the
-    # database -- the same wrong slug the marketing image was built with -- so the storefront check
-    # was either passing against an empty result or failing unnoticed. With the real slug it now
-    # verifies the storefront the marketing site actually calls.
     -OrgSlug "prabhix-platform"
