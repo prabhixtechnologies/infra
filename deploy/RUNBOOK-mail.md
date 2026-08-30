@@ -1,11 +1,44 @@
 # Making outbound mail actually send
 
-Production currently cannot send mail, and the health endpoint says so: `MailTransportHealthIndicator`
-reports DOWN, which is why `/actuator/health` returns DOWN while both liveness and readiness are 200.
-That is the indicator doing its job. Mail is genuinely broken, and it is broken in three separate
-places that have to be fixed together.
+**Outbound mail works now.** `/actuator/health` reports UP, the backend logs *"SES transport ready in
+region ap-south-1"* on startup, and a message sent from the instance returned a MessageId. The steps
+below are done unless marked otherwise; two DNS-level items remain and are listed first.
 
-This runbook is the measured state of the account and the domain as of the RDS cutover, not a plan.
+## What is still open
+
+**SPF still fails.** The record is `v=spf1 include:secureserver.net -all`, which does not include SES
+and ends in a hard fail. DKIM passes and this domain's DMARC uses relaxed alignment, so mail
+authenticates on DKIM alone and is not being quarantined — but SPF actively *fails* rather than being
+absent, because `-all` tells receivers to reject anything unlisted. Receivers that weigh SPF
+separately from DMARC will count that against the domain. In GoDaddy, change the TXT record on `@` to:
+
+```
+v=spf1 include:secureserver.net include:amazonses.com -all
+```
+
+Keep `secureserver.net`: it is what GoDaddy's own mail sends through, and removing it breaks whatever
+still sends from there.
+
+**SES is still in sandbox**, at 200 messages/day and 1/second, so mail reaches addresses at verified
+identities only — your own domain works, Gmail does not. Requesting production access is a support
+case needing a description of the mail's purpose and how bounces are handled, so it is deliberately
+not automated here: it asks for business statements that should not be invented.
+
+## What was wrong, and what fixed it
+
+| Piece | Then | Now |
+| --- | --- | --- |
+| SES identity | Created, not verified | **Verified**, `DkimStatus: SUCCESS` |
+| DKIM CNAMEs | Not published | Published, all three resolve |
+| Transport | `MAIL_TRANSPORT=SMTP_RELAY` at `localhost:587`, nothing listening | `MAIL_TRANSPORT=SES` |
+| Credentials | Backend had none, so SES could not authenticate | Instance role `prabhix-ec2-ecr-pull` carries `ses-send-policy.json`; the SDK resolves them from instance metadata, with no static keys |
+| Health | DOWN | UP |
+
+The health endpoint was right the whole time. `MailTransportHealthIndicator` returned DOWN while
+liveness and readiness returned 200, which is the indicator doing its job rather than a false alarm.
+
+Everything from here down is the state measured at the RDS cutover, kept as the record of how it was
+diagnosed.
 
     10|## Where it stands
 
