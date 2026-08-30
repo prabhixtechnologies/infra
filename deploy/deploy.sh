@@ -61,7 +61,25 @@ esac
 
 log "Pulling images (tag=$TAG)"
 export TAG
-$COMPOSE --env-file "$ENV_FILE" pull backend web admin mailroom marketing
+
+# Asked of compose rather than listed here, so a service that a profile has switched off is not
+# pulled. The hardcoded list used to include mailroom, whose image comes from another repository and
+# is tagged with that repository's commits — so `pull` looked for it at this repo's sha, found
+# nothing, and failed a deploy in which the four Platform services were all present and correct.
+#
+# postgres, redis, caddy and pgbouncer are excluded: the first two do not run here, and the last two
+# are third-party images handled further down.
+ALL_SERVICES="$($COMPOSE --env-file "$ENV_FILE" config --services | sort)"
+APP_SERVICES=""
+for service in $ALL_SERVICES; do
+  case "$service" in
+    postgres|redis|pgbouncer|caddy|mailpit|prometheus|grafana) continue ;;
+    *) APP_SERVICES="$APP_SERVICES $service" ;;
+  esac
+done
+log "Application services in this deploy:$APP_SERVICES"
+# shellcheck disable=SC2086
+$COMPOSE --env-file "$ENV_FILE" pull $APP_SERVICES
 
 # Both datastores are managed services in production and their containers sit behind the `never`
 # profile, so neither is named here — naming a service on the command line enables its profile,
@@ -155,7 +173,15 @@ if [ "$logged_mail" != "0" ]; then
 fi
 
 log "Deploying frontends"
-$COMPOSE --env-file "$ENV_FILE" up -d web admin mailroom marketing
+FRONTENDS=""
+for service in $APP_SERVICES; do
+  case "$service" in
+    backend|identity) continue ;;
+    *) FRONTENDS="$FRONTENDS $service" ;;
+  esac
+done
+# shellcheck disable=SC2086
+$COMPOSE --env-file "$ENV_FILE" up -d $FRONTENDS
 
 # Recreated unconditionally, not just when the image changes. The Caddyfile arrives as a single-file
 # bind mount, and a pull that rewrites it gives the file a new inode that the running container is

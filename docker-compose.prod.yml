@@ -253,9 +253,10 @@ services:
         max-file: "5"
 
   # Built from the sibling Mailroom repository by its own CI, so there is nothing to build here even
-  # in development — the image is the interface between the two repos.
+  # in development — the image is the interface between the two repos. That also means its tags are
+  # that repository's commits, which is why it carries its own MAILROOM_TAG and its own profile.
   mailroom:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${MAILROOM_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     deploy:

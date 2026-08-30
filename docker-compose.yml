@@ -270,7 +270,15 @@ services:
   # product; this is a different application whose entire screen is one mailbox, and folding it in
   # would put mail-rendering code in the bundle of two apps that do not render mail.
   mailroom:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${TAG:-latest}
+    # Behind a profile because the image is published by the Mailroom repository, not this one, and
+    # is therefore tagged on that repository's commits rather than on this one's. Left always-on, a
+    # deploy here would try to pull prabhix-mailroom at this repo's commit sha, find nothing, and
+    # fail the whole `compose pull` — taking down a deploy of four services that were all fine.
+    #
+    # Enable with COMPOSE_PROFILES=mailroom once the image exists and is tagged independently.
+    profiles:
+      - mailroom
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${MAILROOM_TAG:-${TAG:-latest}}
     build:
       context: ../Mailroom/web
       dockerfile: Dockerfile
