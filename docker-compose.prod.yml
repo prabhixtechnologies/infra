@@ -60,7 +60,7 @@ services:
     # REGISTRY is the ECR host, e.g. 123456789012.dkr.ecr.ap-south-1.amazonaws.com. Defaulted to the
     # Docker Hub namespace so a box that has not migrated keeps working, which makes setting this
     # variable the whole cutover and unsetting it the whole rollback.
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-backend:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}backend:${TAG:-latest}
     build: !reset null
     restart: always
     deploy:
@@ -221,7 +221,7 @@ services:
         max-file: "10"
 
   web:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-web:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}web:${TAG:-latest}
     build: !reset null
     restart: always
     # nginx serving a built bundle from disk. The page cache does the work and lives outside the
@@ -239,7 +239,7 @@ services:
   # Built from the same source tree as `web` but with APP=admin, so it is a separate image rather
   # than the same one served on a second hostname.
   admin:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-admin:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}admin:${TAG:-latest}
     build: !reset null
     restart: always
     deploy:
@@ -256,7 +256,7 @@ services:
   # in development — the image is the interface between the two repos. That also means its tags are
   # that repository's commits, which is why it carries its own MAILROOM_TAG and its own profile.
   mailroom:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${MAILROOM_TAG:-${TAG:-latest}}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}mailroom:${MAILROOM_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     deploy:
@@ -270,7 +270,7 @@ services:
         max-file: "5"
 
   marketing:
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-marketing:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}marketing:${TAG:-latest}
     build: !reset null
     restart: always
     # A Node process rendering server components, so unlike the three nginx containers this one has

@@ -151,7 +151,7 @@ services:
   identity:
     profiles:
       - identity
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-identity:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}identity:${TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -293,7 +293,7 @@ services:
     # Enable with COMPOSE_PROFILES=mailroom once the image exists and is tagged independently.
     profiles:
       - mailroom
-    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${MAILROOM_TAG:-${TAG:-latest}}
+    image: ${REGISTRY:-prabhixtechnologies}/${IMAGE_NS:-prabhix-}mailroom:${MAILROOM_TAG:-${TAG:-latest}}
     build:
       context: ../Mailroom/web
       dockerfile: Dockerfile

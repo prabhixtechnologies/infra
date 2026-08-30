@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AuthTokenCannotBeScoped",
+      "Sid": "GetAuthorizationTokenIsAccountWide",
       "Effect": "Allow",
       "Action": "ecr:GetAuthorizationToken",
       "Resource": "*"
@@ -13,19 +13,24 @@
       "Action": [
         "ecr:BatchCheckLayerAvailability",
         "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer"
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeRepositories",
+        "ecr:DescribeImages",
+        "ecr:ListImages"
       ],
-      "Resource": [
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-backend",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-web",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-admin",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-marketing",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-identity",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-mailroom",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix-mail",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/mobistack-backend",
-        "arn:aws:ecr:ap-south-1:029096972251:repository/mobistack-web"
-      ]
+      "Resource": "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/*"
+    },
+    {
+      "Sid": "SendMailThroughSes",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail",
+        "ses:GetSendQuota",
+        "ses:GetAccount",
+        "ses:GetEmailIdentity"
+      ],
+      "Resource": "*"
     }
   ]
 }
