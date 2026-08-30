@@ -49,15 +49,19 @@ rollback() {
 trap rollback ERR
 
 # ECR tokens last twelve hours, so a deploy authenticates itself rather than depending on a login
-# somebody did by hand at some point. Matched on the registry host so the Docker Hub path is
-# untouched: there, REGISTRY is a namespace and `docker pull` uses the stored credential.
-case "${REGISTRY:-}" in
-  *.dkr.ecr.*.amazonaws.com)
-    log "Authenticating to ECR ($REGISTRY)"
-    aws ecr get-login-password --region "${AWS_REGION:-ap-south-1}" \
-      | docker login --username AWS --password-stdin "$REGISTRY"
-    ;;
-esac
+# somebody did by hand at some point.
+#
+# The default here has to match the one in the compose files. It used to switch on REGISTRY being
+# set, which was right while Docker Hub was still a possibility and is a trap now that it is not:
+# compose defaults REGISTRY to the ECR host, so an unset REGISTRY still resolves to ECR at pull
+# time, while this block would have skipped the login and left `docker pull` to fail with `no basic
+# auth credentials` — an error that reads like a broken image name.
+REGISTRY="${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}"
+export REGISTRY
+
+log "Authenticating to ECR ($REGISTRY)"
+aws ecr get-login-password --region "${AWS_REGION:-ap-south-1}" \
+  | docker login --username AWS --password-stdin "$REGISTRY"
 
 log "Pulling images (tag=$TAG)"
 export TAG
