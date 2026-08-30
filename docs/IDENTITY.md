@@ -68,18 +68,20 @@ moment before the swap still verify.
 
 ### 2. Its database
 
-`docker/postgres/init/02-identity-database.sql` creates `prabhix_identity` — but
-`docker-entrypoint-initdb.d` only runs on an **empty data directory**, so on any host whose volume
-already exists, including production, it never runs. Create it by hand once:
+`docker/postgres/init/02-identity-database.sql` creates the `identity` role and the `identity`
+database it owns — but `docker-entrypoint-initdb.d` only runs on an **empty data directory**, so on
+any host whose volume already exists it never runs. Run the same file by hand once:
 
 ```bash
-docker compose exec postgres psql -U prabhix -c 'CREATE DATABASE prabhix_identity'
-docker compose exec postgres psql -U prabhix -d prabhix_identity \
-  -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS citext;'
+docker compose exec postgres psql -U oneops -f /docker-entrypoint-initdb.d/02-identity-database.sql
 ```
 
-Identity's own Flyway creates the tables on first boot. A separate database rather than a schema, so
-"the platform cannot read the users table" is enforced by credentials rather than convention.
+On RDS the steps are the same but the master user is not a superuser, which changes two of them. See
+[deploy/RUNBOOK-rds.md](../deploy/RUNBOOK-rds.md).
+
+Identity's own Flyway creates the tables on first boot. A separate database *and* its own role, so
+"the platform cannot read the users table" is enforced by credentials rather than convention — a
+separate database that the platform's own user owns would not be a boundary at all.
 
 ### 3. The issuer, exactly right
 

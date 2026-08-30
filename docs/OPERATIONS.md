@@ -13,7 +13,7 @@ Transaction pooling forbids server-side prepared statements. The Compose `DB_URL
 ```yaml
 spring:
   datasource:
-    url: jdbc:postgresql://pgbouncer:6432/prabhix?prepareThreshold=0
+    url: jdbc:postgresql://pgbouncer:6432/oneops?prepareThreshold=0
 ```
 
 ### Flyway (direct Postgres)
@@ -30,8 +30,8 @@ spring:
 In Compose / prod env:
 
 ```bash
-FLYWAY_URL=jdbc:postgresql://postgres:5432/prabhix
-DB_URL=jdbc:postgresql://pgbouncer:5432/prabhix?prepareThreshold=0
+FLYWAY_URL=jdbc:postgresql://postgres:5432/oneops
+DB_URL=jdbc:postgresql://pgbouncer:5432/oneops?prepareThreshold=0
 ```
 
 Until `spring.flyway.url` is wired, Flyway runs against whatever `DB_URL` points at — use direct

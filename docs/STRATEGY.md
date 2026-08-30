@@ -204,7 +204,7 @@ tenants is a breach.
 
 One is a commons. The other is a tenant.
 
-What was built, in `V23__compatibility_commons.sql`:
+What was built (MobiStack's schema, since squashed into its `V1__baseline.sql`):
 
 - **A global compatibility graph, not shop-scoped.** `catalog_brands`, `catalog_devices`,
   `catalog_components` and `catalog_fitments`, none of which has a `shop_id` column at all. The edge
@@ -250,7 +250,7 @@ was org-scoped and shared, there was thread *status* rather than folders, compos
 Built in order — API first, then the clients, because a client written against an imagined contract
 gets rewritten when the real one lands.
 
-**`V64__mailbox_folders_and_flags.sql`** and `/api/v1/mailbox`:
+The mailbox schema (since squashed into `V1__baseline.sql`) and `/api/v1/mailbox`:
 
 - **Folders, not statuses.** `mail_folders` with a `kind` for the six system folders so code can find
   "the trash folder for this mailbox" without matching on a name a person is free to rename.
