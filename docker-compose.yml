@@ -20,14 +20,14 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-prabhix}
-      POSTGRES_USER: ${POSTGRES_USER:-prabhix}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      POSTGRES_DB: ${POSTGRES_DB:-oneops}
+      POSTGRES_USER: ${POSTGRES_USER:-oneops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oneops}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prabhix} -d ${POSTGRES_DB:-prabhix}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oneops} -d ${POSTGRES_DB:-oneops}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,9 +47,9 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: ${POSTGRES_USER:-prabhix}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
-      DB_NAME: ${POSTGRES_DB:-prabhix}
+      DB_USER: ${POSTGRES_USER:-oneops}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-oneops}
+      DB_NAME: ${POSTGRES_DB:-oneops}
       POOL_MODE: transaction
       # max_client_conn: backend replicas × DB_POOL_MAX (e.g. 4 × 20 = 80) is tiny vs operator SSE
       # scale; 10k client slots leave headroom for burst reconnects without opening 10k PG backends.
@@ -63,7 +63,7 @@ services:
       SERVER_RESET_QUERY: "DISCARD ALL"
       AUTH_TYPE: plain
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${POSTGRES_USER:-prabhix} -d ${POSTGRES_DB:-prabhix}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${POSTGRES_USER:-oneops} -d ${POSTGRES_DB:-oneops}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,13 +95,16 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-prabhix}?prepareThreshold=0
-      DB_USERNAME: ${POSTGRES_USER:-prabhix}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      DB_URL: jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-oneops}?prepareThreshold=0
+      DB_USERNAME: ${POSTGRES_USER:-oneops}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-oneops}
       # Migrations go straight to Postgres, bypassing PgBouncer. Transaction pooling cannot hold a
       # session-level advisory lock across statements, so Flyway's migration lock would not actually
       # protect concurrent deploys from racing each other.
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-prabhix}
+      #
+      # Overridable whole rather than only by host, because RDS also needs ?sslmode=require appended
+      # and a URL is easier to replace than to assemble from parts.
+      FLYWAY_URL: ${FLYWAY_URL:-jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-oneops}}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SERVER_PORT: 8080
@@ -136,7 +139,7 @@ services:
   identity:
     profiles:
       - identity
-    image: prabhixtechnologies/prabhix-identity:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-identity:${TAG:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -153,9 +156,13 @@ services:
       # out on restart, and with two replicas neither would accept the other's tokens.
       IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
       IDENTITY_RETIRED_PUBLIC_KEYS: ${IDENTITY_RETIRED_PUBLIC_KEYS:-}
-      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/${IDENTITY_DB_NAME:-prabhix_identity}
-      IDENTITY_DB_USER: ${POSTGRES_USER:-prabhix}
-      IDENTITY_DB_PASSWORD: ${POSTGRES_PASSWORD:-prabhix}
+      IDENTITY_DB_URL: ${IDENTITY_DB_URL:-jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${IDENTITY_DB_NAME:-identity}}
+      # Its own role, not the platform's. A separate database only keeps the platform out of the
+      # users table if the platform's credentials cannot reach it, and until now both services
+      # connected as the same owner — so the separation was a convention after all. The role is
+      # created by docker/postgres/init/02-identity-database.sql locally, and by hand on RDS.
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-identity}
       # The same Redis as the platform, on purpose: the deny list is one set of keys that identity
       # writes and every product reads.
       REDIS_HOST: redis
@@ -263,7 +270,7 @@ services:
   # product; this is a different application whose entire screen is one mailbox, and folding it in
   # would put mail-rendering code in the bundle of two apps that do not render mail.
   mailroom:
-    image: prabhixtechnologies/prabhix-mailroom:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${TAG:-latest}
     build:
       context: ../Mailroom/web
       dockerfile: Dockerfile
@@ -345,6 +352,11 @@ services:
       # keeps serving the old contents — and `caddy reload` reports success while changing nothing,
       # because it re-reads the same stale inode. deploy.sh recreates this container for that reason.
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Extra site blocks, imported by glob. A directory rather than more single files, so adding a
+      # site is dropping in a file instead of editing the one above — and so the inode problem
+      # described for the Caddyfile does not multiply. Empty by default; the glob matching nothing
+      # is not an error.
+      - ./deploy/conf.d:/etc/caddy/conf.d:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

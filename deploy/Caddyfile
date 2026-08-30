@@ -101,13 +101,21 @@ app.prabhixtechnologies.com {
 	redir https://oneops.prabhixtechnologies.com{uri} permanent
 }
 
-# MobiStack is a separate deployment with its own compose stack, so there is no upstream here.
-# Point mobistack.prabhixtechnologies.com at that host in DNS. If it is ever co-located, add:
-#   mobistack.prabhixtechnologies.com {
-#   	import security_headers
-#   	reverse_proxy mobistack:80
-#   }
-# It serves HTML, so `security_headers` is correct there and `no_document_headers` is not.
+# Extra sites, dropped in as files rather than written here.
+#
+# This exists for co-locating MobiStack on this box. A site block cannot simply be added above and
+# left dormant: Caddy tries to obtain a certificate for every name it is configured to serve, so a
+# block for a hostname whose DNS still points somewhere else means failing ACME orders on a loop,
+# against a rate limit that is counted per name and per week. The name has to appear here only
+# after the A record does.
+#
+# So the fragment ships disabled — deploy/conf.d/mobistack.caddyfile.example — and enabling it is a
+# rename, which is also the rollback. See deploy/RUNBOOK-consolidate.md.
+#
+# A directory mount rather than more single files, for the inode reason described on the caddy
+# volumes in docker-compose.yml: a bind-mounted file is replaced by `git pull`, and the container
+# keeps serving the contents of the inode it opened at start.
+import /etc/caddy/conf.d/*.caddyfile
 
 # Spring Boot API — one origin for clients, whichever service is behind it.
 #

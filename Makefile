@@ -25,9 +25,9 @@ fresh:
 
 ## Open psql against the compose postgres
 psql:
-	$(COMPOSE_LOCAL) exec postgres psql -U prabhix -d prabhix
+	$(COMPOSE_LOCAL) exec postgres psql -U oneops -d oneops
 
-## Run backend unit tests (requires JDK 21 or 17 with -Djava.version=17)
+## Run backend unit tests (requires JDK 25, or 17 with -Djava.version=17)
 backend-test:
 	cd backend && mvn -B verify
 

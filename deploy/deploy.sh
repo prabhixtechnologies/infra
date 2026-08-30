@@ -48,20 +48,34 @@ rollback() {
 
 trap rollback ERR
 
+# ECR tokens last twelve hours, so a deploy authenticates itself rather than depending on a login
+# somebody did by hand at some point. Matched on the registry host so the Docker Hub path is
+# untouched: there, REGISTRY is a namespace and `docker pull` uses the stored credential.
+case "${REGISTRY:-}" in
+  *.dkr.ecr.*.amazonaws.com)
+    log "Authenticating to ECR ($REGISTRY)"
+    aws ecr get-login-password --region "${AWS_REGION:-ap-south-1}" \
+      | docker login --username AWS --password-stdin "$REGISTRY"
+    ;;
+esac
+
 log "Pulling images (tag=$TAG)"
 export TAG
 $COMPOSE --env-file "$ENV_FILE" pull backend web admin mailroom marketing
 
-log "Starting infrastructure (postgres, pgbouncer, redis)"
-$COMPOSE --env-file "$ENV_FILE" up -d postgres pgbouncer redis
+# Redis is deliberately absent: production uses ElastiCache Valkey, and the container is parked
+# behind the `never` profile in docker-compose.prod.yml. Naming a service on the command line
+# implicitly enables its profile, so listing redis here would start it again regardless.
+log "Starting infrastructure (postgres, pgbouncer)"
+$COMPOSE --env-file "$ENV_FILE" up -d postgres pgbouncer
 
 log "Waiting for postgres"
-until $COMPOSE --env-file "$ENV_FILE" exec -T postgres pg_isready -U "${POSTGRES_USER:-prabhix}" >/dev/null 2>&1; do
+until $COMPOSE --env-file "$ENV_FILE" exec -T postgres pg_isready -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do
   sleep 2
 done
 
 log "Waiting for pgbouncer"
-until $COMPOSE --env-file "$ENV_FILE" exec -T pgbouncer pg_isready -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-prabhix}" >/dev/null 2>&1; do
+until $COMPOSE --env-file "$ENV_FILE" exec -T pgbouncer pg_isready -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do
   sleep 2
 done
 
@@ -88,7 +102,7 @@ log "Backend is ready"
 # would surface later.
 log "Asserting no mail was delivered via the logging transport"
 logged_mail=$($COMPOSE --env-file "$ENV_FILE" exec -T postgres \
-  psql -U "${POSTGRES_USER:-prabhix}" -d "${POSTGRES_DB:-prabhix}" -tAc \
+  psql -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" -tAc \
   "SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'" \
   2>/dev/null | tr -d '[:space:]')
 

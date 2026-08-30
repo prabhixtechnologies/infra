@@ -1,24 +1,59 @@
 # Production overrides — pre-built images, hardened defaults, secrets from deploy/.env.prod.
+#
+# Every service carries a memory limit, because the whole platform shares one t3.medium (4 GiB)
+# with MobiStack. Docker applies no limit by default, so without these the first service to leak
+# takes the others down through the kernel OOM killer — and the kernel picks its victim by resident
+# size, which means the busiest healthy process dies rather than the one at fault.
+#
+# Steady state, once the database has moved to RDS and MobiStack shares this box:
+#
+#   platform backend   1024m      identity            384m      marketing   384m
+#   mobistack backend   640m      pgbouncer            64m      caddy       128m
+#   web / admin / mailroom / mobistack web              48m each
+#
+# ~2.8 GiB of ceilings against ~3.7 GiB usable. These are ceilings, not reservations, so real usage
+# sits well below them; the remainder is page cache and the mail server when its profile is up.
+#
+# The postgres and pgbouncer limits below are transitional. 512m for postgres does not fit the
+# budget above once MobiStack's JVM lands here too, which is the arithmetic reason the RDS move has
+# to happen before the two boxes are collapsed into one.
 
 services:
   postgres:
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
 
+  # Redis runs on ElastiCache Valkey in production, so the container is switched off rather than
+  # deleted from the base file — local development still wants it. `never` is not a profile anything
+  # activates, which is the same trick mailpit uses at the bottom of this file.
   redis:
-    restart: always
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
+    profiles:
+      - never
 
+  # Points at whatever POSTGRES_HOST says: the local container before the RDS cutover, the RDS
+  # endpoint after it. The pooler stays either way — RDS gives a connection ceiling, not a pooler,
+  # and t3.medium-sized instances have a low max_connections.
   pgbouncer:
     restart: always
+    environment:
+      DB_HOST: ${POSTGRES_HOST:-postgres}
+      # RDS PostgreSQL 16 ships rds.force_ssl=1 in its default parameter group, so an unencrypted
+      # connection is refused outright. Harmless against the local container, which simply does not
+      # offer TLS and falls back — that is what `prefer` means, and why it is not `require` here.
+      # Set SERVER_TLS_SSLMODE=verify-full with the RDS CA bundle once the endpoint is fixed.
+      SERVER_TLS_SSLMODE: ${PGBOUNCER_SERVER_TLS_SSLMODE:-prefer}
+    deploy:
+      resources:
+        limits:
+          memory: 64m
     logging:
       driver: json-file
       options:
@@ -26,23 +61,68 @@ services:
         max-file: "5"
 
   backend:
-    image: prabhixtechnologies/prabhix-backend:${TAG:-latest}
+    # REGISTRY is the ECR host, e.g. 123456789012.dkr.ecr.ap-south-1.amazonaws.com. Defaulted to the
+    # Docker Hub namespace so a box that has not migrated keeps working, which makes setting this
+    # variable the whole cutover and unsetting it the whole rollback.
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-backend:${TAG:-latest}
     build: !reset null
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+    # !override, not a merge: depends_on is a mapping, so adding it here would union with the base
+    # file's entries and keep waiting on a redis container that production does not run.
+    depends_on: !override
+      pgbouncer:
+        condition: service_healthy
     # deploy.sh sources deploy/.env.prod and passes --env-file for interpolation.
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # Replaces the Dockerfile's default. 75% of a limit this size leaves too little for metaspace,
+      # code cache and direct buffers, and the JVM does not count those against MaxRAMPercentage —
+      # the container gets OOM-killed with exit 137 and no Java stack trace to explain it.
+      #
+      # ExitOnOutOfMemoryError because the alternative is worse: by default a heap OOM kills one
+      # thread and leaves the process up, so it keeps passing its health check while failing
+      # requests. Exiting hands it to `restart: always`.
+      #
+      # UseCompactObjectHeaders shrinks every object header from 12 bytes to 8. A product option in
+      # JDK 25 rather than the experimental flag it was in 24, so it needs no unlock flag, but still
+      # off by default. Worth turning on here specifically because this box is four JVMs in 4 GiB and
+      # this application's heap is mostly small objects — entities, DTOs, strings — where the header
+      # is a large fraction of each one. Delete the line to back it out; nothing depends on it.
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60
+        -XX:+UseContainerSupport
+        -XX:+UseCompactObjectHeaders
+        -XX:+ExitOnOutOfMemoryError
+        -Djava.security.egd=file:/dev/./urandom
+      # `valkey` alongside `prod` is what switches Redis config from host/port to the cluster
+      # endpoint with TLS. Kept as a separate profile so a prod-profile run against a plain Redis
+      # container is still possible.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,valkey}
       SERVER_PORT: ${SERVER_PORT:-8080}
       VIRTUAL_THREADS: "true"
       SWAGGER_ENABLED: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      DB_URL: jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-prabhix}?prepareThreshold=0
-      DB_USERNAME: ${DB_USERNAME:-prabhix}
+      # Through the pooler, and it stays that way on RDS: what changes is where pgbouncer points.
+      # prepareThreshold=0 is not optional — transaction pooling hands a different server connection
+      # to each transaction, so a server-side prepared statement is not there the second time.
+      DB_URL: ${DB_URL:-jdbc:postgresql://pgbouncer:5432/${POSTGRES_DB:-oneops}?prepareThreshold=0}
+      DB_USERNAME: ${DB_USERNAME:-oneops}
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env.prod}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       DB_POOL_MIN: ${DB_POOL_MIN:-5}
-      REDIS_HOST: redis
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      # The ElastiCache Valkey serverless endpoint, e.g.
+      # prabhixtechnologies-abc123.serverless.aps1.cache.amazonaws.com:6379. One entry, not a node
+      # list: the driver discovers the topology behind it. Required, because a blank value would
+      # leave the valkey profile resolving nothing and fail startup with a placeholder error that
+      # says less than this does.
+      #
+      # REDIS_HOST and REDIS_PORT are still inherited from the base file and are dead weight here:
+      # the valkey profile configures a cluster, and Spring prefers a cluster over standalone. They
+      # are left in place because local development reads them from that same base file.
+      REDIS_CLUSTER_NODES: ${REDIS_CLUSTER_NODES:?set REDIS_CLUSTER_NODES in deploy/.env.prod}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env.prod}
       JWT_ISSUER: ${JWT_ISSUER:-prabhix-platform}
@@ -99,8 +179,34 @@ services:
 
   identity:
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+    depends_on: !override
+      postgres:
+        condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      # SerialGC here and nowhere else. Identity is the smallest heap on the box and its work is
+      # short request/response with almost no garbage; G1's region bookkeeping and its concurrent
+      # threads cost more than they return at this size. The platform backend keeps G1, because it
+      # holds SSE connections where a stop-the-world pause is visible to users.
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60
+        -XX:+UseContainerSupport
+        -XX:+UseSerialGC
+        -XX:+UseCompactObjectHeaders
+        -XX:+ExitOnOutOfMemoryError
+        -Djava.security.egd=file:/dev/./urandom
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,valkey}
+      # Defaulted rather than required, unlike the backend's copy of this variable: identity sits
+      # behind a compose profile, and compose interpolates every service in the file whether its
+      # profile is active or not. A `${...:?}` here would fail `up` for the whole stack on a box
+      # that is not running identity — the same reasoning as IDENTITY_SIGNING_KEY below.
+      #
+      # Must be the same cache as the backend: the deny list is one keyspace that identity writes
+      # and every product reads.
+      REDIS_CLUSTER_NODES: ${REDIS_CLUSTER_NODES:-}
       # Defaulted rather than `${...:?}`, even though a blank key cannot work here.
       #
       # Compose interpolates every service in the file, including ones behind an inactive profile, so
@@ -117,9 +223,15 @@ services:
         max-file: "10"
 
   web:
-    image: prabhixtechnologies/prabhix-web:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-web:${TAG:-latest}
     build: !reset null
     restart: always
+    # nginx serving a built bundle from disk. The page cache does the work and lives outside the
+    # cgroup, so the limit only has to cover the worker processes.
+    deploy:
+      resources:
+        limits:
+          memory: 48m
     logging:
       driver: json-file
       options:
@@ -129,9 +241,13 @@ services:
   # Built from the same source tree as `web` but with APP=admin, so it is a separate image rather
   # than the same one served on a second hostname.
   admin:
-    image: prabhixtechnologies/prabhix-admin:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-admin:${TAG:-latest}
     build: !reset null
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 48m
     logging:
       driver: json-file
       options:
@@ -141,9 +257,13 @@ services:
   # Built from the sibling Mailroom repository by its own CI, so there is nothing to build here even
   # in development — the image is the interface between the two repos.
   mailroom:
-    image: prabhixtechnologies/prabhix-mailroom:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-mailroom:${TAG:-latest}
     build: !reset null
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 48m
     logging:
       driver: json-file
       options:
@@ -151,13 +271,22 @@ services:
         max-file: "5"
 
   marketing:
-    image: prabhixtechnologies/prabhix-marketing:${TAG:-latest}
+    image: ${REGISTRY:-prabhixtechnologies}/prabhix-marketing:${TAG:-latest}
     build: !reset null
     restart: always
-    # NEXT_PUBLIC_* values are inlined when the image is built, so setting them here only helps
-    # if the image was built with the same values. They are declared for parity with the build
-    # args in .github/workflows/ci.yml, which is the place that actually bakes them in.
+    # A Node process rendering server components, so unlike the three nginx containers this one has
+    # a real heap. Node sizes its old space from total host memory, not from the cgroup, so without
+    # --max-old-space-size it would plan for a 4 GiB machine and get OOM-killed at 384m instead of
+    # collecting garbage. Set to roughly two thirds of the limit.
+    deploy:
+      resources:
+        limits:
+          memory: 384m
     environment:
+      NODE_OPTIONS: --max-old-space-size=256
+      # NEXT_PUBLIC_* values are inlined when the image is built, so setting them here only helps
+      # if the image was built with the same values. They are declared for parity with the build
+      # args in .github/workflows/ci.yml, which is the place that actually bakes them in.
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL}
       # Without this the header "Sign in" link falls back to the compiled-in default.
@@ -175,6 +304,10 @@ services:
 
   caddy:
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128m
     logging:
       driver: json-file
       options:

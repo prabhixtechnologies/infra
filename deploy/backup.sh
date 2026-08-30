@@ -11,8 +11,8 @@ if [ -f "$ENV_FILE" ]; then
   set -a && source "$ENV_FILE" && set +a
 fi
 
-POSTGRES_DB="${POSTGRES_DB:-prabhix}"
-POSTGRES_USER="${POSTGRES_USER:-prabhix}"
+POSTGRES_DB="${POSTGRES_DB:-oneops}"
+POSTGRES_USER="${POSTGRES_USER:-oneops}"
 BACKUP_S3_BUCKET="${BACKUP_S3_BUCKET:-prabhix-backups}"
 AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-ap-south-1}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
