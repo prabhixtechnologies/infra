@@ -10,11 +10,13 @@
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:repository_owner": "prabhixtechnologies"
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:prabhixtechnologies/*"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:*@320051589/*:ref:refs/heads/main",
+            "repo:*@320051589/*:ref:refs/heads/master"
+          ]
         }
       }
     }

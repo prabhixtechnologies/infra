@@ -56,27 +56,46 @@ that. The account has since been moved to a paid plan and the instance is now `c
 the stack has the 4 GiB its memory budget was written for. Resolved, and recorded here only because
 the error names a restriction rather than a permission and is easy to misread as one.
 
-## Why the GitHub trust policy wildcards the repository name
+## Why the GitHub trust policy matches on an account ID and not a name
 
-`github-oidc-trust.json` matches `repo:prabhixtechnologies/*:ref:refs/heads/main` and the same for
-`master`, rather than naming the five repositories.
+`github-oidc-trust.json` matches `repo:*@320051589/*:ref:refs/heads/main` and the `master`
+equivalent. That looks alarmingly loose and is not: `320051589` is this account's GitHub owner ID,
+which maps to exactly one account and cannot be re-registered. A name can be renamed and the
+freed name claimed by someone else; an ID cannot.
 
-It named them first, and every assumption was refused with *"Not authorized to perform
-sts:AssumeRoleWithWebIdentity"* on a push to `main`, from a job that declared `id-token: write`,
-against a trust policy whose text read correctly. IAM compares the `sub` claim case-sensitively, the
-five names had been typed by hand, and the error names the action it refused but never the claim it
-failed to match — so there is no way to see the string AWS compared against. Enumerating names is
-only tighter if the names are exactly right, and an unverifiable hand-typed list is a trap dressed as
-a control.
+It took six failed runs to arrive at, all with the same useless error — *"Not authorized to perform
+sts:AssumeRoleWithWebIdentity"* — while every observable input was correct. Two separate causes were
+hiding behind it, and neither is guessable, so the debug step in `ci.yml` that prints the token's
+claims is the thing that actually solved it and is worth keeping.
 
-Three things still constrain it, and they are the ones that matter. The **owner** prefix, and every
-repository under that owner is ours. The **branch**, which is what stops a pull request from a fork
-assuming the role — the actual attack this guards against, since fork PRs get a `sub` of
-`repo:owner/name:pull_request`. And the **audience**.
+**The subject claim is not the documented format.** This account issues *immutable* subjects, with
+numeric IDs appended to both the owner and the repository:
 
-Note that IAM rejects unknown fields in a trust policy, including `_comment`, with
-`MalformedPolicyDocument` — unlike some other AWS policy documents which tolerate it. That is why
-this explanation lives here rather than beside the JSON.
+```
+repo:prabhixtechnologies@320051589/platform@1349569564:ref:refs/heads/main
+```
+
+Every published example, and every pattern tried here first, assumes `repo:owner/repo:ref:...`. A
+pattern of `repo:prabhixtechnologies/*` cannot match that string, because what follows the owner is
+`@320051589`, not `/`. This is why widening the pattern from five enumerated names to an owner
+wildcard changed nothing: both were the wrong shape, not merely too narrow.
+
+**`repository_owner` did not equal the owner's name.** Adding
+`"repository_owner": "prabhixtechnologies"` alongside a correct subject pattern still failed;
+removing it was the change that let the push through. That claim comes back masked as `***` in the
+logs — it matches a repository secret, so its real value cannot be read from CI output — and it is
+evidently not the lowercase login the GitHub API reports as canonical. It is left out rather than
+guessed at.
+
+Two things still constrain the role, and they are the ones that matter: the immutable **owner ID**,
+and the **branch**. The branch restriction is the one doing security work, because a pull request
+from a fork presents a subject ending `:pull_request` rather than `:ref:refs/heads/main`, so it
+cannot assume the role even though it runs in our repository's context.
+
+Two smaller traps, both worth knowing before editing this file. IAM **requires** a trust policy for
+this provider to constrain `sub` or `job_workflow_ref`; conditioning on `repository_owner` alone is
+rejected outright with `MalformedPolicyDocument`. And IAM rejects unknown fields in a trust policy,
+`_comment` included, which is why this explanation is here and not beside the JSON.
 
 ## Why the policy can now read itself
 
