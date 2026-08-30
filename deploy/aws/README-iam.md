@@ -1,8 +1,24 @@
 # Deployer permissions
 
-`iam-platform-deployer.json` is an inline policy for the IAM user that runs deployments, currently
-`prabhix`. Attach it under **IAM → Users → prabhix → Add permissions → Create inline policy → JSON**
-and name it `prabhix-platform-deployer`.
+`iam-platform-deployer.json` grants the IAM user that runs deployments, currently `prabhix`, the
+access the runbooks need.
+
+**It has to be a customer managed policy, not an inline one.** An inline policy on a user is capped
+at 2048 characters and this document is about 3900, so the console will not accept it in the inline
+editor. Attach it as:
+
+    10|**IAM → Policies → Create policy → JSON**, paste the file, name it `prabhix-platform-deployer`,
+then **IAM → Users → prabhix → Add permissions → Attach policies directly** and select it.
+
+This matters because of how the first attempt failed. After the policy was reported as attached,
+every statement with `"Resource": "*"` worked and every statement with a scoped ARN was still
+denied — `ecr:CreateRepository` on the exact ARN the policy names came back as *"no identity-based
+policy allows"* it, which is what IAM says when the statement is absent rather than when it is
+present and narrower than the request. A policy trimmed to fit the inline limit, keeping the short
+wildcard statements and dropping the long scoped ones, produces exactly that pattern.
+
+    20|After attaching, verify with the commands at the bottom of this file rather than trusting the
+console's success message.
 
 Nothing in it was guessed from the plan. Each statement corresponds to a runbook step that returned
 `AccessDenied` when the account was probed, so the policy is the measured gap and not a wishlist.
@@ -34,22 +50,21 @@ and conditioned on the service it may be passed to.
 The probe found `prabhix` already has EC2 read and write, and `prabhixDBAdmin` already has RDS read
 and write. Those two cover the instance and database work, so this policy does not restate them.
 
-One blocker is not about permissions at all. Changing the instance type fails with
-`FreeTierRestrictionError`, because the account is on the AWS Free Plan:
-
-```
-An error occurred (FreeTierRestrictionError) when calling the ModifyInstanceAttribute operation:
-This operation is not available for free plan accounts.
-```
-
-`t3.medium` is not free-tier eligible, so no policy will unblock it. That needs the account moved to
-a paid plan, and until then production stays on `t3.small` with 1.9 GiB, against a stack whose memory
-budget was written for 4 GiB.
+One blocker was never about permissions. Changing the instance type used to fail with
+`FreeTierRestrictionError`, because the account was on the AWS Free Plan and no policy can unblock
+that. The account has since been moved to a paid plan and the instance is now `c7i-flex.large`, so
+the stack has the 4 GiB its memory budget was written for. Resolved, and recorded here only because
+the error names a restriction rather than a permission and is easy to misread as one.
 
 ## Verifying the policy took effect
 
+Run all four. The first two are the ones that were denied while the policy appeared to be attached,
+so they are the ones that distinguish "attached" from "attached and complete".
+
 ```powershell
 aws ecr describe-repositories                 # expect an empty list, not AccessDenied
+aws ecr create-repository --repository-name prabhix/probe `
+  --image-tag-mutability IMMUTABLE           # the scoped statement; delete the repo afterwards
 aws elasticache describe-serverless-caches    # expect the Valkey cache
 aws sesv2 get-account --query ProductionAccessEnabled
 ```
