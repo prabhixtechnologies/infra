@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "GitHubActionsOnMainBranchesOnly",
+      "Sid": "GitHubActionsOnMainAndMasterOnly",
       "Effect": "Allow",
       "Principal": {
         "Federated": "arn:aws:iam::029096972251:oidc-provider/token.actions.githubusercontent.com"
@@ -14,11 +14,8 @@
         },
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
-            "repo:prabhixtechnologies/platform:ref:refs/heads/main",
-            "repo:prabhixtechnologies/Identity:ref:refs/heads/main",
-            "repo:prabhixtechnologies/Mailroom:ref:refs/heads/main",
-            "repo:prabhixtechnologies/Mobistack:ref:refs/heads/master",
-            "repo:prabhixtechnologies/oneOps:ref:refs/heads/main"
+            "repo:prabhixtechnologies/*:ref:refs/heads/main",
+            "repo:prabhixtechnologies/*:ref:refs/heads/master"
           ]
         }
       }

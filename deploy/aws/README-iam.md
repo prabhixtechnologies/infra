@@ -56,6 +56,28 @@ that. The account has since been moved to a paid plan and the instance is now `c
 the stack has the 4 GiB its memory budget was written for. Resolved, and recorded here only because
 the error names a restriction rather than a permission and is easy to misread as one.
 
+## Why the GitHub trust policy wildcards the repository name
+
+`github-oidc-trust.json` matches `repo:prabhixtechnologies/*:ref:refs/heads/main` and the same for
+`master`, rather than naming the five repositories.
+
+It named them first, and every assumption was refused with *"Not authorized to perform
+sts:AssumeRoleWithWebIdentity"* on a push to `main`, from a job that declared `id-token: write`,
+against a trust policy whose text read correctly. IAM compares the `sub` claim case-sensitively, the
+five names had been typed by hand, and the error names the action it refused but never the claim it
+failed to match — so there is no way to see the string AWS compared against. Enumerating names is
+only tighter if the names are exactly right, and an unverifiable hand-typed list is a trap dressed as
+a control.
+
+Three things still constrain it, and they are the ones that matter. The **owner** prefix, and every
+repository under that owner is ours. The **branch**, which is what stops a pull request from a fork
+assuming the role — the actual attack this guards against, since fork PRs get a `sub` of
+`repo:owner/name:pull_request`. And the **audience**.
+
+Note that IAM rejects unknown fields in a trust policy, including `_comment`, with
+`MalformedPolicyDocument` — unlike some other AWS policy documents which tolerate it. That is why
+this explanation lives here rather than beside the JSON.
+
 ## Why the policy can now read itself
 
 Two statements, `ReadOwnPermissionsForDiagnosis` and `ReadPolicyDocumentsForDiagnosis`, let this user
