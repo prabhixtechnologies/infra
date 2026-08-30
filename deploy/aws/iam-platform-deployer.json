@@ -17,6 +17,28 @@
       "Resource": "*"
     },
     {
+      "Sid": "ReadOwnPermissionsForDiagnosis",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListAttachedUserPolicies",
+        "iam:ListUserPolicies",
+        "iam:GetUserPolicy",
+        "iam:ListGroupsForUser",
+        "iam:GetUser"
+      ],
+      "Resource": "arn:aws:iam::029096972251:user/prabhix"
+    },
+    {
+      "Sid": "ReadPolicyDocumentsForDiagnosis",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions"
+      ],
+      "Resource": "arn:aws:iam::029096972251:policy/*"
+    },
+    {
       "Sid": "EcrRepositoryLifecycle",
       "Effect": "Allow",
       "Action": [
