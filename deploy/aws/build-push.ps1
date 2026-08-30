@@ -87,11 +87,17 @@ $images = @(
     } }
 )
 
-$selected = if ($Only.Count -gt 0) {
+# Split on commas as well as taking an array, because `powershell -File this.ps1 -Only web,admin`
+# hands the whole list over as one string rather than three, and the resulting "unknown image" error
+# names every image you asked for as if none of them existed.
+$wanted = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
+$selected = if ($wanted.Count -gt 0) {
     $known = $images | ForEach-Object { $_.Name }
-    $missing = $Only | Where-Object { $_ -notin $known }
+    $missing = $wanted | Where-Object { $_ -notin $known }
     if ($missing) { throw "unknown image(s): $($missing -join ', '). Known: $($known -join ', ')" }
-    $images | Where-Object { $_.Name -in $Only }
+    # Ordered by the table, not by the argument, so a full run always builds in the same order.
+    $images | Where-Object { $_.Name -in $wanted }
 } else { $images }
 
 # One login for the whole run. The credentials last twelve hours, so a long multi-image build does
