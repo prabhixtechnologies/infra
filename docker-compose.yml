@@ -252,6 +252,11 @@ services:
       # Shared secret the platform presents to /internal/users/lookup. Blank disables the endpoint.
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      # Off by default, because an error message can name a claim or an internal path and this service
+      # answers unauthenticated requests. Worth being switchable: the OAuth endpoints reject with a
+      # bare 400 whose reason is in the message and nowhere else — not the logs — so without this a
+      # rejected /connect/logout or /oauth2/token is indistinguishable from any other bad request.
+      SERVER_ERROR_INCLUDE_MESSAGE: ${SERVER_ERROR_INCLUDE_MESSAGE:-never}
     networks:
       - prabhix
 
