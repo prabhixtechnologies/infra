@@ -17,14 +17,21 @@ follows from that sentence.
 
 ---
 
-## The four repositories
+## The repositories
 
 | Repo | Owns | Does not own |
 | --- | --- | --- |
 | `Identity` | Who you are. Credentials, lockout, sessions, refresh rotation, magic links, OTP, SSO linking, and the OAuth/OIDC protocol surface. | What you can do. No organization, shop, role or permission appears in its schema. |
-| `Platform` | OneOps and the admin console: organizations, memberships, roles, permissions, mail, chat, files, commerce, billing. | Authentication. |
+| `oneOps` | OneOps and the admin console: the backend, both consoles and mobile. Organizations, memberships, roles, permissions, chat, files, commerce, billing. | Authentication. Mail, once the extraction below is finished — it still holds the mail module today. |
+| `Platform` | The marketing site, and nothing else. | Everything it used to: it was the monorepo, and the split below emptied it. |
+| `Mailroom` | The mail product end to end: personal mailboxes with folders, a web client, an Android app, and the Postfix/Dovecot/Rspamd transport under `mail-server/`. | Authentication, and — for now — the mailbox API and mail schema, which are still in the oneOps backend. |
 | `MobiStack` | Two things that are being separated — a global component-compatibility commons, and per-shop inventory. | Authentication. |
-| `Mailroom` | Personal mailboxes with folders: a web client and an Android app. | Authentication, its own mailbox API — that lives in the platform, which owns the mail schema — and its own transport, since Postfix/Dovecot already exist in `Platform/mail-server`. |
+| `Infra` | How it all runs: Compose, Caddy, the deploy scripts, the databases' init SQL, and these documents. | Any application code. |
+
+`Platform` began as a monorepo holding the backend, both consoles, mobile, marketing, the mail
+transport and the whole deployment. It was split along the lines above rather than left alone
+because a single release tag had come to mean six different things, and no service could be
+released without re-tagging the other five.
 
 Each product keeps a thin local `users` mirror keyed by the identity `sub`, so existing foreign keys
 (`created_by`, `assignee_id`, `organization_memberships.user_id`) keep working.

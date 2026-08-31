@@ -1,7 +1,22 @@
 # Prabhix platform — base Compose stack.
 # Local:  docker compose -f docker-compose.yml -f docker-compose.local.yml up
 # Prod:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# Mail:   add -f mail-server/docker-compose.mail.yml --profile mailserver
+# Mail:   add -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver
+#
+# Build contexts point at sibling repositories, so this file only works from a checkout that sits
+# beside them:
+#
+#   PrabhixTechnologies/
+#     Infra/        this repository — compose, Caddy, deploy scripts, the databases' init SQL
+#     oneOps/       backend, the two consoles, mobile
+#     Platform/     the marketing site
+#     Mailroom/     mail front ends and the mail transport
+#     Identity/     sign-in, image-only here
+#     MobiStack/    co-located, its own compose
+#
+# Production never uses those contexts — every service there resolves an `image:` from ECR and a
+# missing sibling costs nothing, which is why the box checks out this repository alone. They exist so
+# that one `docker compose build` from here still produces the whole product on a laptop.
 
 name: prabhix
 
@@ -113,7 +128,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../oneOps/backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -275,7 +290,7 @@ services:
   # arg decides which of the two entry points is bundled.
   web:
     build:
-      context: ./web
+      context: ../oneOps/web
       dockerfile: Dockerfile
       # Vite also inlines at build time. Unlike marketing, the console is a static SPA served by
       # nginx with no proxy, so the browser calls this URL directly — it must be host-reachable.
@@ -311,7 +326,7 @@ services:
   # cross-tenant code, and so this one never carries the product.
   admin:
     build:
-      context: ./web
+      context: ../oneOps/web
       dockerfile: Dockerfile
       args:
         APP: admin
@@ -377,7 +392,7 @@ services:
 
   marketing:
     build:
-      context: ./marketing
+      context: ../Platform/marketing
       dockerfile: Dockerfile
       # Next inlines NEXT_PUBLIC_* into the bundle at build time, so these must be build args.
       # Passing them under `environment` instead does nothing, and an unset NEXT_PUBLIC_ORG_SLUG

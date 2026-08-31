@@ -167,7 +167,7 @@ certificate expiry two years from now.
 into all three files. Dovecot takes it from the environment; Postfix does not.
 
 ```bash
-cd /opt/prabhix/mail-server/postfix
+cd /opt/Mailroom/mail-server/postfix
 sudo sed -i "s/^hosts = .*/hosts = <endpoint>/" pgsql-virtual-*.cf
 sudo grep -H '^hosts' pgsql-virtual-*.cf
 ```
@@ -213,13 +213,13 @@ them.
 Four scripts, and the order matters only in that Identity and Platform must agree:
 
 ```bash
-# Platform: the Prabhix organization, the first OWNER, the shared mailboxes and their aliases.
+# Infra: the Prabhix organization, the first OWNER, the shared mailboxes and their aliases.
 psql "host=$RDS user=oneops dbname=oneops sslmode=require" \
   -v ON_ERROR_STOP=1 \
   -v owner_email=you@prabhixtechnologies.com \
   -v owner_password="$OWNER_PASSWORD" \
   -v owner_name='Your Name' \
-  -f Platform/deploy/seed.sql
+  -f oneOps/deploy/seed.sql
 
 # Identity: the same person, on the side that issues the tokens.
 psql "host=$RDS user=identity dbname=identity sslmode=require" \

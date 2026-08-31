@@ -5,7 +5,7 @@ outright, with no per-seat vendor fee.
 
 ```
                        ┌───────────────────────────────────────────┐
-  Internet MX ────────►│  LAYER 1 · TRANSPORT   (mail-server/)     │
+  Internet MX ────────►│  LAYER 1 · TRANSPORT   (Mailroom/mail-server/)     │
                        │  Postfix · Dovecot · Rspamd · OpenDKIM    │
                        └──────────────┬────────────────────────────┘
                                       │ LMTP push  /  IMAP pull
@@ -155,7 +155,7 @@ required for Layer 1.
 
 ---
 
-## Layer 1 — Self-hosted transport (`mail-server/`)
+## Layer 1 — Self-hosted transport (`Mailroom/mail-server/`)
 
 ### Components
 

@@ -22,7 +22,7 @@ Operations guide for EC2 + Docker Compose deployments.
 5. **DNS** — point A records for `@`, `www`, `oneops`, `admin`, `api` to the Elastic IP.
    Also point `app` there: Caddy serves it purely to redirect to `oneops`, so dropping the record
    would break bookmarks and the links in transactional email already sitting in people's inboxes.
-   For mail: `mail` A record + MX (see [mail-server/README.md](../mail-server/README.md)).
+   For mail: `mail` A record + MX (see [mail-server/README.md](../../Mailroom/mail-server/README.md)).
    `mobistack` is a separate deployment — point it at that host, not this one.
 
    A subdomain with no record of its own does not fail loudly. The registrar's wildcard answers
@@ -253,15 +253,15 @@ eval "$(bash deploy/secrets-env.sh)"    # then any docker compose command works
 ### Self-hosted transport
 
 ```bash
-docker compose -f mail-server/docker-compose.mail.yml --profile mailserver logs postfix
-docker compose -f mail-server/docker-compose.mail.yml --profile mailserver logs rspamd
+docker compose -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver logs postfix
+docker compose -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver logs rspamd
 ```
 
 - **550 unknown user** — mailbox not in `mail_mailboxes` or wrong `mode` on domain
 - **Gmail spam folder** — fix PTR, SPF, DKIM, DMARC (mail-tester.com)
 - **Deferred / timeout on outbound** — port 25 blocked → enable smarthost relay
 
-See [mail-server/README.md](../mail-server/README.md) for full deliverability checklist.
+See [mail-server/README.md](../../Mailroom/mail-server/README.md) for full deliverability checklist.
 
 ---
 

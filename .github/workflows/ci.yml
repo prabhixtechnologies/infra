@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compose:
+    name: Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Compose, PyYAML and Spring all accept a mapping with the same key twice and silently keep
+      # the last one, so a second `environment:` block deletes the first with no error anywhere.
+      - name: No duplicate keys
+        run: |
+          pip install --quiet pyyaml
+          python deploy/check-yaml.py \
+            docker-compose.yml docker-compose.local.yml docker-compose.prod.yml
+
+      # The invariant is that every variable the production stack requires is named in the example
+      # file — not that the example holds real values, which it deliberately does not. Mandatory
+      # entries ship blank for the operator to fill, and a plausible-looking placeholder in there is
+      # a thing somebody eventually deploys.
+      #
+      # So the blanks are filled with a marker here and `config` is asked to interpolate. A ${VAR:?}
+      # the example never mentions is then the only thing that can fail, which is the mistake worth
+      # catching: it otherwise surfaces on the server, at the first deploy after the change, as a
+      # variable nobody knew to set.
+      - name: Every variable the stack requires is named in the example
+        run: |
+          set -a && . deploy/.env.prod.example && set +a
+          for key in $(grep -oP '^[A-Z][A-Z0-9_]*(?==)' deploy/.env.prod.example | sort -u); do
+            [ -n "${!key:-}" ] || export "$key=ci-placeholder"
+          done
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config >/dev/null
+
+      # identity and mailroom sit behind profiles, so both are enabled here — a service that has
+      # quietly dropped out of the stack is otherwise indistinguishable from one that is merely
+      # switched off.
+      #
+      # The build contexts point at sibling repositories that are not checked out here. Production
+      # never uses them either, so their absence must not fail this, and `config` parses the file
+      # without resolving them.
+      - name: Every service is still in the stack
+        run: |
+          set -a && . deploy/.env.prod.example && set +a
+          for key in $(grep -oP '^[A-Z][A-Z0-9_]*(?==)' deploy/.env.prod.example | sort -u); do
+            [ -n "${!key:-}" ] || export "$key=ci-placeholder"
+          done
+          services=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+            --profile identity --profile mailroom config --services | sort | tr '\n' ' ')
+          echo "services: $services"
+          for expected in backend web admin marketing identity mailroom caddy pgbouncer; do
+            case " $services " in
+              *" $expected "*) ;;
+              *) echo "::error::$expected is missing from the stack"; exit 1 ;;
+            esac
+          done
+
+  scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # deploy.sh rolls production back when it fails, so a syntax error in it is found at the worst
+      # possible moment — half way through a deploy, by a script that can no longer roll anything
+      # back.
+      - name: Parse
+        run: |
+          for script in deploy/*.sh deploy/aws/*.sh; do
+            bash -n "$script" || { echo "::error file=$script::does not parse"; exit 1; }
+          done
+
+      - name: Shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=warning deploy/*.sh deploy/aws/*.sh
+
+  runbooks:
+    name: Runbooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # A runbook is followed once, by hand, under time pressure. A step naming a file that moved
+      # six commits ago fails at the worst moment, and nothing else in this repository reads them.
+      - name: Referenced files exist and the identifiers agree
+        run: python deploy/check-runbooks.py

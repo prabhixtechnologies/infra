@@ -43,8 +43,8 @@ FLYWAY_IMAGE = "flyway/flyway:11-alpine"
 
 SERVICES = {
     "platform": {
-        "migrations": UMBRELLA / "Platform/backend/src/main/resources/db/migration",
-        # Platform seeds Thymeleaf templates whose bodies contain ${...}, which Flyway would
+        "migrations": UMBRELLA / "oneOps/backend/src/main/resources/db/migration",
+        # oneOps seeds Thymeleaf templates whose bodies contain ${...}, which Flyway would
         # otherwise try to resolve as its own placeholders and fail on. Mirrors
         # spring.flyway.placeholder-replacement: false in its application.yml.
         "placeholders": False,

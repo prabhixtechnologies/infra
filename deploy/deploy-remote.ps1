@@ -7,14 +7,25 @@
 # Usage:
 #   .\deploy\deploy-remote.ps1                       # deploy :latest to the production host
 #   .\deploy\deploy-remote.ps1 -Tag 78a9ec6          # deploy a specific image tag
+#   .\deploy\deploy-remote.ps1 -BackendTag 78a9ec6   # move one service, leave the rest alone
 #   .\deploy\deploy-remote.ps1 -SkipSmoke            # skip the post-deploy checks
 
 param(
     [string]$HostAddress = "35.154.59.116",
     [string]$User = "prabhix",
     [string]$KeyPath = "$env:USERPROFILE\.ssh\PrabhixTechnologies.pem",
-    # Image tag to deploy. CI tags each build with the short SHA as well as `latest`.
+    # The fallback tag: every service without one of its own is deployed at this. CI tags each build
+    # with the short SHA as well as `latest`.
     [string]$Tag = "latest",
+    # Per-service overrides, for the normal case where one repository has moved and the others have
+    # not. Empty means "follow -Tag", and is not sent at all — sending an empty value would read to
+    # compose as a deliberate empty tag.
+    [string]$BackendTag = "",
+    [string]$WebTag = "",
+    [string]$AdminTag = "",
+    [string]$MarketingTag = "",
+    [string]$IdentityTag = "",
+    [string]$MailroomTag = "",
     [string]$RemoteRoot = "/opt/prabhix",
     [switch]$SkipSmoke
 )
@@ -60,7 +71,21 @@ function Invoke-Remote {
     }
 }
 
-Write-Host "==> Deploying tag '$Tag' to $User@$HostAddress" -ForegroundColor Cyan
+$overrides = [ordered]@{
+    BACKEND_TAG   = $BackendTag
+    WEB_TAG       = $WebTag
+    ADMIN_TAG     = $AdminTag
+    MARKETING_TAG = $MarketingTag
+    IDENTITY_TAG  = $IdentityTag
+    MAILROOM_TAG  = $MailroomTag
+}
+$exports = ($overrides.GetEnumerator() | Where-Object { $_.Value } |
+    ForEach-Object { "export $($_.Key)=`"$($_.Value)`"" }) -join "`n"
+
+$named = ($overrides.GetEnumerator() | Where-Object { $_.Value } |
+    ForEach-Object { "$($_.Key)=$($_.Value)" }) -join " "
+$summary = if ($named) { "tag '$Tag' with $named" } else { "tag '$Tag'" }
+Write-Host "==> Deploying $summary to $User@$HostAddress" -ForegroundColor Cyan
 
 $remote = @"
 set -euo pipefail
@@ -71,6 +96,7 @@ git pull --ff-only
 echo "[remote] commit after:  `$(git log --oneline -1)"
 
 export TAG="$Tag"
+$exports
 bash deploy/deploy.sh
 "@
 
@@ -88,7 +114,7 @@ if ($SkipSmoke) {
 
 Write-Host "==> Running smoke checks" -ForegroundColor Cyan
 
-# OrgSlug is the organization deploy/seed.sql creates. It said prabhix-technologies, which is not in
+# OrgSlug is the organization oneOps/deploy/seed.sql creates. It said prabhix-technologies, which is not in
 # the database -- the same wrong slug the marketing image was built with -- so the storefront and
 # origin-allowlist checks were not exercising the org the site actually calls.
 #

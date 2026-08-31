@@ -30,7 +30,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 UMBRELLA = pathlib.Path(__file__).resolve().parent.parent.parent
 
 BACKENDS = [
-    ("Platform", UMBRELLA / "Platform" / "backend"),
+    ("oneOps", UMBRELLA / "oneOps" / "backend"),
     ("Identity", UMBRELLA / "Identity"),
     ("MobiStack", UMBRELLA / "MobiStack" / "backend"),
 ]

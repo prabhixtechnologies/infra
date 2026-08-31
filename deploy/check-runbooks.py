@@ -44,8 +44,14 @@ DOCS = [
 
 # Paths that are references to somewhere else on purpose: another repository, a path on the server,
 # or a placeholder the reader substitutes.
+#
+# Every sibling repository is named here, which means a path like `backend/pom.xml` with no
+# repository in front of it is now reported. That is deliberate rather than an oversight: `backend/`
+# used to be unambiguous when one repository held everything, and a reader standing in this one
+# would follow it to nothing.
 NOT_IN_THIS_REPO = re.compile(
-    r"^(/|~|\.\./|<|\$|MobiStack/|Identity/|Mailroom/|Infra/|opt/|home/|etc/|var/|tmp/)"
+    r"^(/|~|\.\./|<|\$|oneOps/|Platform/|MobiStack/|Identity/|Mailroom/|Infra/"
+    r"|opt/|home/|etc/|var/|tmp/)"
 )
 
 # Environment files are named constantly by the runbooks and are absent from the repository on

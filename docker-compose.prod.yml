@@ -61,12 +61,20 @@ services:
     # migrated kept working; that default is gone along with Docker Hub, and the comment describing
     # it was left behind as the only remaining trace.
     #
-    # One shared TAG for the four images built from this repository, on purpose. identity and
-    # mailroom take their own because they are built from other repositories, where a sha from this
-    # history does not exist — that is the only reason those two are pinned separately, and giving
-    # these four the same treatment would add a second release pointer per service that compose
-    # prefers over TAG, which is how a requested tag or a rollback ends up silently ignored.
-    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/backend:${TAG:-latest}
+    # A tag per service, each falling back to TAG.
+    #
+    # Four of these used to share TAG because they were built from one repository, so one sha
+    # described all four. They are not any more — backend and the two consoles come from oneOps,
+    # marketing from Platform — and a single TAG would name a commit that exists in one of those
+    # histories and not the other. Whichever it came from, the other two images would be pulled at a
+    # tag nothing had ever pushed.
+    #
+    # The old comment here warned that a second release pointer per service is how a requested tag or
+    # a rollback gets silently ignored, and it was right: that is exactly how an IDENTITY_TAG in the
+    # env file beat the one on the command line. The answer is not one pointer, it is that deploy.sh
+    # treats every one of these identically — remembering what the caller asked for across the env
+    # file, and rolling back each service to the tag its own container was running.
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/backend:${BACKEND_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     deploy:
@@ -227,7 +235,7 @@ services:
         max-file: "10"
 
   web:
-    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/web:${TAG:-latest}
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/web:${WEB_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     # nginx serving a built bundle from disk. The page cache does the work and lives outside the
@@ -245,7 +253,7 @@ services:
   # Built from the same source tree as `web` but with APP=admin, so it is a separate image rather
   # than the same one served on a second hostname.
   admin:
-    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/admin:${TAG:-latest}
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/admin:${ADMIN_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     deploy:
@@ -276,7 +284,7 @@ services:
         max-file: "5"
 
   marketing:
-    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/marketing:${TAG:-latest}
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/marketing:${MARKETING_TAG:-${TAG:-latest}}
     build: !reset null
     restart: always
     # A Node process rendering server components, so unlike the three nginx containers this one has

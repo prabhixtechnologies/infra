@@ -39,7 +39,7 @@ CLIENT_IMAGE = "postgres:16"
 # Each repository, its workflow, and the directory the job runs from. The `migrations` job declares
 # no working-directory, so that is the repository root in every case.
 REPOS = [
-    ("Platform", "Platform/.github/workflows/ci.yml"),
+    ("oneOps", "oneOps/.github/workflows/ci.yml"),
     ("Identity", "Identity/.github/workflows/ci.yml"),
     ("MobiStack", "MobiStack/.github/workflows/build.yml"),
 ]
@@ -140,7 +140,7 @@ def main() -> int:
                                   "-url=jdbc:postgresql://localhost:5432/schemacheck",
                                   "-user=postgres", "-password=ci",
                                   "-locations=filesystem:/flyway/sql",
-                                  *(["-placeholderReplacement=false"] if repo == "Platform" else []),
+                                  *(["-placeholderReplacement=false"] if repo == "oneOps" else []),
                                   "-connectRetries=10", "migrate"])
                 else:
                     result = pg.bash(script, root, env)

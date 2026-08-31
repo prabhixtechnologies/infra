@@ -15,7 +15,7 @@ A single platform that serves two audiences from one codebase:
 | `oneops.prabhixtechnologies.com` | Operators — customer organizations | `web/` built with `APP=oneops` |
 | `admin.prabhixtechnologies.com` | Prabhix staff — the platform itself | `web/` built with `APP=admin` |
 | `api.prabhixtechnologies.com` | Both surfaces + integrations | `backend/` (Spring Boot) |
-| `mail.prabhixtechnologies.com` | Anyone with a hosted address — personal mail | `../Mailroom/web`, and MX / IMAP / SMTP on the same host via `mail-server/` |
+| `mail.prabhixtechnologies.com` | Anyone with a hosted address — personal mail | `../Mailroom/web`, and MX / IMAP / SMTP on the same host via `Mailroom/mail-server/` |
 | `mobistack.prabhixtechnologies.com` | MobiStack customers | Separate deployment, not in this repo |
 
 One hostname serves two unrelated things there, which is worth stating plainly: Caddy serves the
@@ -221,7 +221,7 @@ run independently — see **[docs/MAIL.md](./MAIL.md)** for the full design.
 
 | Layer | Responsibility |
 |---|---|
-| **Mail transport** (`mail-server/`) | Self-hosted Postfix + Dovecot + Rspamd. Owns MX for customer domains, enforces SPF/DKIM/DMARC, stores mail in Maildir, exposes IMAP/SMTP. |
+| **Mail transport** (`Mailroom/mail-server/`) | Self-hosted Postfix + Dovecot + Rspamd. Owns MX for customer domains, enforces SPF/DKIM/DMARC, stores mail in Maildir, exposes IMAP/SMTP. |
 | **Shared inbox / helpdesk** (`mail/inbound`, `mail/helpdesk`) | Pulls from IMAP (or accepts LMTP/webhook push), parses MIME, threads conversations, routes to the right inbox by rule, assigns to agents, tracks SLA. |
 | **Transactional engine** (`mail/outbound`) | Templated, queued, retried outbound mail with per-provider failover, bounce/complaint handling, and open/click tracking. |
 

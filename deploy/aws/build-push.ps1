@@ -12,9 +12,9 @@
 # exist. If you edit the arguments here, edit the workflow too.
 #
 # Usage:
-#   pwsh Platform/deploy/aws/build-push.ps1                      # everything
-#   pwsh Platform/deploy/aws/build-push.ps1 -Only identity
-#   pwsh Platform/deploy/aws/build-push.ps1 -Only web,admin -WhatIf
+#   pwsh Infra/deploy/aws/build-push.ps1                      # everything
+#   pwsh Infra/deploy/aws/build-push.ps1 -Only identity
+#   pwsh Infra/deploy/aws/build-push.ps1 -Only web,admin -WhatIf
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     # Names from the table below. Empty means all of them.
@@ -31,8 +31,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# The umbrella directory holding Platform, Identity, Mailroom and MobiStack: three levels above
-# Platform/deploy/aws.
+# The umbrella directory holding every repository: three levels above Infra/deploy/aws.
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
 
@@ -40,7 +39,7 @@ $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
 # under prabhix/, which must contain a slash: the deployer policy scopes ECR to
 # repository/prabhix/*, and that pattern does not match a name without one.
 $images = @(
-    @{ Name = "backend"; Repo = "Platform"; Image = "prabhix/backend"; Context = "backend"; Args = @{} }
+    @{ Name = "backend"; Repo = "oneOps"; Image = "prabhix/backend"; Context = "backend"; Args = @{} }
 
     # VITE_IDENTITY_ISSUER is what turns each console's own password form into a redirect to the
     # hosted login page. Setting it on both in the same build is deliberate: the point of a shared
@@ -51,7 +50,7 @@ $images = @(
     # api. rather than id. because that is where the Caddyfile serves the login page and discovery
     # until id. has an A record. Products compare the issuer by string equality, so moving it later
     # invalidates every token in flight and both consoles have to be rebuilt together again.
-    @{ Name = "web"; Repo = "Platform"; Image = "prabhix/web"; Context = "web"; Args = [ordered]@{
+    @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "web"; Args = [ordered]@{
         APP                     = "oneops"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
@@ -64,7 +63,7 @@ $images = @(
 
     # Same context and Dockerfile as web; APP picks the entry point, so the two images differ only in
     # which routes they contain. No Razorpay key -- the admin app has no checkout.
-    @{ Name = "admin"; Repo = "Platform"; Image = "prabhix/admin"; Context = "web"; Args = [ordered]@{
+    @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "web"; Args = [ordered]@{
         APP                     = "admin"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
@@ -78,7 +77,7 @@ $images = @(
         NEXT_PUBLIC_SITE_URL      = "https://prabhixtechnologies.com"
         NEXT_PUBLIC_CONSOLE_URL   = "https://oneops.prabhixtechnologies.com"
         NEXT_PUBLIC_MOBISTACK_URL = "https://mobistack.prabhixtechnologies.com"
-        # From deploy/seed.sql. These turn on the storefront, chat widget and visitor beacon, and a
+        # From oneOps/deploy/seed.sql. These turn on the storefront, chat widget and visitor beacon, and a
         # slug that does not match a real row disables all three at runtime rather than failing the
         # build -- which is exactly what production was doing.
         NEXT_PUBLIC_ORG_SLUG      = "prabhix-platform"
@@ -117,7 +116,7 @@ Write-Host "==> Authenticating to $registry"
 aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry
 if ($LASTEXITCODE -ne 0) { throw "ECR login failed" }
 
-# Resolved once per repository rather than once per image, so the two images built from Platform/web
+# Resolved once per repository rather than once per image, so the two images built from oneOps/web
 # cannot end up tagged with different commits.
 $shas = @{}
 foreach ($repo in ($selected | ForEach-Object { $_.Repo } | Select-Object -Unique)) {

@@ -1,8 +1,16 @@
-# Prabhix platform — common development commands.
+# Prabhix — common development commands.
 # Windows: run these directly in PowerShell, or use `make` from Git Bash / WSL.
+#
+# This repository holds the stack, not the code. The per-project targets below reach into sibling
+# checkouts, so they only work from an umbrella directory that has them all — see the layout comment
+# at the top of docker-compose.yml. `up` needs no siblings if you are content to pull images.
+
+ONEOPS    := ../oneOps
+MARKETING := ../Platform/marketing
+MAILROOM  := ../Mailroom
 
 COMPOSE_LOCAL := docker compose -f docker-compose.yml -f docker-compose.local.yml
-COMPOSE_MAIL  := docker compose -f docker-compose.yml -f mail-server/docker-compose.mail.yml --profile mailserver
+COMPOSE_MAIL  := docker compose -f docker-compose.yml -f $(MAILROOM)/mail-server/docker-compose.mail.yml --profile mailserver
 
 .PHONY: up down logs fresh psql backend-test backend-run web-dev marketing-dev mail-up mail-down
 
@@ -29,19 +37,19 @@ psql:
 
 ## Run backend unit tests (requires JDK 25, or 17 with -Djava.version=17)
 backend-test:
-	cd backend && mvn -B verify
+	cd $(ONEOPS)/backend && mvn -B verify
 
 ## Run backend locally against compose postgres/redis (outside Docker)
 backend-run:
-	cd backend && mvn spring-boot:run
+	cd $(ONEOPS)/backend && mvn spring-boot:run
 
 ## Vite dev server for the console (hot reload, outside Docker)
 web-dev:
-	cd web && npm run dev
+	cd $(ONEOPS)/web && npm run dev
 
 ## Next.js dev server for marketing (outside Docker)
 marketing-dev:
-	cd marketing && npm run dev
+	cd $(MARKETING) && npm run dev
 
 ## Start self-hosted mail transport (requires base stack postgres on network prabhix)
 mail-up:

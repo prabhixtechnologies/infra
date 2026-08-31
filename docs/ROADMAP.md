@@ -41,7 +41,7 @@ Kept current so nobody discovers a gap at the worst possible moment.
 | Area | Why | How to close |
 |---|---|---|
 | iOS app compiles | No Xcode on the dev machine (Windows). **The iOS app has never been compiled** | `cd mobile/ios && xcodegen generate && swift build`, then work through the errors. The project is now generated from the checked-in `project.yml`, and `.github/workflows/ios.yml` runs the whole thing on a macOS runner on demand, so no Mac is needed to get the first error list |
-| Mail transport end to end | Postfix/Dovecot/Rspamd never started | `docker compose -f mail-server/docker-compose.mail.yml --profile mailserver up`, then `swaks` per `mail-server/README.md` |
+| Mail transport end to end | Postfix/Dovecot/Rspamd never started | `docker compose -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver up`, then `swaks` per `Mailroom/mail-server/README.md` |
 | SES delivery and the new SNS bounce webhook | No AWS account wired | Set `MAIL_TRANSPORT=SES`, subscribe an SNS topic to `POST /api/v1/mail/webhooks/ses`, bounce a message at the SES simulator |
 | Razorpay against real keys | No test credentials configured | Add test keys, run a checkout, replay a webhook, and let one renewal cycle run |
 | ClamAV scanning | Scanner implemented, never run against a real clamd | Start clamd, set `prabhix.files.scan.provider=CLAMAV`, upload EICAR |

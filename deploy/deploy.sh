@@ -11,6 +11,25 @@ ENV_FILE="${ENV_FILE:-deploy/.env.prod}"
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
 MAX_WAIT="${MAX_WAIT:-120}"
 
+# Every service, the variable that pins its image, and the container the running one is in.
+#
+# One list rather than three named variables, because the bug this guards against was introduced by
+# adding a fourth. Anything added here is remembered, exported, logged and rolled back by the code
+# below without that code changing, which is the only way a per-service tag stays honest.
+SERVICES="backend web admin marketing identity mailroom"
+tag_var_for() {
+  case "$1" in
+    backend) echo BACKEND_TAG ;;
+    web) echo WEB_TAG ;;
+    admin) echo ADMIN_TAG ;;
+    marketing) echo MARKETING_TAG ;;
+    identity) echo IDENTITY_TAG ;;
+    mailroom) echo MAILROOM_TAG ;;
+  esac
+}
+TAG_VARS="TAG"
+for s in $SERVICES; do TAG_VARS="$TAG_VARS $(tag_var_for "$s")"; done
+
 # Remembered before the env file is sourced, and reapplied after.
 #
 # deploy/.env.prod carries its own `TAG=latest` for Compose's variable substitution, and
@@ -18,14 +37,13 @@ MAX_WAIT="${MAX_WAIT:-120}"
 # turned `TAG=<sha> bash deploy/deploy.sh` into a deploy of `latest` — worst of all when the
 # requested tag was an older build someone was trying to roll back to.
 #
-# All three, because identity and mailroom are built from their own repositories and so carry their
-# own tags. Protecting only TAG left the other two with exactly the bug described above: an
+# Every one of them, not just TAG. Protecting only TAG left the rest with exactly the bug above: an
 # `IDENTITY_TAG=<sha> bash deploy/deploy.sh` reported success, pulled the sha already named in the
 # env file, and left the old container running — so a fix could be built, pushed, deployed and
 # verified as still broken, with nothing in the output saying the new image had never been fetched.
-REQUESTED_TAG="${TAG:-}"
-REQUESTED_IDENTITY_TAG="${IDENTITY_TAG:-}"
-REQUESTED_MAILROOM_TAG="${MAILROOM_TAG:-}"
+for v in $TAG_VARS; do
+  eval "REQUESTED_$v=\${$v:-}"
+done
 
 log() { echo "[deploy $(date -Iseconds)] $*"; }
 
@@ -66,22 +84,55 @@ else
 fi
 
 TAG="${REQUESTED_TAG:-${TAG:-latest}}"
-# Left unset rather than defaulted to TAG: compose already falls back to TAG for both, and setting
-# them here would export an empty value on the deploys that do not name one, which compose reads as
-# a deliberate empty tag rather than as absence.
-if [ -n "$REQUESTED_IDENTITY_TAG" ]; then IDENTITY_TAG="$REQUESTED_IDENTITY_TAG"; fi
-if [ -n "$REQUESTED_MAILROOM_TAG" ]; then MAILROOM_TAG="$REQUESTED_MAILROOM_TAG"; fi
-export IDENTITY_TAG MAILROOM_TAG
+export TAG
 
-PREVIOUS_TAG=""
-if docker inspect prabhix-backend-1 &>/dev/null 2>&1; then
-  PREVIOUS_TAG=$(docker inspect prabhix-backend-1 --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || echo "")
-fi
+# The per-service ones are left unset unless something set them: compose already falls back to TAG,
+# and exporting an empty value would read as a deliberate empty tag rather than as absence.
+for s in $SERVICES; do
+  v=$(tag_var_for "$s")
+  req="REQUESTED_$v"
+  if [ -n "${!req}" ]; then eval "$v=\${$req}"; fi
+  if [ -n "${!v:-}" ]; then export "${v?}"; fi
+done
 
+# What each service is running right now, read off the container rather than out of a label.
+#
+# The label this used to read (org.opencontainers.image.revision) is only set on the backend image,
+# so extending the old approach to six services would have rolled five of them back to an empty tag.
+# The image reference is on every container by definition, and the text after its last colon is
+# exactly the tag to go back to.
+declare -A PREVIOUS_TAGS=()
+for s in $SERVICES; do
+  ref=$(docker inspect "prabhix-$s-1" --format='{{.Config.Image}}' 2>/dev/null || true)
+  case "$ref" in
+    *:*) PREVIOUS_TAGS[$s]="${ref##*:}" ;;
+  esac
+done
+
+# Each service back to its own previous tag, not all of them to one.
+#
+# Rolling the whole stack back to a single TAG was survivable while one tag described four images
+# built together. It is not now: identity and mailroom release on their own schedules, so a rollback
+# that set TAG alone would leave whichever service had a tag in the env file exactly where it was —
+# and the one service a failed deploy most needs reverted is the one that just changed.
 rollback() {
-  log "ROLLBACK: deployment failed, restoring previous stack"
-  if [ -n "$PREVIOUS_TAG" ] && [ "$PREVIOUS_TAG" != "$TAG" ]; then
-    TAG="$PREVIOUS_TAG" $COMPOSE --env-file "$ENV_FILE" up -d --no-build
+  log "ROLLBACK: deployment failed, restoring the previous image of each service"
+  local overrides=()
+  for s in $SERVICES; do
+    local previous="${PREVIOUS_TAGS[$s]:-}"
+    [ -n "$previous" ] || continue
+    local v
+    v=$(tag_var_for "$s")
+    overrides+=("$v=$previous")
+    log "  $s -> $previous"
+  done
+  # env rather than exports, so the values are scoped to this one command and a caller reading the
+  # environment afterwards is not told the rollback tags are what it asked for.
+  #
+  # The empty case is a first deploy onto a box with no containers to read a tag from. There is
+  # nothing to restore, and expanding an empty array here would fail under `set -u` on older bash.
+  if [ ${#overrides[@]} -gt 0 ]; then
+    env "${overrides[@]}" $COMPOSE --env-file "$ENV_FILE" up -d --no-build
   else
     $COMPOSE --env-file "$ENV_FILE" up -d --no-build
   fi
@@ -105,11 +156,16 @@ log "Authenticating to ECR ($REGISTRY)"
 aws ecr get-login-password --region "${AWS_REGION:-ap-south-1}" \
   | docker login --username AWS --password-stdin "$REGISTRY"
 
-# All three named, because they differ and the ones that are not TAG are the ones that went wrong
-# silently. A deploy that says "tag=abc123" while leaving identity on last week's image is a deploy
-# whose log agrees with what the operator asked for and not with what happened.
-log "Pulling images (tag=$TAG identity=${IDENTITY_TAG:-$TAG} mailroom=${MAILROOM_TAG:-$TAG})"
-export TAG
+# Every service named with the tag it will actually be pulled at, because the ones that were not
+# named are the ones that went wrong silently. A deploy that says "tag=abc123" while leaving identity
+# on last week's image is a deploy whose log agrees with what the operator asked for and not with
+# what happened.
+pull_line=""
+for s in $SERVICES; do
+  v=$(tag_var_for "$s")
+  pull_line="$pull_line $s=${!v:-$TAG}"
+done
+log "Pulling images (TAG=$TAG)$pull_line"
 
 # Asked of compose rather than listed here, so a service that a profile has switched off is not
 # pulled. The hardcoded list used to include mailroom, whose image comes from another repository and
@@ -287,5 +343,5 @@ $COMPOSE --env-file "$ENV_FILE" up -d --force-recreate caddy
 log "Pruning dangling images"
 docker image prune -f >/dev/null 2>&1 || true
 
-log "Deploy succeeded (tag=$TAG)"
+log "Deploy succeeded (TAG=$TAG)$pull_line"
 $COMPOSE --env-file "$ENV_FILE" ps
