@@ -148,6 +148,21 @@ api.prabhixtechnologies.com {
 
 	# Order matters: Caddy evaluates handle blocks in the order written, and the bare `handle` at the
 	# end is the catch-all. Putting it first would swallow everything.
+
+	# /me is the one auth path that must NOT follow AUTH_UPSTREAM, so it is pinned here ahead of the
+	# wildcard below. Both services answer it, but with different bodies: identity returns who someone
+	# is, and deliberately nothing about a tenant, because an identity token carries no organization
+	# and no permissions. The console needs `organizationId` and `permissions` — it picks the org
+	# header and gates every menu on them, and its schema requires both.
+	#
+	# So sending this one path to identity along with the rest would let sign-in succeed, exchange a
+	# code, and then fail parsing the response — at step 6, which is the point of no easy return. The
+	# backend resolves both per request from its own database, which is where staff authority is
+	# granted and the only place it can be trusted from.
+	handle /api/v1/auth/me {
+		reverse_proxy prabhix-backend:8080
+	}
+
 	handle /api/v1/auth/* {
 		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}

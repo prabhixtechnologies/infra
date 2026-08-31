@@ -139,6 +139,12 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    import. Blank, such a person is refused with "not provisioned on the platform" — correct before
    step 2 and a bug after it.
 5. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
+
+   `/api/v1/auth/me` does not move with it. The Caddyfile pins that one path to the backend ahead of
+   the wildcard, because the two services answer it differently: identity says who someone is and
+   deliberately nothing about a tenant, while the console requires `organizationId` and `permissions`
+   and its schema rejects a body without them. Moving it too would let sign-in succeed, exchange a
+   code, and then fail parsing the response — a failure that would first appear at step 6.
 6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
    password form into a redirect to the hosted login page.
 
