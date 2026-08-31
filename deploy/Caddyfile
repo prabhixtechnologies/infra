@@ -149,6 +149,16 @@ api.prabhixtechnologies.com {
 	# Order matters: Caddy evaluates handle blocks in the order written, and the bare `handle` at the
 	# end is the catch-all. Putting it first would swallow everything.
 
+	# Service-to-service only, and first so that nothing added below can accidentally expose it. The
+	# catch-all at the end forwards everything it is given to the backend, so without this the endpoint
+	# that creates an organization and grants its ownership would be a public URL with a shared secret
+	# as its only defence. Both services answer under this prefix and neither should be reachable here.
+	#
+	# 404 rather than 403, because a 403 confirms there is something there.
+	handle /internal* {
+		respond 404
+	}
+
 	# /me is the one auth path that must NOT follow AUTH_UPSTREAM, so it is pinned here ahead of the
 	# wildcard below. Both services answer it, but with different bodies: identity returns who someone
 	# is, and deliberately nothing about a tenant, because an identity token carries no organization

@@ -249,8 +249,14 @@ services:
       # CONSOLE_URL, ADMIN_URL and MAILROOM_URL above also seed the OAuth clients' redirect URIs, as
       # {base}/auth/callback. Derived rather than configured separately so the two cannot drift: a
       # redirect URI that does not match the app it belongs to fails at /authorize, not at deploy.
-      # Shared secret the platform presents to /internal/users/lookup. Blank disables the endpoint.
+      # Shared secret the platform presents to /internal/users/lookup, and that this service presents
+      # to the platform's /internal/organizations going the other way. Blank disables both, which for
+      # signup means the hosted page says so rather than creating an account it must then withdraw.
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      # Where the organization half of a signup is created. prabhix-backend rather than backend: see
+      # the alias comment on the backend service — with MobiStack on this network, `backend` resolves
+      # to two unrelated applications.
+      PLATFORM_INTERNAL_URL: ${PLATFORM_INTERNAL_URL:-http://prabhix-backend:8080}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       # Off by default, because an error message can name a claim or an internal path and this service
       # answers unauthenticated requests. Worth being switchable: the OAuth endpoints reject with a

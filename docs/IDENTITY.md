@@ -151,16 +151,21 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    names an organization, a role and a sender, and identity holds no organizations. Unpinned, the
    invitation page 404s for people who have no account yet and no way to report it.
 
-   **`POST /api/v1/auth/register` is the open question, and it is why this step is not yet taken.**
-   Both services have the path, but they do different things. The backend's creates a user *and* an
-   organization from `organizationName`; identity's creates a user only and ignores the field, because
-   it has no organizations to create. So after the flip, self-serve signup produces an account with no
-   tenant, which the console cannot show anything to.
+   `POST /api/v1/auth/register` moves, and identity now answers it properly. This was the thing that
+   held the step up: the two services disagreed about what the path means. The backend's creates a user
+   *and* an organization from `organizationName`; identity's created a user and ignored the field,
+   because it has no organizations. After a flip that would have made accounts with no tenant, which a
+   console can show nothing to — and pinning it to the backend instead would have made accounts in the
+   platform's user table that the hosted login page, which reads identity's, could not sign in.
 
-   Pinning it to the backend does not fix it either: the backend writes to the platform's user table,
-   and the hosted login page authenticates against identity's. A person who signed up that way could
-   not then sign in. One of the two services has to create both halves — decide which before flipping,
-   because signup is the one flow where the damage lands on new customers.
+   Identity owns it now and asks the platform for the tenant half over `POST /internal/organizations`.
+   Both records or neither: if the platform will not provision, the account is withdrawn, because half
+   a signup takes an address hostage — the person can neither use it nor sign up again with it.
+
+   Two consequences worth knowing. `/internal` is answered with a 404 at the edge, so that endpoint is
+   reachable only from the container network and only with the shared token. And the response identity
+   returns carries no `organizationId` or `permissions`, which is fine: those fields are optional in
+   the console's schema, and it learns both from `/auth/me` a moment later.
 6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
    password form into a redirect to the hosted login page.
 
