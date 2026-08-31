@@ -217,6 +217,16 @@ api.prabhixtechnologies.com {
 		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
 	}
 
+	# Creating an account, on the same origin for the same reason as signing into one: the session it
+	# ends in has to belong to this origin, or someone who just signed up is signed in to nothing.
+	#
+	# Its own handle rather than an extension of /login*, because it is not under that prefix and
+	# without this the catch-all below sends it to the backend — which has no such path and answers
+	# with a JSON 401, so the page looks like it needs an account to create an account.
+	handle /signup {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
 	# The login page's own stylesheet and script, and nothing else: no product serves anything from
 	# this origin under /assets.
 	handle /assets/* {
