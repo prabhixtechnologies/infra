@@ -136,6 +136,22 @@ rollback() {
   else
     $COMPOSE --env-file "$ENV_FILE" up -d --no-build
   fi
+
+  # Restoring an image does not restore the database. Flyway ran forward on the way in and has no
+  # way back, so a rollback across a migration puts old code on a newer schema — and while every
+  # migration was additive that was harmless enough to leave unsaid. oneOps V4 moves the mail tables
+  # into their own schema, which is the first one that takes something away: the restored backend
+  # comes up, passes its readiness probe, and cannot find a mail table. Say so here rather than let
+  # it be discovered from the fact that no mail is going out.
+  if [ -n "${SCHEMA_RANK_BEFORE:-}" ]; then
+    local rank_now
+    rank_now=$(query_db "SELECT coalesce(max(installed_rank)::text, '0') FROM flyway_schema_history")
+    if [ -n "$rank_now" ] && [ "$rank_now" != "$SCHEMA_RANK_BEFORE" ]; then
+      log "  WARNING: Flyway applied migrations during this deploy (rank $SCHEMA_RANK_BEFORE -> $rank_now)."
+      log "  Those are not undone by restoring an older image. If the restored backend cannot find a"
+      log "  table it expects, this is why. Fix forward — do not roll back further."
+    fi
+  fi
   exit 1
 }
 
@@ -223,11 +239,14 @@ done
 # It borrows the pooler's network namespace instead of joining the compose network by name, so it
 # does not have to guess the project-prefixed network name — and it exercises pgbouncer, which is
 # the path the application actually takes.
+# -q as well as -tA. Without it psql prints a status tag for anything that is not a SELECT, and the
+# tr below welds it onto the answer: a query prefaced by SET returns "SET0" rather than "0", which
+# reads as neither empty nor zero and fails whatever it is compared against.
 query_db() {
   local sql="$1"
   if [ "$DB_IS_MANAGED" = false ]; then
     $COMPOSE --env-file "$ENV_FILE" exec -T postgres \
-      psql -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" -tAc "$sql" 2>/dev/null |
+      psql -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" -tAqc "$sql" 2>/dev/null |
       tr -d '[:space:]'
   else
     docker run --rm \
@@ -236,7 +255,7 @@ query_db() {
       -e PGCONNECT_TIMEOUT=15 \
       "${PSQL_IMAGE:-postgres:18-alpine}" \
       psql -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-oneops}" -d "${POSTGRES_DB:-oneops}" \
-        -tAc "$sql" 2>/dev/null |
+        -tAqc "$sql" 2>/dev/null |
       tr -d '[:space:]'
   fi
 }
@@ -283,6 +302,11 @@ if echo "$APP_SERVICES" | grep -qw identity; then
   log "Identity is ready"
 fi
 
+# Read before the backend starts, so a rollback can tell whether Flyway moved the schema underneath
+# the image it is restoring. Empty is fine and means "could not tell", which the rollback treats as
+# nothing to warn about.
+SCHEMA_RANK_BEFORE=$(query_db "SELECT coalesce(max(installed_rank)::text, '0') FROM flyway_schema_history")
+
 log "Deploying backend (Flyway migrations run on Boot startup)"
 $COMPOSE --env-file "$ENV_FILE" up -d --no-deps backend
 
@@ -304,9 +328,17 @@ log "Backend is ready"
 # outside dev, and V60 corrected the rows it had already written — so from here on any row at all is
 # a regression, and one worth stopping a deploy for. Silent mail loss is not something a dashboard
 # would surface later.
+#
+# search_path rather than a qualified name, because this script and the migration that moved the
+# table ship from different repositories and will not always be in step. mail_outbox is in the mail
+# schema from oneOps V4 onward and in public before it; unqualified against both schemas is right
+# either way. Qualifying it would have made this check fail on exactly the deploy that carries V4 —
+# and an unreadable table is treated as a failure below, so the deploy would have migrated the
+# schema and then rolled the backend back onto code that can no longer find it.
 log "Asserting no mail was delivered via the logging transport"
 logged_mail=$(query_db \
-  "SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'")
+  "SET search_path = mail, public; \
+   SELECT count(*) FROM mail_outbox WHERE transport_used = 'LOGGING' AND status = 'SENT'")
 
 if [ -z "$logged_mail" ]; then
   # A failed query must not read as a pass. Empty means psql could not answer, not zero rows.

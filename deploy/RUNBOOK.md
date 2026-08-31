@@ -188,6 +188,17 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deplo
 Database migrations are **forward-only**. If a migration broke prod, restore DB from backup
 (see below) *before* rolling back to an older image that expects the previous schema.
 
+`deploy.sh` reads the Flyway rank before starting the backend, and if a rollback happens after
+migrations ran it says so in the log. Believe it. Every migration up to oneOps V3 was additive, so
+old code on a newer schema simply ignored what it did not know about; **V4 is the first that takes
+something away**. It moves the 24 mail tables out of `public` into a `mail` schema, and a backend
+image from before it queries them unqualified. That backend starts, passes its readiness probe, and
+answers every mail request with a missing-table error — nothing in the health gate looks at mail, so
+the deploy reads as a success.
+
+So: across V4, fix forward. Rolling the backend back is only safe together with a database restore
+to a snapshot taken before the migration ran, which loses everything written since.
+
 ---
 
 ## Database restore
