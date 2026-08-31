@@ -257,6 +257,11 @@ services:
       # bare 400 whose reason is in the message and nowhere else — not the logs — so without this a
       # rejected /connect/logout or /oauth2/token is indistinguishable from any other bad request.
       SERVER_ERROR_INCLUDE_MESSAGE: ${SERVER_ERROR_INCLUDE_MESSAGE:-never}
+      # Spring Security decides every sign-in and every OAuth rejection here, and reports its reasons
+      # at DEBUG. At INFO a refused /connect/logout or /oauth2/token produces a bare 400 and no log
+      # line at all, so there is nothing to work from — which is a bad place to be for the one service
+      # every product's sign-in depends on. INFO by default: DEBUG names claims and token contents.
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: ${SECURITY_LOG_LEVEL:-INFO}
     networks:
       - prabhix
 
