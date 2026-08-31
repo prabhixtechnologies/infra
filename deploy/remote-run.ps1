@@ -14,6 +14,12 @@
 # Output is streamed line by line rather than collected, so a script that hangs still shows how far
 # it got. stderr is folded into stdout because these scripts are diagnostics, where the error text is
 # usually the answer.
+#
+# It lands in a file and is run from there, rather than piped into bash. Piped, the script *is* bash's
+# standard input, so the first command inside it that reads any — docker, ssh, sudo, psql — swallows
+# the remainder and the rest simply never runs. Nothing reports this: bash reaches what it thinks is
+# the end of the file and exits 0, so a script that did half its work looks like one that did all of
+# it. A deploy step ate the verification that was supposed to follow it exactly this way.
 param(
     [Parameter(Mandatory = $true)][string]$ScriptPath,
     [string]$HostAddress = "35.154.59.116",
@@ -34,8 +40,12 @@ $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($lf))
 $prior = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 try {
+    # mktemp, so two of these running at once do not overwrite each other's script. Removed on the
+    # way out whatever the script's exit status, and the status is passed through so a caller can tell.
+    $remote = "f=`$(mktemp /tmp/prabhix-run.XXXXXX.sh); echo $b64 | base64 -d > `$f; " +
+              "bash `$f 2>&1; rc=`$?; rm -f `$f; exit `$rc"
     & ssh -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new `
-        "$User@$HostAddress" "echo $b64 | base64 -d | bash 2>&1" |
+        "$User@$HostAddress" $remote |
         ForEach-Object { Write-Host $_ }
 }
 finally {
