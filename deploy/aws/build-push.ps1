@@ -42,10 +42,20 @@ $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
 $images = @(
     @{ Name = "backend"; Repo = "Platform"; Image = "prabhix/backend"; Context = "backend"; Args = @{} }
 
+    # VITE_IDENTITY_ISSUER is what turns each console's own password form into a redirect to the
+    # hosted login page. Setting it on both in the same build is deliberate: the point of a shared
+    # login is that signing into one signs you into the other, and a build where only one console
+    # redirects gives whoever signs in at the other a second, separate session -- which looks like
+    # single sign-on failing rather than like a half-finished rollout.
+    #
+    # api. rather than id. because that is where the Caddyfile serves the login page and discovery
+    # until id. has an A record. Products compare the issuer by string equality, so moving it later
+    # invalidates every token in flight and both consoles have to be rebuilt together again.
     @{ Name = "web"; Repo = "Platform"; Image = "prabhix/web"; Context = "web"; Args = [ordered]@{
         APP                     = "oneops"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
+        VITE_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
         VITE_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
         # VITE_RAZORPAY_KEY_ID is deliberately absent: it was an unset repository variable in CI, so
         # the images already in ECR were built without it and checkout is already off. Setting it
@@ -58,6 +68,7 @@ $images = @(
         APP                     = "admin"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
+        VITE_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
         VITE_ONEOPS_URL         = "https://oneops.prabhixtechnologies.com"
         VITE_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
     } }

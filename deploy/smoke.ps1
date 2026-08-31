@@ -8,6 +8,8 @@ param(
     [string]$ApiBase = "http://localhost:8080",
     [string]$MarketingBase = "http://localhost:3000",
     [string]$ConsoleBase = "http://localhost:5173",
+    # The admin console. Skipped when empty.
+    [string]$AdminBase = "",
     # Mailroom. Skipped when empty, for a deployment that does not run it.
     [string]$MailroomBase = "",
     # Needed for the public storefront checks. Skipped when empty.
@@ -187,13 +189,21 @@ function Test-DocumentCsp {
 Test-DocumentCsp -Name "Marketing" -Url $MarketingBase
 Test-DocumentCsp -Name "Console (OneOps)" -Url $ConsoleBase
 
-if ($MailroomBase) {
-    Test-DocumentCsp -Name "Mailroom" -Url $MailroomBase
+<#
+An app built without VITE_IDENTITY_ISSUER still renders a correct-looking page — the consoles fall
+back to their own password form, and Mailroom, having none, says so on screen. Both are plausible
+pages for a broken deploy, and neither is something a status-code check would notice. So this checks
+the build rather than the render: Vite inlines the issuer, so its absence is visible in the
+JavaScript.
 
-    # Mailroom has no password form: with no issuer baked in there is nowhere to sign in, and the app
-    # says so on screen. That is a correct-looking page for a broken deploy, so check the build instead
-    # of the render — the issuer is inlined into the bundle, so its absence is visible in the JavaScript.
-    Test-Endpoint -Name "Mailroom was built with an identity issuer" -Url $MailroomBase -Assert {
+Worth having on the consoles and not only Mailroom, because a console that quietly serves its own
+form is the failure that undoes the shared login. Everyone can still sign in, so nothing looks
+broken, and the two products hand out separate sessions again.
+#>
+function Test-BuiltWithIdentityIssuer {
+    param([string]$Name, [string]$Url)
+
+    Test-Endpoint -Name "$Name was built with an identity issuer" -Url $Url -Assert {
         param($r)
         # @() matters. A pipeline that yields one item yields the item, not a one-element array, and
         # there is only ever one index-*.js -- so $scripts was a string, $scripts[0] was its first
@@ -205,13 +215,25 @@ if ($MailroomBase) {
             ForEach-Object { $_.Groups[1].Value })
         if ($scripts.Count -eq 0) { throw "Page references no entry script" }
 
-        $base = ([uri]$MailroomBase).GetLeftPart([System.UriPartial]::Authority)
-        $url = "$base$($scripts[0])"
-        $bundle = (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30).Content
+        $base = ([uri]$Url).GetLeftPart([System.UriPartial]::Authority)
+        $bundleUrl = "$base$($scripts[0])"
+        $bundle = (Invoke-WebRequest -Uri $bundleUrl -UseBasicParsing -TimeoutSec 30).Content
         if ($bundle -notmatch '/oauth2/authorize') {
-            throw "The bundle at $url has no authorize URL, so this image was built without VITE_IDENTITY_ISSUER"
+            throw "The bundle at $bundleUrl has no authorize URL, so this image was built without VITE_IDENTITY_ISSUER"
         }
     }
+}
+
+Test-BuiltWithIdentityIssuer -Name "Console (OneOps)" -Url $ConsoleBase
+
+if ($AdminBase) {
+    Test-DocumentCsp -Name "Admin" -Url $AdminBase
+    Test-BuiltWithIdentityIssuer -Name "Admin" -Url $AdminBase
+}
+
+if ($MailroomBase) {
+    Test-DocumentCsp -Name "Mailroom" -Url $MailroomBase
+    Test-BuiltWithIdentityIssuer -Name "Mailroom" -Url $MailroomBase
 }
 
 Write-Host ""
