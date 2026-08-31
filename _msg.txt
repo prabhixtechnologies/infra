@@ -1,0 +1,22 @@
+Add the mail service's database role
+
+Creates `mail` and gives it its own schema plus REFERENCES (id) -- not SELECT --
+on organizations, users, teams and stored_files, which is the arrangement the
+whole split rests on. REFERENCES is the right to point a foreign key at a
+column; enforcement afterwards runs as the referenced table's owner. So mail can
+insert a thread for an organization, is refused one for an organization that
+does not exist, and cannot read a row of organizations. Integrity without
+visibility.
+
+The script asserts both halves before returning, because a grant that did not
+land is invisible until the day mail cannot write. Proven on a scratch database
+alongside the backend's V4 migration: the insert with a real organization was
+accepted, the one with an invented id failed on the constraint, and SELECT on
+organizations, users and mail_requests all came back permission denied.
+
+Phase 2 -- ownership to `mail`, `oneops` revoked -- is commented out. The mail
+module still runs inside the platform process and reads those tables as oneops,
+so it belongs to the deploy that starts Mailroom.
+
+Not a Flyway migration: roles are cluster-wide and on RDS the application user
+has no CREATE ROLE.

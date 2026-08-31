@@ -95,6 +95,40 @@ No `GRANT` on the `public` schema is needed. Since Postgres 15 `public` is owned
 `pg_database_owner` rather than being writable by all, and each role owns its own database, so it
 picks up `CREATE` that way. A role with only `LOGIN` on someone else's database would not.
 
+### The mail role
+
+A fourth role, and the only one that shares a database with another. Mail is being extracted into
+Mailroom, and its 24 tables were moved out of `public` into a `mail` schema by the backend's `V4`
+migration. They stayed in the `oneops` database because every one of them has a foreign key to
+`organizations`, most also to `users`, `teams` or `stored_files`, and those keys are worth more than
+the separation a fourth database would buy.
+
+Run against `oneops`, as `oneops` — not the master, which is not a member of the role that owns the
+schema:
+
+```bash
+psql "host=$RDS user=oneops dbname=oneops sslmode=require" \
+     -v password="$(openssl rand -base64 24)" \
+     -f deploy/aws/mail-role.sql
+```
+
+The script is in two phases and only the first is live. It creates the role, gives it its own schema
+and `REFERENCES (id)` — not `SELECT` — on those four platform tables, and then asserts both halves of
+that before returning. `REFERENCES` is the right to point a foreign key at a column; enforcement
+afterwards runs as the referenced table's owner. So mail can insert a thread for an organization, is
+refused one for an organization that does not exist, and cannot read a single row of
+`organizations`. Verified on a scratch database: the insert with a real organization was accepted,
+the one with an invented id failed on the constraint, and `SELECT` on `organizations`, `users` and
+`mail_requests` all came back `permission denied`.
+
+Phase 2 transfers ownership of the schema to `mail` and revokes `oneops` from it. It is commented
+out because the mail module still runs inside the platform process and reads those tables as
+`oneops`. It belongs to the deploy that starts Mailroom, not to this one.
+
+`public.mail_requests` is not part of any of this. It is the platform's outbox — the row billing,
+auth, chat, commerce and site write "please send this" into, inside their own transaction — and it
+stays with the side that asks for mail.
+
 ## 3. Extensions
 
 Per database, as the master user:
