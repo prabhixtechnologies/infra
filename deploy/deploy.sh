@@ -185,6 +185,48 @@ query_db() {
   fi
 }
 
+# Identity, before the backend and health-gated like it.
+#
+# It was named alongside `backend` in the frontends exclusion below, but unlike the backend nothing
+# else ever deployed it — so `compose pull` fetched the new image, the old container kept running,
+# and the deploy reported success. Every identity deploy was a no-op, which is a hard thing to
+# notice: the log says the tag it was asked for, health stays green because the old container is
+# genuinely healthy, and only the behaviour that was supposed to change gives it away.
+#
+# Before the backend because the backend verifies RS256 tokens against identity's JWKS. Bringing
+# identity up second would leave a window where the backend is serving and the key source it depends
+# on is restarting, and the sign-ins that land in it fail.
+if echo "$APP_SERVICES" | grep -qw identity; then
+  log "Deploying identity"
+  $COMPOSE --env-file "$ENV_FILE" up -d --no-deps identity
+
+  # On Docker's own health status rather than a curl of a known path: identity's healthcheck lives in
+  # its image, so this stays correct if that check changes, and it needs no opinion about which
+  # actuator endpoints are exposed without credentials.
+  log "Health-gating identity"
+  elapsed=0
+  identity_health() {
+    docker inspect "$($COMPOSE --env-file "$ENV_FILE" ps -q identity)" \
+      --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null || echo missing
+  }
+  until [ "$(identity_health)" = "healthy" ]; do
+    status=$(identity_health)
+    # An image with no healthcheck must not hang the deploy for MAX_WAIT and then roll back a
+    # perfectly good release. Nothing to wait for is not the same as failing to become ready.
+    if [ "$status" = "none" ]; then
+      log "Identity image declares no healthcheck; continuing without a gate"
+      break
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+    if [ "$elapsed" -ge "$MAX_WAIT" ]; then
+      log "Identity did not become healthy after ${MAX_WAIT}s (last status: $status)"
+      rollback
+    fi
+  done
+  log "Identity is ready"
+fi
+
 log "Deploying backend (Flyway migrations run on Boot startup)"
 $COMPOSE --env-file "$ENV_FILE" up -d --no-deps backend
 
@@ -225,6 +267,7 @@ log "Deploying frontends"
 FRONTENDS=""
 for service in $APP_SERVICES; do
   case "$service" in
+    # Both already deployed above, each behind its own health gate.
     backend|identity) continue ;;
     *) FRONTENDS="$FRONTENDS $service" ;;
   esac
