@@ -27,6 +27,14 @@ param(
     [string]$IdentityTag = "",
     [string]$MailroomTag = "",
     [string]$RemoteRoot = "/opt/prabhix",
+    # Deploy the checkout that is already on the host, at the commit you say it is at, instead of
+    # pulling. For when the host cannot reach GitHub -- a deploy key not yet added, an outage.
+    #
+    # It takes the sha rather than being a bare -SkipPull because the pull is what normally
+    # guarantees the host is running the tooling in the repository. Skipping it silently is how a
+    # deploy comes to be driven by a deploy.sh from three weeks ago; asserting the commit keeps the
+    # guarantee and only changes how it is met.
+    [string]$AtCommit = "",
     [switch]$SkipSmoke
 )
 
@@ -87,13 +95,34 @@ $named = ($overrides.GetEnumerator() | Where-Object { $_.Value } |
 $summary = if ($named) { "tag '$Tag' with $named" } else { "tag '$Tag'" }
 Write-Host "==> Deploying $summary to $User@$HostAddress" -ForegroundColor Cyan
 
+$sync = if ($AtCommit) {
+    @"
+echo "[remote] not pulling; asserting the checkout is at $AtCommit"
+actual=`$(git rev-parse --short=7 HEAD)
+if [ "`$actual" != "$AtCommit" ]; then
+  echo "[remote] checkout is at `$actual, not $AtCommit -- refusing to deploy"
+  exit 1
+fi
+echo "[remote] commit: `$(git log --oneline -1)"
+if [ -n "`$(git status --porcelain)" ]; then
+  echo "[remote] checkout has local modifications -- refusing to deploy"
+  git status --porcelain
+  exit 1
+fi
+"@
+} else {
+    @"
+echo "[remote] commit before: `$(git log --oneline -1)"
+git pull --ff-only
+echo "[remote] commit after:  `$(git log --oneline -1)"
+"@
+}
+
 $remote = @"
 set -euo pipefail
 cd $RemoteRoot
 
-echo "[remote] commit before: `$(git log --oneline -1)"
-git pull --ff-only
-echo "[remote] commit after:  `$(git log --oneline -1)"
+$sync
 
 export TAG="$Tag"
 $exports

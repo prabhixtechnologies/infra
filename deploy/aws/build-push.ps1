@@ -31,6 +31,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# docker and aws write their progress to stderr, and under ErrorActionPreference = Stop PowerShell
+# turns the first line of it into a terminating error. The build then dies at "#0 building with
+# desktop-linux" -- having started correctly, with nothing actually wrong. Every native call here is
+# judged by its exit code instead, which is what the checks after them already do.
+#
+# remote-run.ps1 does the same thing for ssh, for the same reason.
+function Invoke-Native {
+    param([Parameter(Mandatory = $true)][scriptblock]$Command)
+    $prior = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { & $Command } finally { $ErrorActionPreference = $prior }
+}
+
 # The umbrella directory holding every repository: three levels above Infra/deploy/aws.
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
@@ -113,7 +126,7 @@ $selected = if ($wanted.Count -gt 0) {
 # One login for the whole run. The credentials last twelve hours, so a long multi-image build does
 # not lose them halfway through.
 Write-Host "==> Authenticating to $registry"
-aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry
+Invoke-Native { aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry }
 if ($LASTEXITCODE -ne 0) { throw "ECR login failed" }
 
 # Resolved once per repository rather than once per image, so the two images built from oneOps/web
@@ -156,13 +169,13 @@ foreach ($image in $selected) {
         continue
     }
 
-    & docker @argv
+    Invoke-Native { & docker @argv }
     if ($LASTEXITCODE -ne 0) { throw "build failed for $($image.Name)" }
 
     # Both tags: the sha is what a deploy pins, latest is what a bare `docker compose pull` takes.
     # Pushed separately because one push only sends the tag it names.
     foreach ($tag in @($sha, "latest")) {
-        docker push "${target}:$tag"
+        Invoke-Native { docker push "${target}:$tag" }
         if ($LASTEXITCODE -ne 0) { throw "push failed for $($image.Image):$tag" }
     }
     $built += [pscustomobject]@{ Image = $image.Name; Tag = $sha }
