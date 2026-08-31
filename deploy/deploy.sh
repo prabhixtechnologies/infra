@@ -17,7 +17,15 @@ MAX_WAIT="${MAX_WAIT:-120}"
 # `set -a && source` below would overwrite whatever the caller asked for with it. That silently
 # turned `TAG=<sha> bash deploy/deploy.sh` into a deploy of `latest` — worst of all when the
 # requested tag was an older build someone was trying to roll back to.
+#
+# All three, because identity and mailroom are built from their own repositories and so carry their
+# own tags. Protecting only TAG left the other two with exactly the bug described above: an
+# `IDENTITY_TAG=<sha> bash deploy/deploy.sh` reported success, pulled the sha already named in the
+# env file, and left the old container running — so a fix could be built, pushed, deployed and
+# verified as still broken, with nothing in the output saying the new image had never been fetched.
 REQUESTED_TAG="${TAG:-}"
+REQUESTED_IDENTITY_TAG="${IDENTITY_TAG:-}"
+REQUESTED_MAILROOM_TAG="${MAILROOM_TAG:-}"
 
 log() { echo "[deploy $(date -Iseconds)] $*"; }
 
@@ -58,6 +66,12 @@ else
 fi
 
 TAG="${REQUESTED_TAG:-${TAG:-latest}}"
+# Left unset rather than defaulted to TAG: compose already falls back to TAG for both, and setting
+# them here would export an empty value on the deploys that do not name one, which compose reads as
+# a deliberate empty tag rather than as absence.
+if [ -n "$REQUESTED_IDENTITY_TAG" ]; then IDENTITY_TAG="$REQUESTED_IDENTITY_TAG"; fi
+if [ -n "$REQUESTED_MAILROOM_TAG" ]; then MAILROOM_TAG="$REQUESTED_MAILROOM_TAG"; fi
+export IDENTITY_TAG MAILROOM_TAG
 
 PREVIOUS_TAG=""
 if docker inspect prabhix-backend-1 &>/dev/null 2>&1; then
@@ -91,7 +105,10 @@ log "Authenticating to ECR ($REGISTRY)"
 aws ecr get-login-password --region "${AWS_REGION:-ap-south-1}" \
   | docker login --username AWS --password-stdin "$REGISTRY"
 
-log "Pulling images (tag=$TAG)"
+# All three named, because they differ and the ones that are not TAG are the ones that went wrong
+# silently. A deploy that says "tag=abc123" while leaving identity on last week's image is a deploy
+# whose log agrees with what the operator asked for and not with what happened.
+log "Pulling images (tag=$TAG identity=${IDENTITY_TAG:-$TAG} mailroom=${MAILROOM_TAG:-$TAG})"
 export TAG
 
 # Asked of compose rather than listed here, so a service that a profile has switched off is not
