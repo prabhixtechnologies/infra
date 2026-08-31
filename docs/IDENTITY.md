@@ -140,11 +140,27 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    step 2 and a bug after it.
 5. Flip `AUTH_UPSTREAM` to `identity:8081` and reload Caddy. New sign-ins now come from identity.
 
-   `/api/v1/auth/me` does not move with it. The Caddyfile pins that one path to the backend ahead of
-   the wildcard, because the two services answer it differently: identity says who someone is and
-   deliberately nothing about a tenant, while the console requires `organizationId` and `permissions`
-   and its schema rejects a body without them. Moving it too would let sign-in succeed, exchange a
-   code, and then fail parsing the response — a failure that would first appear at step 6.
+   Two paths do not move with it, and the Caddyfile pins both to the backend ahead of the wildcard.
+
+   `/api/v1/auth/me`, because the two services answer it differently: identity says who someone is
+   and deliberately nothing about a tenant, while the console requires `organizationId` and
+   `permissions` and its schema rejects a body without them. Moving it too would let sign-in succeed,
+   exchange a code, and then fail parsing the response — a failure that would first appear at step 6.
+
+   `/api/v1/auth/invites/*`, because identity has no such path and could not answer it: an invitation
+   names an organization, a role and a sender, and identity holds no organizations. Unpinned, the
+   invitation page 404s for people who have no account yet and no way to report it.
+
+   **`POST /api/v1/auth/register` is the open question, and it is why this step is not yet taken.**
+   Both services have the path, but they do different things. The backend's creates a user *and* an
+   organization from `organizationName`; identity's creates a user only and ignores the field, because
+   it has no organizations to create. So after the flip, self-serve signup produces an account with no
+   tenant, which the console cannot show anything to.
+
+   Pinning it to the backend does not fix it either: the backend writes to the platform's user table,
+   and the hosted login page authenticates against identity's. A person who signed up that way could
+   not then sign in. One of the two services has to create both halves — decide which before flipping,
+   because signup is the one flow where the damage lands on new customers.
 6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
    password form into a redirect to the hosted login page.
 

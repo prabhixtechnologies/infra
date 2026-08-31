@@ -163,6 +163,17 @@ api.prabhixtechnologies.com {
 		reverse_proxy prabhix-backend:8080
 	}
 
+	# Pinned for a simpler reason: identity has no such path, and an organization invitation is not
+	# something it could answer. The token names an org, a role and who sent it, all of which live in
+	# the platform's database — identity holds no organizations at all.
+	#
+	# Unpinned, the invitation page would 404 the moment AUTH_UPSTREAM moves, and it is the one page
+	# whose visitors have no account yet and no way to report that it is broken. It sits under /auth
+	# only because it is reachable before signing in.
+	handle /api/v1/auth/invites/* {
+		reverse_proxy prabhix-backend:8080
+	}
+
 	handle /api/v1/auth/* {
 		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
