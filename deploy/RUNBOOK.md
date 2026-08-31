@@ -52,16 +52,73 @@ Operations guide for EC2 + Docker Compose deployments.
 
 ---
 
+## Moving the host onto this repository
+
+**Do this once, before anything else here applies.** `/opt/prabhix` is a checkout of the old
+`Platform` monorepo. The deploy tooling now lives here, and the reduction of `Platform` to the
+marketing site is held on the branch `split/reduce-to-marketing` precisely so that the host's next
+`git pull` is still a no-op until this is done.
+
+Nothing about the running containers changes. The compose project name, the service names, the
+volumes and the Caddy certificates are all identical — only the directory the files are read from
+moves. Expect no downtime.
+
+```bash
+# 1. Confirm what is running, so the new checkout can be proven identical to it.
+cd /opt/prabhix
+sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml ps --format '{{.Service}} {{.Image}}'
+git rev-parse --short HEAD
+
+# 2. Clone Infra alongside, as prabhix — not as root, or the deploy key is not the one in use.
+cd /opt
+git clone git@github-infra:prabhixtechnologies/Infra.git prabhix-infra
+
+# 3. Carry across the two files that are not in git: the live secrets, and any local Caddy include.
+sudo cp /opt/prabhix/deploy/.env.prod /opt/prabhix-infra/deploy/.env.prod
+sudo cp -n /opt/prabhix/deploy/conf.d/*.caddyfile /opt/prabhix-infra/deploy/conf.d/ 2>/dev/null || true
+sudo chown -R prabhix:prabhix /opt/prabhix-infra
+
+# 4. Prove the new checkout resolves to the same stack before switching to it. This only reads.
+cd /opt/prabhix-infra
+sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deploy/.env.prod \
+  config --services | sort
+```
+
+The service list must match step 1. If it does, swap the directories — the old one is kept, so the
+way back is the same two `mv` commands reversed:
+
+```bash
+cd /opt
+sudo mv prabhix prabhix-platform-preswitch
+sudo mv prabhix-infra prabhix
+cd /opt/prabhix && sudo bash deploy/deploy.sh
+```
+
+`deploy.sh` recreates Caddy from the bind-mounted `Caddyfile` at the new path, which is the only
+thing in the stack that reads a file out of the checkout at runtime.
+
+Once a deploy has succeeded from the new location, merge `split/reduce-to-marketing` in `Platform`.
+Doing it in that order matters: merging first would delete `deploy/` from the directory the host is
+still deploying out of.
+
+---
+
 ## Routine deploy
 
-CI pushes images to Docker Hub on merge to `main`. Moving them onto the server is **always manual** —
-no SSH private key is stored in GitHub, so nothing in Actions can reach the host. From your
+CI pushes images to ECR on merge to `main`. Moving them onto the server is **always manual** — no
+SSH private key is stored in GitHub, so nothing in Actions can reach the host. From your
 workstation:
 
 ```powershell
-.\deploy\deploy-remote.ps1                 # deploy :latest
-.\deploy\deploy-remote.ps1 -Tag 78a9ec6    # deploy a specific tag
+.\deploy\deploy-remote.ps1                        # everything at :latest
+.\deploy\deploy-remote.ps1 -Tag 78a9ec6           # everything at one tag
+.\deploy\deploy-remote.ps1 -BackendTag 78a9ec6    # one service, the rest untouched
 ```
+
+The per-service form is the normal one now. The six images are built from five repositories, so a
+sha from one history does not exist in the others and a bare `-Tag` is only right when you genuinely
+mean `latest`. The switches are `-BackendTag`, `-WebTag`, `-AdminTag`, `-MarketingTag`,
+`-IdentityTag` and `-MailroomTag`; anything not given follows `-Tag`.
 
 That pulls the repo on the host, runs `deploy/deploy.sh`, then runs the smoke checks. To do the same
 by hand on the server:
@@ -69,7 +126,7 @@ by hand on the server:
 ```bash
 cd /opt/prabhix
 git pull
-export TAG=<short-sha-from-ci>   # or latest
+export BACKEND_TAG=<short-sha-from-oneOps-ci>   # or TAG=latest for the lot
 bash deploy/deploy.sh
 ```
 
