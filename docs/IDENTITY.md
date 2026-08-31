@@ -115,6 +115,12 @@ in flight, so it is a one-time change to make **before** the platform starts tru
 Platform first, MobiStack second. MobiStack is live and its auth is entangled with billing gating in
 `WorkspaceGuardFilter` and per-device session limits.
 
+**Steps 0 to 6 are done in production.** `AUTH_UPSTREAM=identity:8081`, both consoles are built with
+`VITE_IDENTITY_ISSUER`, and their password forms are deleted rather than disabled. Step 7 is the only
+one left on this list, and it is a date rather than a task: 30 days after the flip, when no HS256
+token can still be in circulation. The steps below are kept as written because they are also the
+rollback, in reverse.
+
 0. Load `https://api.prabhixtechnologies.com/login` and sign in on it by hand, for each method the
    deployment offers. `OIDC_UPSTREAM` defaults to identity, so this works before any of the steps
    below and independently of them: no product is pointed at it yet, and a failure here costs
@@ -166,12 +172,26 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
    reachable only from the container network and only with the shared token. And the response identity
    returns carries no `organizationId` or `permissions`, which is fine: those fields are optional in
    the console's schema, and it learns both from `/auth/me` a moment later.
+
+   `/signup` needs its own `handle` in the Caddyfile. It is not under `/login`, so the catch-all sends
+   it to the backend, which has no such path and answers a JSON 401 — a page for people with no account
+   saying authentication is required.
 6. Only now rebuild the two console images with `VITE_IDENTITY_ISSUER` set. That is what turns the
    password form into a redirect to the hosted login page.
 
    `/oauth2/authorize` already works at this point — `OIDC_UPSTREAM` sent it to identity from step 0 —
    so what makes this step last is not the routing but steps 3 and 4: with the issuer untrusted, the
    redirect succeeds, the code exchanges, and then every API call the console makes is a 401.
+
+   The consoles' own forms are deleted in the same commit, not left behind the flag. Keeping a second
+   path costs the property that made hosting them on identity worth doing: a console that never renders
+   a password field cannot leak one, and that holds only while there is no other way to type one in. A
+   build with no `VITE_IDENTITY_ISSUER` now says which setting is missing.
+
+   `/signup` in a console redirects through `/oauth2/authorize?prompt=create` rather than to the signup
+   URL directly. The redirect is what makes identity save the authorization request, and the saved
+   request is what returns the new customer to the product they started in — without it they all land
+   on whatever `urls.console` points at.
 7. After one refresh-token lifetime (`IDENTITY_REFRESH_TTL`, 30 days) no HS256 token can still be in
    circulation. Drop HS256 verification from the backend then, not before.
 
@@ -236,6 +256,18 @@ Caddy — they are reachable only on the compose network.
 | --- | --- |
 | `POST /internal/users/lookup` | A product filling in its local user mirror, by id or address. |
 | `POST /internal/users/{id}/revoke-tokens` | Break-glass "this account is compromised". Has to work even when the attacker holds a valid session, which is why it is a service call rather than a user-authenticated one. |
+
+The platform answers one going the other way, on the same secret, because it is one trust
+relationship and a second secret would be a second thing to forget to rotate.
+
+| Endpoint | For |
+| --- | --- |
+| `POST /internal/organizations` | Identity creating the tenant half of a signup. Idempotent on an existing active membership: the caller is a network hop away, so a timeout it retries after may already have succeeded, and two organizations is not a harmless duplicate — they would compete to be the one `default_organization_id` names, and the loser would be invisible to the person who owns it. |
+
+Unlike identity's, the platform's `/internal` is on a hostname Caddy serves, so the Caddyfile answers
+`/internal*` with a 404 — first among the handles, so nothing added later can expose it. Without that,
+the endpoint that creates an organization and grants its ownership would be a public URL with a shared
+secret as its only defence.
 
 The deny list is one set of Redis keys that identity writes and every product reads, which is why
 identity shares the platform's Redis rather than having its own.
