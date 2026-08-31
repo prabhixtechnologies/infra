@@ -125,6 +125,19 @@ Phase 2 transfers ownership of the schema to `mail` and revokes `oneops` from it
 out because the mail module still runs inside the platform process and reads those tables as
 `oneops`. It belongs to the deploy that starts Mailroom, not to this one.
 
+**Before Mailroom can connect, PgBouncer needs to know the role.** `auth_type = scram-sha-256`
+against a static `auth_file`, so a role the file does not list is refused with `bouncer config
+error` — which looks like a credential or grant problem and is neither. Add `mail` to
+`docker/pgbouncer/userlist.txt` with its SCRAM verifier, taken from the server rather than
+hand-made:
+
+```sql
+SELECT rolname, rolpassword FROM pg_authid WHERE rolname = 'mail';
+```
+
+Phase 1 was verified against RDS directly for exactly this reason. Going through the pooler as
+`mail` fails today, and it is worth knowing that the failure is the pooler and not the grants.
+
 `public.mail_requests` is not part of any of this. It is the platform's outbox — the row billing,
 auth, chat, commerce and site write "please send this" into, inside their own transaction — and it
 stays with the side that asks for mail.
