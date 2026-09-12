@@ -1,0 +1,54 @@
+/* Prabhix shared design tokens — light + dark.
+   Copy or link into Identity, marketing, product webs. Keep in sync. */
+:root,
+[data-theme="light"] {
+  --px-bg: #f3f6fb;
+  --px-bg-accent: #dce9f7;
+  --px-surface: #ffffff;
+  --px-ink: #0c1524;
+  --px-muted: #5b6b7c;
+  --px-border: #d5dee8;
+  --px-accent: #0e7490;
+  --px-accent-ink: #f0fdfa;
+  --px-danger: #b42318;
+  --px-success: #067647;
+  --px-focus: #0891b2;
+  --px-shadow: 0 18px 50px rgba(12, 21, 36, 0.08);
+  --px-font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+  --px-font-body: "Source Sans 3", "Source Sans Pro", "Segoe UI", sans-serif;
+  --px-radius: 0.9rem;
+  --px-motion: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"],
+:root[data-theme="dark"] {
+  --px-bg: #071018;
+  --px-bg-accent: #0f2a36;
+  --px-surface: #0d1a24;
+  --px-ink: #e8eef4;
+  --px-muted: #8fa3b5;
+  --px-border: #1c3342;
+  --px-accent: #22d3ee;
+  --px-accent-ink: #042f2e;
+  --px-danger: #f97066;
+  --px-success: #32d583;
+  --px-focus: #67e8f9;
+  --px-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --px-bg: #f3f6fb;
+    --px-bg-accent: #dce9f7;
+    --px-surface: #ffffff;
+    --px-ink: #0c1524;
+    --px-muted: #5b6b7c;
+    --px-border: #d5dee8;
+    --px-accent: #0e7490;
+    --px-accent-ink: #f0fdfa;
+    --px-danger: #b42318;
+    --px-success: #067647;
+    --px-focus: #0891b2;
+    --px-shadow: 0 18px 50px rgba(12, 21, 36, 0.08);
+  }
+}

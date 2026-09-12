@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Prabhix Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/prabhix-tokens.css" />
+  <link rel="stylesheet" href="/assets/store.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+    <span class="grid-fade"></span>
+  </div>
+
+  <header class="top">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <span class="brand-text">Prabhix <em>Store</em></span>
+    </a>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">Theme</button>
+  </header>
+
+  <main class="hero">
+    <p class="eyebrow">Company app store</p>
+    <h1>Install the lineup</h1>
+    <p class="lede">Android builds for OneOps, MobiStack, and Mailroom. Signed in with the same Prabhix Identity. Admin is never listed here.</p>
+    <ul class="apps">
+      <li style="--i:0">
+        <a class="app" href="/mobistack/">
+          <span class="app-kicker">Primary</span>
+          <strong>MobiStack</strong>
+          <span>Counter app — stock, sales, repairs</span>
+          <span class="app-cta">Open →</span>
+        </a>
+      </li>
+      <li style="--i:1">
+        <a class="app" href="/oneops/">
+          <span class="app-kicker">Ops</span>
+          <strong>OneOps</strong>
+          <span>Operations console for teams</span>
+          <span class="app-cta">Open →</span>
+        </a>
+      </li>
+      <li style="--i:2">
+        <a class="app" href="/mailroom/">
+          <span class="app-kicker">Mail</span>
+          <strong>Mailroom</strong>
+          <span>Personal mail for hosted addresses</span>
+          <span class="app-cta">Open →</span>
+        </a>
+      </li>
+    </ul>
+  </main>
+
+  <footer class="foot">© Prabhix Technologies Pvt Ltd · store.prabhixtechnologies.com</footer>
+  <script src="/assets/store.js"></script>
+</body>
+</html>

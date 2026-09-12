@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneOps — Prabhix Store</title>
+  <link rel="stylesheet" href="/assets/prabhix-tokens.css" />
+  <link rel="stylesheet" href="/assets/store.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Prabhix</a>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">Theme</button>
+  </header>
+  <main class="hero">
+    <p class="eyebrow">OneOps</p>
+    <h1>Android download</h1>
+    <p class="lede">Operations console for teams. Sign in with Prabhix Identity.</p>
+    <div class="panel" id="status">
+      <p>Checking for a published build…</p>
+    </div>
+  </main>
+  <footer class="foot">© Prabhix Technologies Pvt Ltd</footer>
+  <script src="/assets/store.js"></script>
+  <script>
+    fetch("/oneops/android.apk", { method: "HEAD" }).then(function (r) {
+      var el = document.getElementById("status");
+      if (r.ok) {
+        el.innerHTML = '<p>Release APK is ready.</p><a class="btn" href="/oneops/android.apk">Download Android APK</a>';
+      } else {
+        el.innerHTML = '<p class="pending">Build pending — drop an APK into <code>store-artifacts/oneops/android.apk</code> on the laptop.</p><a class="btn secondary" href="/">Back to store</a>';
+      }
+    }).catch(function () {
+      document.getElementById("status").innerHTML = '<p class="pending">Build pending.</p>';
+    });
+  </script>
+</body>
+</html>
+
+

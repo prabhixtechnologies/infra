@@ -1,14 +1,28 @@
 # Local development overrides — publish ports and wire dev-friendly env vars.
 # No bind mounts that break on Windows (Docker named volumes only in base).
+#
+# Bring-up (laptop only — no AWS / no git push):
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --profile identity up -d --build
+#
+# Hosts (Administrator once):
+#   127.0.0.1 store.prabhixtechnologies.com
 
 services:
   postgres:
     ports:
       - "5432:5432"
 
+  # Private ECR image is unavailable without AWS login. Use a public image locally.
   pgbouncer:
+    image: edoburu/pgbouncer:1.22.1-p0
     ports:
       - "6432:5432"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-prabhix}:${POSTGRES_PASSWORD:-prabhix}@postgres:5432/${POSTGRES_DB:-prabhix}
+      AUTH_TYPE: plain
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
 
   redis:
     ports:
@@ -20,6 +34,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       VIRTUAL_THREADS: "false"
+      # Local volume was first initialized as user/db `prabhix`; create `oneops` once if missing.
+      # Talk to Postgres directly — local PgBouncer overlay only maps the prabhix database.
+      DB_URL: jdbc:postgresql://postgres:5432/oneops
+      DB_USERNAME: oneops
+      DB_PASSWORD: oneops
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/oneops
       MAIL_TRANSPORT: SMTP_RELAY
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
@@ -29,42 +49,110 @@ services:
       CONSOLE_URL: http://localhost:5173
       ADMIN_URL: http://localhost:5174
       MAILROOM_URL: http://localhost:5175
-      MOBISTACK_URL: http://localhost:5173
+      MOBISTACK_URL: http://localhost:5176
       API_URL: http://localhost:8080
-      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080
-      # Host-only and insecure locally. Two hostnames cannot be shared across ports, so on localhost
-      # the shared-session behaviour is only exercised end to end in a real deployment; a Secure
-      # cookie over plain http is also refused outright by some browsers.
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:8080,http://localhost:8081
       SESSION_COOKIE_DOMAIN: ""
       SESSION_COOKIE_SECURE: "false"
       SWAGGER_ENABLED: "true"
       LOG_LEVEL: DEBUG
+      IDENTITY_ISSUER: http://localhost:8081
+      IDENTITY_JWKS_URI: http://identity:8081/.well-known/jwks.json
+      LEGACY_CREDENTIAL_LOGIN: "false"
+      # Same value as identity — enables /internal/organizations for hosted signup.
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-local-dev-identity-service-token}
 
   web:
     ports:
       - "5173:80"
+    build:
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_IDENTITY_ISSUER: http://localhost:8081
 
   admin:
     ports:
       - "5174:80"
+    build:
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_IDENTITY_ISSUER: http://localhost:8081
 
   mailroom:
     ports:
       - "5175:80"
+    build:
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_IDENTITY_ISSUER: http://localhost:8081
 
   marketing:
     ports:
       - "3000:3000"
+    build:
+      args:
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+        NEXT_PUBLIC_CONSOLE_URL: http://localhost:5173
+        NEXT_PUBLIC_MOBISTACK_URL: http://localhost:5176
+        NEXT_PUBLIC_MAILROOM_URL: http://localhost:5175
+        NEXT_PUBLIC_STORE_URL: http://store.prabhixtechnologies.com:8090
+        NEXT_PUBLIC_IDENTITY_ISSUER: http://localhost:8081
+        MARKETING_INTERNAL_API_URL: http://prabhix-backend:8080
 
   mailpit:
     ports:
-      - "8025:8025"   # Web UI
-      - "1025:1025"   # SMTP
+      - "8025:8025"
+      - "1025:1025"
+
+  identity:
+    build:
+      context: ../Identity
+      dockerfile: Dockerfile
+    image: prabhix/identity:local
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      IDENTITY_ISSUER: http://localhost:8081
+      # Blank under profile "dev" → ephemeral key (see SigningKeyProvider).
+      IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
+      IDENTITY_MAIL_TRANSPORT: SMTP
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_AUTH: "false"
+      CONSOLE_URL: http://localhost:5173
+      ADMIN_URL: http://localhost:5174
+      MAILROOM_URL: http://localhost:5175
+      MOBISTACK_URL: http://localhost:5176
+      SESSION_COOKIE_DOMAIN: ""
+      SESSION_COOKIE_SECURE: "false"
+      SWAGGER_ENABLED: "true"
+      # "mock" enables LoggingSmsSender / LoggingWhatsAppSender (codes in Identity logs).
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-mock}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-mock}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-+15005550006}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
+      IDENTITY_WEBAUTHN_RP_ID: localhost
+      IDENTITY_WEBAUTHN_RP_NAME: Prabhix Technologies
+      IDENTITY_WEBAUTHN_ORIGIN: http://localhost:8081
+      # Shared with platform backend — enables hosted /signup (creates OneOps org). Blank hides it.
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-local-dev-identity-service-token}
+      PLATFORM_INTERNAL_URL: http://prabhix-backend:8080
+
+  app-store:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./deploy/app-store/www:/usr/share/nginx/html:ro
+      - ./deploy/app-store/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./store-artifacts:/artifacts:ro
 
   caddy:
     profiles:
       - caddy
-    # Caddy is optional locally — hit services on their published ports instead.
 
   prometheus:
     profiles:
