@@ -86,15 +86,18 @@ $images = @(
     } }
 
     @{ Name = "marketing"; Repo = "Platform"; Image = "prabhix/marketing"; Context = "marketing"; Args = [ordered]@{
-        NEXT_PUBLIC_API_URL       = "https://api.prabhixtechnologies.com"
-        NEXT_PUBLIC_SITE_URL      = "https://prabhixtechnologies.com"
-        NEXT_PUBLIC_CONSOLE_URL   = "https://oneops.prabhixtechnologies.com"
-        NEXT_PUBLIC_MOBISTACK_URL = "https://mobistack.prabhixtechnologies.com"
+        NEXT_PUBLIC_API_URL            = "https://api.prabhixtechnologies.com"
+        NEXT_PUBLIC_SITE_URL           = "https://prabhixtechnologies.com"
+        NEXT_PUBLIC_CONSOLE_URL        = "https://oneops.prabhixtechnologies.com"
+        NEXT_PUBLIC_MOBISTACK_URL      = "https://mobistack.prabhixtechnologies.com"
+        NEXT_PUBLIC_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
+        NEXT_PUBLIC_STORE_URL          = "https://store.prabhixtechnologies.com"
+        NEXT_PUBLIC_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
         # From oneOps/deploy/seed.sql. These turn on the storefront, chat widget and visitor beacon, and a
         # slug that does not match a real row disables all three at runtime rather than failing the
         # build -- which is exactly what production was doing.
-        NEXT_PUBLIC_ORG_SLUG      = "prabhix-platform"
-        NEXT_PUBLIC_ORG_ID        = "00000000-0000-4000-8000-000000000001"
+        NEXT_PUBLIC_ORG_SLUG           = "prabhix-platform"
+        NEXT_PUBLIC_ORG_ID             = "00000000-0000-4000-8000-000000000001"
     } }
 
     @{ Name = "identity"; Repo = "Identity"; Image = "prabhix/identity"; Context = "."; Args = @{} }
