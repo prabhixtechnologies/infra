@@ -24,7 +24,7 @@ follows from that sentence.
 | `Identity` | Who you are. Credentials, lockout, sessions, refresh rotation, magic links, OTP, SSO linking, and the OAuth/OIDC protocol surface. | What you can do. No organization, shop, role or permission appears in its schema. |
 | `oneOps` | OneOps and the admin console: the backend, both consoles and mobile. Organizations, memberships, roles, permissions, chat, files, commerce, billing. | Authentication. Mail, once the extraction below is finished — it still holds the mail module today. |
 | `Platform` | The marketing site, and nothing else. | Everything it used to: it was the monorepo, and the split below emptied it. |
-| `Mailroom` | The mail product end to end: personal mailboxes with folders, a web client, an Android app, and the Postfix/Dovecot/Rspamd transport under `mail-server/`. | Authentication, and — for now — the mailbox API and mail schema, which are still in the oneOps backend. |
+| `Mailroom` | The mail product end to end: personal mailboxes with folders, a web client, an Android app, the Postfix/Dovecot/Rspamd transport under `mail-server/`, and a `backend/` API skeleton. | Authentication is Identity. The mailbox API and mail schema still run in the oneOps backend until the extraction cutover (see `Mailroom/backend/README.md`) is approved for deploy. |
 | `MobiStack` | Two things that are being separated — a global component-compatibility commons, and per-shop inventory. | Authentication. |
 | `Infra` | How it all runs: Compose, Caddy, the deploy scripts, the databases' init SQL, and these documents. | Any application code. |
 
