@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prabhix app downloads</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --ink: #f1f5f9;
+      --soft: #94a3b8;
+      --accent: #38bdf8;
+      --card: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, var(--bg) 55%);
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.5rem;
+    }
+    p.lead {
+      color: var(--soft);
+      max-width: 36rem;
+      text-align: center;
+      line-height: 1.5;
+      margin: 0 0 2.5rem;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      width: min(28rem, 100%);
+      display: grid;
+      gap: 0.75rem;
+    }
+    a {
+      display: block;
+      background: var(--card);
+      color: var(--ink);
+      text-decoration: none;
+      padding: 1rem 1.25rem;
+      border-radius: 0.75rem;
+      border: 1px solid #1f2937;
+      font-weight: 600;
+    }
+    a:hover { border-color: var(--accent); }
+    a span {
+      display: block;
+      font-weight: 400;
+      color: var(--soft);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+    footer {
+      margin-top: 3rem;
+      color: var(--soft);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Prabhix</h1>
+  <p class="lead">Install the latest Android builds. Admin is not published here.</p>
+  <ul>
+    <li>
+      <a href="./oneops/latest.apk">OneOps
+        <span>Operations console for the shop floor</span>
+      </a>
+    </li>
+    <li>
+      <a href="./mailroom/latest.apk">Mailroom
+        <span>Personal mail for Prabhix-hosted addresses</span>
+      </a>
+    </li>
+    <li>
+      <a href="./mobistack/latest.apk">MobiStack
+        <span>Counter app — stock, sales, repairs</span>
+      </a>
+    </li>
+  </ul>
+  <footer>© Prabhix Technologies Pvt Ltd</footer>
+</body>
+</html>
