@@ -249,6 +249,7 @@ services:
       CONSOLE_URL: ${CONSOLE_URL:-http://localhost:5173}
       ADMIN_URL: ${ADMIN_URL:-http://localhost:5174}
       MAILROOM_URL: ${MAILROOM_URL:-http://localhost:5175}
+      MOBISTACK_URL: ${MOBISTACK_URL:-http://localhost:5173}
       SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -261,9 +262,10 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
       TWILIO_MESSAGING_SERVICE_SID: ${TWILIO_MESSAGING_SERVICE_SID:-}
-      # CONSOLE_URL, ADMIN_URL and MAILROOM_URL above also seed the OAuth clients' redirect URIs, as
-      # {base}/auth/callback. Derived rather than configured separately so the two cannot drift: a
-      # redirect URI that does not match the app it belongs to fails at /authorize, not at deploy.
+      # CONSOLE_URL, ADMIN_URL, MAILROOM_URL and MOBISTACK_URL above also seed the OAuth clients'
+      # redirect URIs, as {base}/auth/callback. Derived rather than configured separately so the
+      # two cannot drift: a redirect URI that does not match the app it belongs to fails at
+      # /authorize, not at deploy.
       # Shared secret the platform presents to /internal/users/lookup, and that this service presents
       # to the platform's /internal/organizations going the other way. Blank disables both, which for
       # signup means the hosted page says so rather than creating an account it must then withdraw.

@@ -115,7 +115,14 @@ in flight, so it is a one-time change to make **before** the platform starts tru
 Platform first, MobiStack second. MobiStack is live and its auth is entangled with billing gating in
 `WorkspaceGuardFilter` and per-device session limits.
 
-**Steps 0 to 6 are done in production.** `AUTH_UPSTREAM=identity:8081`, both consoles are built with
+**MobiStack cutover is in progress.** Dual-verify (HS256 + Identity RS256) is shipped in the MobiStack
+backend; the web app redirects to hosted Identity login when `VITE_IDENTITY_ISSUER` is set. Remaining:
+import users (`Identity/scripts/import-mobistack-users.sql`), set `IDENTITY_ISSUER` /
+`IDENTITY_SERVICE_TOKEN` / `MOBISTACK_URL` in prod env, rebuild the web image with
+`VITE_IDENTITY_ISSUER`, then Expo AppAuth for mobile. Do not drop HS256 until one refresh-token
+lifetime after web cutover.
+
+**Platform steps 0 to 6 are done in production.** `AUTH_UPSTREAM=identity:8081`, both consoles are built with
 `VITE_IDENTITY_ISSUER`, and their password forms are deleted rather than disabled. Step 7 is the only
 one left on this list, and it is a date rather than a task: 30 days after the flip, when no HS256
 token can still be in circulation. The steps below are kept as written because they are also the
