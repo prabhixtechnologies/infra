@@ -115,12 +115,13 @@ in flight, so it is a one-time change to make **before** the platform starts tru
 Platform first, MobiStack second. MobiStack is live and its auth is entangled with billing gating in
 `WorkspaceGuardFilter` and per-device session limits.
 
-**MobiStack cutover is in progress.** Dual-verify (HS256 + Identity RS256) is shipped in the MobiStack
-backend; the web app redirects to hosted Identity login when `VITE_IDENTITY_ISSUER` is set. Remaining:
-import users (`Identity/scripts/import-mobistack-users.sql`), set `IDENTITY_ISSUER` /
-`IDENTITY_SERVICE_TOKEN` / `MOBISTACK_URL` in prod env, rebuild the web image with
-`VITE_IDENTITY_ISSUER`, then Expo AppAuth for mobile. Do not drop HS256 until one refresh-token
-lifetime after web cutover.
+**MobiStack web cutover is done in production.** Dual-verify (HS256 + Identity RS256), hosted login
+(`VITE_IDENTITY_ISSUER`), CSP `connect-src` for the issuer, and on-demand `IdentityUserMirror` are
+live. Prod had an empty `users` table, so the bulk import was a no-op; first Identity sign-in
+mirrors the row. Identity also issues and redeems OAuth refresh tokens for public Android clients
+(`PublicClientRefreshTokenGenerator` and the matching token-endpoint auth). MobiStack Expo uses the
+same Identity client (`prabhix-mobistack-android`) when built with `EXPO_PUBLIC_IDENTITY_ISSUER`.
+Drop HS256 after one refresh-token lifetime once mobile builds with Identity are in the field.
 
 **Platform steps 0 to 6 are done in production.** `AUTH_UPSTREAM=identity:8081`, both consoles are built with
 `VITE_IDENTITY_ISSUER`, and their password forms are deleted rather than disabled. Step 7 is the only
