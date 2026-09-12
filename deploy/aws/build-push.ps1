@@ -108,6 +108,12 @@ $images = @(
         VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
         VITE_ONEOPS_URL      = "https://oneops.prabhixtechnologies.com"
     } }
+
+    @{ Name = "mobistack-backend"; Repo = "MobiStack"; Image = "prabhix/mobistack-backend"; Context = "backend"; Args = @{} }
+    @{ Name = "mobistack-web"; Repo = "MobiStack"; Image = "prabhix/mobistack-web"; Context = "web"; Args = [ordered]@{
+        # Same issuer as the other products: one hosted login, one session cookie.
+        VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
+    } }
 )
 
 # Split on commas as well as taking an array, because `powershell -File this.ps1 -Only web,admin`
