@@ -217,6 +217,12 @@ api.prabhixtechnologies.com {
 		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
 	}
 
+	# Hosted session end. Without this, /logout hits the catch-all backend and the pbx_session
+	# cookie on the parent domain is never cleared.
+	handle /logout* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
 	# Creating an account, on the same origin for the same reason as signing into one: the session it
 	# ends in has to belong to this origin, or someone who just signed up is signed in to nothing.
 	#
