@@ -430,7 +430,8 @@ services:
       - prabhix
 
   # Company app store — HTML from deploy/app-store/www; APKs streamed from S3 when APK_S3_BUCKET
-  # is set (production). Local stacks leave the bucket blank and fall back to store-artifacts/.
+  # is set (production). Local stacks leave the bucket blank and mount ./store-artifacts via
+  # docker-compose.local.yml.
   app-store:
     image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/app-store:${APP_STORE_TAG:-${TAG:-latest}}
     build:
@@ -442,9 +443,6 @@ services:
       APK_S3_REGION: ${APK_S3_REGION:-${AWS_REGION:-ap-south-1}}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
-    volumes:
-      # Used only when APK_S3_BUCKET is blank (local laptop).
-      - ./store-artifacts:/artifacts:ro
     networks:
       - prabhix
 

@@ -150,6 +150,8 @@ services:
     environment:
       # Local: serve APKs from ./store-artifacts, not S3.
       APK_S3_BUCKET: ""
+    volumes:
+      - ./store-artifacts:/artifacts:ro
 
   caddy:
     profiles:
