@@ -1,0 +1,11 @@
+{
+  "name": "prabhix-brand-kit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "rasterize": "node scripts/rasterize.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

@@ -71,7 +71,7 @@
 	}
 }
 
-# Marketing site — apex + www. Sends its own per-request nonce CSP from src/middleware.ts.
+# Marketing site — apex + www. Sends its own per-request nonce CSP from src/proxy.ts.
 prabhixtechnologies.com, www.prabhixtechnologies.com {
 	import security_headers
 	reverse_proxy marketing:3000

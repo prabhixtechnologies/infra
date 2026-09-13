@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="MobiStack">
+  <!-- Product mark: stacked M. Teal family so it reads as a Prabhix product, not a second company. -->
+  <rect width="64" height="64" rx="16" fill="#0E7490"/>
+  <path d="M20.15 47.1 L20.15 19.15 L32 35.35 L43.85 19.15 L43.85 47.1" fill="none" stroke="#FFFFFF" stroke-width="6.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

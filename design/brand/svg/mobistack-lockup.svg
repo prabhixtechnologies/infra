@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none" role="img" aria-label="MobiStack">
+  <rect width="64" height="64" rx="16" fill="#0E7490"/>
+  <path d="M20.15 47.1 L20.15 19.15 L32 35.35 L43.85 19.15 L43.85 47.1" fill="none" stroke="#FFFFFF" stroke-width="6.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="34" fill="#0C1524" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="28" font-weight="800" letter-spacing="-0.8">MobiStack</text>
+  <text x="80" y="52" fill="#5B6B7C" font-family="Source Sans 3, Segoe UI, sans-serif" font-size="11" font-weight="600" letter-spacing="0.4">A Prabhix product</text>
+</svg>

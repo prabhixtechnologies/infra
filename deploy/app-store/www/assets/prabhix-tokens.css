@@ -1,15 +1,23 @@
-/* Prabhix shared design tokens — light + dark.
-   Copy or link into Identity, marketing, product webs. Keep in sync. */
+/* Prabhix brand tokens — house, tech corporation, products.
+   Copy into Identity, marketing, product webs. Keep in sync with Infra/design/brand/. */
+
 :root,
 [data-theme="light"] {
-  --px-bg: #f3f6fb;
+  --px-house-ink: #0c1524;
+  --px-house-paper: #f3f6fb;
+  --px-tech: #0e7490;
+  --px-tech-ink: #f0fdfa;
+  --px-cyan: #22d3ee;
+  --px-cyan-soft: #a5f3fc;
+
+  --px-bg: var(--px-house-paper);
   --px-bg-accent: #dce9f7;
   --px-surface: #ffffff;
-  --px-ink: #0c1524;
+  --px-ink: var(--px-house-ink);
   --px-muted: #5b6b7c;
   --px-border: #d5dee8;
-  --px-accent: #0e7490;
-  --px-accent-ink: #f0fdfa;
+  --px-accent: var(--px-tech);
+  --px-accent-ink: var(--px-tech-ink);
   --px-danger: #b42318;
   --px-success: #067647;
   --px-focus: #0891b2;
@@ -36,19 +44,25 @@
   --px-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --px-motion: 0ms;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --px-bg: #f3f6fb;
-    --px-bg-accent: #dce9f7;
-    --px-surface: #ffffff;
-    --px-ink: #0c1524;
-    --px-muted: #5b6b7c;
-    --px-border: #d5dee8;
-    --px-accent: #0e7490;
-    --px-accent-ink: #f0fdfa;
-    --px-danger: #b42318;
-    --px-success: #067647;
-    --px-focus: #0891b2;
-    --px-shadow: 0 18px 50px rgba(12, 21, 36, 0.08);
+    --px-bg: #071018;
+    --px-bg-accent: #0f2a36;
+    --px-surface: #0d1a24;
+    --px-ink: #e8eef4;
+    --px-muted: #8fa3b5;
+    --px-border: #1c3342;
+    --px-accent: #22d3ee;
+    --px-accent-ink: #042f2e;
+    --px-danger: #f97066;
+    --px-success: #32d583;
+    --px-focus: #67e8f9;
+    --px-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   }
 }
