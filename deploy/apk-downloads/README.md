@@ -33,9 +33,19 @@ ready — **not applied until you approve a deploy**.
 Skeleton: `Infra/deploy/apk-downloads/` (HTML + README). Bucket + CloudFront belong in your existing
 AWS account workflow; do not `terraform apply` or touch production DNS until approved.
 
-## Blocked on you
+## Status (2026-09-13)
 
-1. Confirm AWS IAM allows creating the bucket / CloudFront distribution (earlier `prabhix` IAM was
-   missing S3 write).
-2. Approve creation of the bucket and the `downloads` DNS name.
-3. Provide release keystores so CI can upload real APKs rather than debug artifacts.
+Bucket `prabhix-apk-downloads` exists in ap-south-1 (private). Objects currently present:
+
+- `mobistack/latest.apk`, `mobistack/mobistack-1.0.0.apk`
+- `oneops/latest.apk`
+- `mailroom/latest.apk` (debug build until a release-signed APK is produced)
+- `index.html`
+
+Live download UX today does **not** read this bucket yet:
+
+- MobiStack `/app` serves from the EC2 volume `/opt/mobistack/downloads/MobiStack.apk`
+- Company store serves from `/opt/prabhix/store-artifacts/{app}/android.apk`
+
+Still open: CloudFront (or public-read) + `downloads.prabhixtechnologies.com` DNS, and CI upload after
+release-signed assemble (see `docs/ANDROID-RELEASE-SIGNING.md`).
