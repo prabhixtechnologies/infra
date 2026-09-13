@@ -4,9 +4,9 @@ set -euo pipefail
 cd /opt/prabhix
 
 export TAG=latest
-export BACKEND_TAG=1ef96b8
-export WEB_TAG=1ef96b8
-export ADMIN_TAG=1ef96b8
+export BACKEND_TAG=${BACKEND_TAG:-1c1754b}
+export WEB_TAG=${WEB_TAG:-1ef96b8}
+export ADMIN_TAG=${ADMIN_TAG:-1ef96b8}
 
 echo "[remote] deploying BACKEND_TAG=$BACKEND_TAG WEB_TAG=$WEB_TAG ADMIN_TAG=$ADMIN_TAG"
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 029096972251.dkr.ecr.ap-south-1.amazonaws.com
