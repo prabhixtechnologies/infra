@@ -1,0 +1,14 @@
+{
+  "name": "prabhix-surface-verify",
+  "private": true,
+  "description": "Playwright runner for Infra/scripts/verify-surfaces.mjs — not a product.",
+  "type": "module",
+  "scripts": {
+    "verify": "node verify-surfaces.mjs",
+    "measure": "node measure-bundles.mjs"
+  },
+  "dependencies": {
+    "axe-core": "^4.10.3",
+    "playwright": "^1.63.0"
+  }
+}
