@@ -28,7 +28,7 @@
       if (r.ok) {
         el.innerHTML = '<p>Release APK is ready.</p><a class="btn" href="/mobistack/android.apk">Download Android APK</a>';
       } else {
-        el.innerHTML = '<p class="pending">Build pending — drop an APK into <code>store-artifacts/mobistack/android.apk</code> on the laptop.</p><a class="btn secondary" href="/">Back to store</a>';
+        el.innerHTML = '<p class="pending">Build pending — upload <code>mobistack/android.apk</code> to the company APK bucket.</p><a class="btn secondary" href="/">Back to store</a>';
       }
     }).catch(function () {
       document.getElementById("status").innerHTML = '<p class="pending">Build pending.</p>';

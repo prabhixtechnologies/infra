@@ -28,6 +28,7 @@
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/mail",
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/mobistack-backend",
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/mobistack-web",
+        "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/app-store",
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/third-party/*"
       ]
     },

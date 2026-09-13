@@ -119,7 +119,11 @@ $images = @(
     @{ Name = "mobistack-web"; Repo = "MobiStack"; Image = "prabhix/mobistack-web"; Context = "web"; Args = [ordered]@{
         # Same issuer as the other products: one hosted login, one session cookie.
         VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
+        # Android packages live only on the company store (S3-backed). Never same-origin /download.
+        VITE_STORE_URL       = "https://store.prabhixtechnologies.com"
     } }
+
+    @{ Name = "app-store"; Repo = "Infra"; Image = "prabhix/app-store"; Context = "deploy/app-store"; Args = @{} }
 )
 
 # Split on commas as well as taking an array, because `powershell -File this.ps1 -Only web,admin`

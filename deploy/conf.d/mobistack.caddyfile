@@ -49,8 +49,15 @@ mobistack.prabhixtechnologies.com {
 	# framed, including by Prabhix's own hosts, so DENY rather than the snippet's SAMEORIGIN.
 	header X-Frame-Options DENY
 
-	# APK and IPA downloads, served by the backend rather than from static files.
-	handle /download/* {
+	# APK downloads are published only on store.prabhixtechnologies.com (S3-backed). Legacy
+	# /download/android bookmarks permanently redirect there; nothing is streamed from this host.
+	handle /download/android* {
+		redir https://store.prabhixtechnologies.com/mobistack/android.apk permanent
+	}
+	handle /api/v1/public/downloads/android* {
+		redir https://store.prabhixtechnologies.com/mobistack/android.apk permanent
+	}
+	handle /download/ios* {
 		reverse_proxy mobistack-backend:8080
 	}
 	handle /api/* {

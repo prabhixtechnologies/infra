@@ -141,8 +141,15 @@ services:
       PLATFORM_INTERNAL_URL: http://prabhix-backend:8080
 
   app-store:
+    image: !reset null
+    build:
+      context: ./deploy/app-store
+      dockerfile: Dockerfile
     ports:
       - "8090:80"
+    environment:
+      # Local: serve APKs from ./store-artifacts, not S3.
+      APK_S3_BUCKET: ""
 
   caddy:
     profiles:

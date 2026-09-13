@@ -38,6 +38,7 @@ REPOSITORIES=(
   prabhix/mail
   prabhix/mobistack-backend
   prabhix/mobistack-web
+  prabhix/app-store
 )
 
 for repo in "${REPOSITORIES[@]}"; do

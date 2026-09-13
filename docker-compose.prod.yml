@@ -323,11 +323,19 @@ services:
         max-file: "5"
 
   app-store:
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/app-store:${APP_STORE_TAG:-${TAG:-latest}}
+    build: !reset null
     restart: always
+    environment:
+      # Production always streams APKs from the private company bucket. The EC2 instance role
+      # prabhix-ec2-ecr-pull carries s3:GetObject for this bucket (PrabhixApkDownloadsRead).
+      APK_S3_BUCKET: ${APK_S3_BUCKET:-prabhix-apk-downloads}
+      APK_S3_REGION: ${APK_S3_REGION:-ap-south-1}
+    volumes: !reset null
     deploy:
       resources:
         limits:
-          memory: 32m
+          memory: 64m
     logging:
       driver: json-file
       options:

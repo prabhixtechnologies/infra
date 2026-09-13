@@ -429,22 +429,22 @@ services:
     networks:
       - prabhix
 
-  # Static company app store — APK downloads for MobiStack, OneOps and Mailroom. nginx serves HTML
-  # from deploy/app-store/www and APKs from store-artifacts/. No ECR image; the official nginx tag
-  # is pulled directly.
+  # Company app store — HTML from deploy/app-store/www; APKs streamed from S3 when APK_S3_BUCKET
+  # is set (production). Local stacks leave the bucket blank and fall back to store-artifacts/.
   app-store:
-    image: public.ecr.aws/docker/library/nginx:1.27-alpine
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/app-store:${APP_STORE_TAG:-${TAG:-latest}}
+    build:
+      context: ./deploy/app-store
+      dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      APK_S3_BUCKET: ${APK_S3_BUCKET:-}
+      APK_S3_REGION: ${APK_S3_REGION:-${AWS_REGION:-ap-south-1}}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
     volumes:
-      - ./deploy/app-store/www:/usr/share/nginx/html:ro
-      - ./deploy/app-store/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Used only when APK_S3_BUCKET is blank (local laptop).
       - ./store-artifacts:/artifacts:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
     networks:
       - prabhix
 

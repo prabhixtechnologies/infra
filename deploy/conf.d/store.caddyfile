@@ -1,8 +1,7 @@
-# Company app store — static nginx serving HTML and APK downloads from store-artifacts/.
+# Company app store — HTML from app-store, APK bytes streamed from S3 by that service.
 #
-# Enable only after store.prabhixtechnologies.com resolves here. Caddy requests a certificate for
-# every configured name; enabling this while DNS still points elsewhere produces failing ACME orders
-# on a loop against a per-name weekly rate limit. Rollback: rename to .example and recreate caddy.
+# Enable only after store.prabhixtechnologies.com resolves here. Rollback: rename to .example
+# and recreate caddy.
 
 store.prabhixtechnologies.com {
 	import security_headers
