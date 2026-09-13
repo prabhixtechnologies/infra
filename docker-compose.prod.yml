@@ -322,6 +322,18 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  app-store:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 32m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   caddy:
     restart: always
     deploy:

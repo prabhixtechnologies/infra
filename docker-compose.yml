@@ -429,6 +429,25 @@ services:
     networks:
       - prabhix
 
+  # Static company app store — APK downloads for MobiStack, OneOps and Mailroom. nginx serves HTML
+  # from deploy/app-store/www and APKs from store-artifacts/. No ECR image; the official nginx tag
+  # is pulled directly.
+  app-store:
+    image: public.ecr.aws/docker/library/nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./deploy/app-store/www:/usr/share/nginx/html:ro
+      - ./deploy/app-store/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./store-artifacts:/artifacts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - prabhix
+
   caddy:
     image: public.ecr.aws/docker/library/caddy:2-alpine
     restart: unless-stopped
@@ -437,6 +456,7 @@ services:
       - web
       - admin
       - marketing
+      - app-store
     environment:
       # Which service answers /api/v1/auth/* — live sign-in traffic. Defaults to the backend, so
       # nothing changes until the identity service is deployed; setting it to identity:8081 is the

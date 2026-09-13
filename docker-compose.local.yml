@@ -141,14 +141,8 @@ services:
       PLATFORM_INTERNAL_URL: http://prabhix-backend:8080
 
   app-store:
-    image: nginx:1.27-alpine
-    restart: unless-stopped
     ports:
       - "8090:80"
-    volumes:
-      - ./deploy/app-store/www:/usr/share/nginx/html:ro
-      - ./deploy/app-store/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./store-artifacts:/artifacts:ro
 
   caddy:
     profiles:
