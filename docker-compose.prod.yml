@@ -181,6 +181,11 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
       S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Ops hub — DefaultCredentialsProvider (instance role) + optional GitHub PAT
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_CE_REGION: ${AWS_CE_REGION:-us-east-1}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     logging:
       driver: json-file
       options:

@@ -163,6 +163,11 @@ services:
       # The same shared secret the identity service checks; blank leaves the mirror import-only.
       IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      # Ops hub (Cost Explorer / EC2 / optional GitHub checks) — instance role + optional PAT.
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_CE_REGION: ${AWS_CE_REGION:-us-east-1}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     # The extra alias is what lets MobiStack share this network.
     #
     # MobiStack also has a service called `backend`. Docker's embedded DNS registers the service

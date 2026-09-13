@@ -1,0 +1,32 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CostExplorerRead",
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2Describe",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeTags"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchMetricsRead",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:GetMetricData"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

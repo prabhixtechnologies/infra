@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListApkBucket",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::prabhix-apk-downloads",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "mobistack/*",
+            "oneops/*",
+            "mailroom/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "PutApkObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": [
+        "arn:aws:s3:::prabhix-apk-downloads/mobistack/*",
+        "arn:aws:s3:::prabhix-apk-downloads/oneops/*",
+        "arn:aws:s3:::prabhix-apk-downloads/mailroom/*"
+      ]
+    }
+  ]
+}

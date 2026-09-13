@@ -119,9 +119,11 @@ Platform first, MobiStack second. MobiStack is live and its auth is entangled wi
 (`VITE_IDENTITY_ISSUER`), CSP `connect-src` for the issuer, and on-demand `IdentityUserMirror` are
 live. Prod had an empty `users` table, so the bulk import was a no-op; first Identity sign-in
 mirrors the row. Identity also issues and redeems OAuth refresh tokens for public Android clients
-(`PublicClientRefreshTokenGenerator` and the matching token-endpoint auth). MobiStack Expo uses the
-same Identity client (`prabhix-mobistack-android`) when built with `EXPO_PUBLIC_IDENTITY_ISSUER`.
-Drop HS256 after one refresh-token lifetime once mobile builds with Identity are in the field.
+(`PublicClientRefreshTokenGenerator` and the matching token-endpoint auth). MobiStack Expo is
+Identity-only (LegacyLogin removed; EAS bakes `EXPO_PUBLIC_IDENTITY_ISSUER`). Flutter apps under
+`Mobile/` use the same client ids and redirect schemes (see [MOBILE-FLUTTER.md](MOBILE-FLUTTER.md)).
+Drop HS256 after one refresh-token lifetime once Identity mobile builds (Expo stopgap and/or Flutter)
+are confirmed in the field.
 
 **Platform steps 0 to 6 are done in production.** `AUTH_UPSTREAM=identity:8081`, both consoles are built with
 `VITE_IDENTITY_ISSUER`, and their password forms are deleted rather than disabled. Step 7 is the only

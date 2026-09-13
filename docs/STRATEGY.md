@@ -3,11 +3,12 @@
 `docs/ROADMAP.md` is the honest inventory of what is built today. This is the forward plan: what is
 being built, in what order, and why that order.
 
-**Status.** Phases A through F are built and tested. A and B are not yet cut over in production —
-`AUTH_UPSTREAM` still points at the backend, which is deliberate and is documented step by step in
-[IDENTITY.md](IDENTITY.md#cutover-order). AWS hardening is deferred by decision. The per-phase notes
-below say which is which, so nothing here should be read as a description of what production does
-today.
+**Status.** Phases A through F are built and tested. **Identity OIDC cutover is live** for OneOps,
+Admin, Mailroom, and MobiStack web + mobile (hosted login + PKCE; product APIs resolve org/permissions
+via `/auth/me`). Remaining platform work is documented in [IDENTITY.md](IDENTITY.md) (HS256 drop after
+Identity mobile builds are fully in the field) and [MOBILE-FLUTTER.md](MOBILE-FLUTTER.md) (Flutter
+rewrite of all product apps). AWS hardening is deferred by decision. The per-phase notes below are
+historical build order — do not read “Built, not yet cut over” as current production state.
 
 The thesis in one paragraph: **Prabhix becomes an identity provider that happens to own products,
 rather than products that each own a login.** Every surface — OneOps, the admin console, MobiStack,
@@ -40,25 +41,20 @@ Each product keeps a thin local `users` mirror keyed by the identity `sub`, so e
 
 ## Phase A — Prove the split on the platform
 
-**Built, not yet cut over.** Nothing else should be built on the identity service until one product
-actually runs on it.
+**Built and cut over** for product consoles and mobile Identity clients. Backend verifies via **JWKS**
+(and may still accept HS256 for leftover clients until the field cutover completes — see IDENTITY.md).
 
-- Backend verifies via **JWKS**, while still accepting its own HS256 tokens. Both at once is what
-  keeps already-issued tokens working through the switch, so nobody is signed out.
 - Permissions resolve **per request** from the platform's own database, behind the Redis cache
-  `PermissionResolver` already has. Strictly better than today, where permissions freeze into the JWT
-  at login and a revoked role keeps working for up to 15 minutes.
+  `PermissionResolver` already has.
 - Active tenant moves to the **`X-Prabhix-Org` header**, validated against membership rather than read
-  from a token claim. Applied to identity tokens; the HS256 path keeps `selectOrganization` until
-  HS256 is dropped, so the two can coexist through the switch.
+  from a token claim.
 - The local `users` mirror fills itself in from `/internal/users/lookup` on the first request naming a
-  subject this database has not seen, since the bulk import only covers the population at the time.
-  It never writes `platform_admin`: staff authority is granted here and nowhere else.
-- Flip `AUTH_UPSTREAM` to `identity:8081`. Drop HS256 only after one refresh-token lifetime.
+  subject this database has not seen.
+- Flip `AUTH_UPSTREAM` / drop HS256 only after Identity mobile builds are confirmed in the field.
 
 Procedure and rollback: [IDENTITY.md](IDENTITY.md).
 
-Also in this phase, because it is currently broken: **the email-verification link 404s.**
+Also historically in this phase: **the email-verification link 404s.**
 `EmailVerificationService` sends users to `{CONSOLE_URL}/auth/verify-email`, and the console has no
 such route. Magic-link and password-reset had the same defect and were fixed; this one was missed.
 
@@ -66,13 +62,11 @@ such route. Magic-link and password-reset had the same defect and were fixed; th
 
 ## Phase B — Identity becomes a provider, not a login endpoint
 
-**Built, not yet cut over.** Spring Authorization Server is wired in, the four first-party clients are
-seeded from configuration with PKCE S256 mandatory and exact-match redirect URIs, the hosted login page
-is served from Identity's origin, and both consoles redirect to it behind `VITE_IDENTITY_ISSUER`. Both
-Android apps now sign in through AppAuth over a Custom Tab and have no password field at all: their
-login, OTP, magic-link and refresh calls are deleted, refresh goes to Identity's token endpoint, and
-each variant's redirect scheme is its own application id — including the `.debug` suffix, so a debug
-build cannot receive a code minted for the release build.
+**Built and cut over.** Spring Authorization Server is wired in, first-party clients are seeded with
+PKCE S256 mandatory and exact-match redirect URIs, the hosted login page is served from Identity's
+origin, and product webs + native apps redirect to it. Android apps sign in through AppAuth / Expo
+AuthSession over a Custom Tab with no password field. MobiStack Expo no longer ships LegacyLogin;
+Flutter apps under `Mobile/` replace natives product-by-product (see MOBILE-FLUTTER.md).
 
 Today Identity is a **token issuer**: an app posts credentials and gets a JWT. That works for
 first-party apps and cannot work for a thousand sites, because every one of those sites would be
