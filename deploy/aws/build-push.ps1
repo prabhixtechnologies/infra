@@ -51,8 +51,12 @@ $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
 # Repo is relative to the umbrella; Context is relative to the repo. Image is the ECR repository
 # under prabhix/, which must contain a slash: the deployer policy scopes ECR to
 # repository/prabhix/*, and that pattern does not match a name without one.
+# ExtraContexts are Bake-style named contexts (docker build --build-context name=path). Several
+# Dockerfiles COPY --from=webkit / --from=identity-client; without these the build fails at the
+# first such COPY rather than at a missing package later.
 $images = @(
-    @{ Name = "backend"; Repo = "oneOps"; Image = "prabhix/backend"; Context = "backend"; Args = @{} }
+    @{ Name = "backend"; Repo = "oneOps"; Image = "prabhix/backend"; Context = "backend"; Args = @{};
+       ExtraContexts = [ordered]@{ "identity-client" = "Identity/client" } }
 
     # VITE_IDENTITY_ISSUER is what turns each console's own password form into a redirect to the
     # hosted login page. Setting it on both in the same build is deliberate: the point of a shared
@@ -63,7 +67,9 @@ $images = @(
     # api. rather than id. because that is where the Caddyfile serves the login page and discovery
     # until id. has an A record. Products compare the issuer by string equality, so moving it later
     # invalidates every token in flight and both consoles have to be rebuilt together again.
-    @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "web"; Args = [ordered]@{
+    @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "web";
+       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       Args = [ordered]@{
         APP                     = "oneops"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
@@ -76,7 +82,9 @@ $images = @(
 
     # Same context and Dockerfile as web; APP picks the entry point, so the two images differ only in
     # which routes they contain. No Razorpay key -- the admin app has no checkout.
-    @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "web"; Args = [ordered]@{
+    @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "web";
+       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       Args = [ordered]@{
         APP                     = "admin"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
@@ -85,7 +93,9 @@ $images = @(
         VITE_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
     } }
 
-    @{ Name = "marketing"; Repo = "Platform"; Image = "prabhix/marketing"; Context = "marketing"; Args = [ordered]@{
+    @{ Name = "marketing"; Repo = "Platform"; Image = "prabhix/marketing"; Context = "marketing";
+       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       Args = [ordered]@{
         NEXT_PUBLIC_API_URL            = "https://api.prabhixtechnologies.com"
         NEXT_PUBLIC_SITE_URL           = "https://prabhixtechnologies.com"
         NEXT_PUBLIC_CONSOLE_URL        = "https://oneops.prabhixtechnologies.com"
@@ -102,7 +112,9 @@ $images = @(
 
     @{ Name = "identity"; Repo = "Identity"; Image = "prabhix/identity"; Context = "."; Args = @{} }
 
-    @{ Name = "mailroom"; Repo = "Mailroom"; Image = "prabhix/mailroom"; Context = "web"; Args = [ordered]@{
+    @{ Name = "mailroom"; Repo = "Mailroom"; Image = "prabhix/mailroom"; Context = "web";
+       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       Args = [ordered]@{
         VITE_API_URL         = "https://api.prabhixtechnologies.com"
         # Required here, unlike in the two consoles: Mailroom has no password form of its own and
         # authenticates only through Identity, so an empty issuer leaves it unable to sign in at all.
@@ -112,8 +124,11 @@ $images = @(
         VITE_ONEOPS_URL      = "https://oneops.prabhixtechnologies.com"
     } }
 
-    @{ Name = "mobistack-backend"; Repo = "MobiStack"; Image = "prabhix/mobistack-backend"; Context = "backend"; Args = @{} }
-    @{ Name = "mobistack-web"; Repo = "MobiStack"; Image = "prabhix/mobistack-web"; Context = "web"; Args = [ordered]@{
+    @{ Name = "mobistack-backend"; Repo = "MobiStack"; Image = "prabhix/mobistack-backend"; Context = "backend"; Args = @{};
+       ExtraContexts = [ordered]@{ "identity-client" = "Identity/client" } }
+    @{ Name = "mobistack-web"; Repo = "MobiStack"; Image = "prabhix/mobistack-web"; Context = "web";
+       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       Args = [ordered]@{
         # Same issuer as the other products: one hosted login, one session cookie.
         VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
         # Android packages live only on the company store (S3-backed). Never same-origin /download.
@@ -174,6 +189,13 @@ foreach ($image in $selected) {
     )
     foreach ($key in $image.Args.Keys) {
         $argv += @("--build-arg", "$key=$($image.Args[$key])")
+    }
+    if ($image.ExtraContexts) {
+        foreach ($ctxName in $image.ExtraContexts.Keys) {
+            $ctxPath = Join-Path $root $image.ExtraContexts[$ctxName]
+            if (-not (Test-Path $ctxPath)) { throw "missing build context '$ctxName' at $ctxPath" }
+            $argv += @("--build-context", "${ctxName}=$ctxPath")
+        }
     }
     $argv += $context
 
