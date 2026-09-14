@@ -1,0 +1,280 @@
+# Deploy — puts published images live on the production host.
+#
+# Hand-triggered, from this repository only. CI in each product repository ends at pushing an image
+# to ECR tagged with its commit; this is the one place that turns a set of such tags into a running
+# stack, and it does it by running deploy/deploy.sh on the box — the same script deploy-remote.ps1
+# runs over SSH — so there is one deploy sequence, one health gate and one rollback, whoever starts
+# it.
+#
+# The runner never holds a key to the instance. It assumes an IAM role through GitHub's OIDC provider
+# and asks Systems Manager to run the script; the agent on the instance pulls the command and reports
+# back. The role can send commands to one instance and read the result, nothing else — see
+# deploy/aws/ssm-deploy-policy.json and the trust policy beside it. Both are set up in
+# deploy/aws/README.md under "Deploys from GitHub".
+#
+# Also the target of the admin console's Promote button, which calls the workflow_dispatch API with
+# the same inputs. Nothing about that path is special: it is this workflow, with a record in the
+# Actions tab of who asked for what.
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Fallback image tag for every service without one below (CI tags each build with its commit sha and `latest`)
+        required: false
+        default: latest
+      backend_tag:
+        description: oneOps backend (prabhix/backend)
+        required: false
+      web_tag:
+        description: OneOps web (prabhix/web)
+        required: false
+      admin_tag:
+        description: Admin console (prabhix/admin)
+        required: false
+      marketing_tag:
+        description: Marketing site (prabhix/marketing)
+        required: false
+      identity_tag:
+        description: Identity (prabhix/identity)
+        required: false
+      mailroom_tag:
+        description: Mailroom web (prabhix/mailroom)
+        required: false
+      mobistack_backend_tag:
+        description: MobiStack backend (prabhix/mobistack-backend)
+        required: false
+      mobistack_web_tag:
+        description: MobiStack web (prabhix/mobistack-web)
+        required: false
+      app_store_tag:
+        description: Company app store (prabhix/app-store, built from this repository)
+        required: false
+      skip_smoke:
+        description: Skip the public smoke checks after the deploy
+        required: false
+        type: boolean
+        default: false
+
+# Two deploys at once would race over the same containers, and deploy.sh's rollback reads the tags
+# off the running containers — which the other deploy would be replacing.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  # The kept instance, i-05496f940af0517ae in deploy/RUNBOOK-consolidate.md. A repository variable
+  # overrides it for a rehearsal against a staging instance launched from the AMI.
+  INSTANCE_ID: ${{ vars.PROD_INSTANCE_ID || 'i-05496f940af0517ae' }}
+  REMOTE_ROOT: /opt/prabhix
+  REMOTE_USER: prabhix
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    # A GitHub environment named `production` with required reviewers turns this into a two-person
+    # deploy. Without one configured it is a label and nothing more.
+    environment:
+      name: production
+      url: https://oneops.prabhixtechnologies.com
+    outputs:
+      command_id: ${{ steps.send.outputs.command_id }}
+    steps:
+      - name: Check the deploy role is configured
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$ROLE" ]; then
+            echo "::error title=Deploy is not configured::Set the AWS_DEPLOY_ROLE_ARN repository variable to the role created in deploy/aws/README.md (Deploys from GitHub)."
+            exit 1
+          fi
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # The remote script is assembled here, as one string, so that what runs on the box is visible
+      # in the log before it runs. Only tags that were given are exported: an exported empty value
+      # would reach compose as a deliberate empty tag and fail the pull on `:`.
+      - name: Compose the remote command
+        id: script
+        env:
+          TAG: ${{ inputs.tag }}
+          BACKEND_TAG: ${{ inputs.backend_tag }}
+          WEB_TAG: ${{ inputs.web_tag }}
+          ADMIN_TAG: ${{ inputs.admin_tag }}
+          MARKETING_TAG: ${{ inputs.marketing_tag }}
+          IDENTITY_TAG: ${{ inputs.identity_tag }}
+          MAILROOM_TAG: ${{ inputs.mailroom_tag }}
+          MOBISTACK_BACKEND_TAG: ${{ inputs.mobistack_backend_tag }}
+          MOBISTACK_WEB_TAG: ${{ inputs.mobistack_web_tag }}
+          APP_STORE_TAG: ${{ inputs.app_store_tag }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG:-latest}"
+          exports=""
+          summary=""
+          for name in TAG BACKEND_TAG WEB_TAG ADMIN_TAG MARKETING_TAG IDENTITY_TAG MAILROOM_TAG \
+                      MOBISTACK_BACKEND_TAG MOBISTACK_WEB_TAG APP_STORE_TAG; do
+            value="${!name:-}"
+            if [ -n "$value" ]; then
+              # A tag is [A-Za-z0-9_.-], nothing else; anything else is someone typing into the
+              # wrong box, and it is refused here rather than interpreted by a shell on the box.
+              if ! printf '%s' "$value" | grep -Eq '^[A-Za-z0-9_.-]{1,128}$'; then
+                echo "::error title=Bad tag::$name='$value' is not an image tag."
+                exit 1
+              fi
+              exports="${exports:+$exports; }export $name=$value"
+              summary="${summary:+$summary }$name=$value"
+            fi
+          done
+          echo "summary=$summary" >> "$GITHUB_OUTPUT"
+
+          # Runs as the deploy user, not as root: the checkout is owned by it, and git refuses to
+          # touch a repository owned by someone else. Output is kept on the box in full because
+          # Systems Manager returns only the last 24 KB of it to us — enough for the verdict and the
+          # rollback reason, not always for the cause.
+          cat > remote.sh <<EOF
+          set -euo pipefail
+          sudo -u ${REMOTE_USER} -H bash -c '
+            set -euo pipefail
+            cd ${REMOTE_ROOT}
+            mkdir -p "\$HOME/deploy-logs"
+            log="\$HOME/deploy-logs/\$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}.log"
+            {
+              echo "[remote] deploy requested by github run ${GITHUB_RUN_ID} (${summary})"
+              echo "[remote] commit before: \$(git log --oneline -1)"
+              git pull --ff-only
+              echo "[remote] commit after:  \$(git log --oneline -1)"
+              ${exports}
+              bash deploy/deploy.sh
+            } 2>&1 | tee "\$log"
+            status=\${PIPESTATUS[0]}
+            echo "[remote] full log: \$log"
+            exit "\$status"
+          '
+          EOF
+          echo "Remote script:"
+          cat remote.sh
+
+      - name: Send it to the instance
+        id: send
+        env:
+          SUMMARY: ${{ steps.script.outputs.summary }}
+        run: |
+          set -euo pipefail
+          # The document takes a list of lines; the whole script goes as one element so that the
+          # quoting above survives intact. jq does the JSON escaping.
+          params=$(jq -n --rawfile script remote.sh '{commands: [$script], executionTimeout: ["1800"]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy from github run $GITHUB_RUN_ID: ${SUMMARY:0:80}" \
+            --timeout-seconds 120 \
+            --parameters "$params" \
+            --query 'Command.CommandId' --output text)
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+          echo "Sent command $command_id to $INSTANCE_ID"
+
+      # `aws ssm wait command-executed` gives up after 100 seconds, and a deploy with a Flyway
+      # migration and two health gates takes longer than that, so this polls by hand. Pending for
+      # more than a couple of minutes means the agent is not picking up — the instance is off, or
+      # its role lacks AmazonSSMManagedInstanceCore — and that is reported as such rather than as a
+      # deploy that failed.
+      - name: Wait for it
+        env:
+          COMMAND_ID: ${{ steps.send.outputs.command_id }}
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 1800))
+          pending_since=$SECONDS
+          status=Pending
+          while :; do
+            status=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Pending|Delayed)
+                if [ $((SECONDS - pending_since)) -gt 180 ]; then
+                  echo "::error title=Instance is not picking up commands::$INSTANCE_ID has not started the command after 3 minutes. Check that it is running, that the SSM agent is up, and that its role has AmazonSSMManagedInstanceCore (deploy/aws/README.md, Deploys from GitHub)."
+                  exit 1
+                fi ;;
+              InProgress) pending_since=$SECONDS ;;
+              *) break ;;
+            esac
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error title=Deploy timed out::Still $status after 30 minutes. deploy.sh rolls back on its own failure, but a hung deploy needs looking at on the box."
+              exit 1
+            fi
+            sleep 10
+          done
+
+          echo "::group::Remote output"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          echo "::endgroup::"
+          stderr=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text)
+          if [ -n "$stderr" ] && [ "$stderr" != "None" ]; then
+            echo "::group::Remote stderr"
+            echo "$stderr"
+            echo "::endgroup::"
+          fi
+
+          if [ "$status" != "Success" ]; then
+            echo "::error title=Deploy failed ($status)::deploy.sh rolls the stack back when it fails; the remote output above says why. The full log is on the box under ~${REMOTE_USER}/deploy-logs/."
+            exit 1
+          fi
+          {
+            echo "### Deployed"
+            echo
+            echo '`'"${{ steps.script.outputs.summary }}"'`'
+            echo
+            echo "SSM command \`$COMMAND_ID\` on \`$INSTANCE_ID\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # From outside, the way a user arrives. deploy.sh has already gated each backend on its own
+  # actuator, so what this adds is Caddy and DNS: the services can be healthy and the site still down
+  # if a site block or a record is wrong.
+  smoke:
+    name: Public smoke checks
+    needs: deploy
+    if: ${{ !inputs.skip_smoke }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every public host answers
+        run: |
+          set -uo pipefail
+          failed=0
+          check() {
+            local label=$1 url=$2 expect=${3:-200}
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$url" || echo 000)
+            if [ "$code" = "$expect" ]; then
+              echo "ok   $code  $label  $url"
+            else
+              echo "FAIL $code  $label  $url (expected $expect)"
+              failed=1
+            fi
+          }
+          check "api health"        https://api.prabhixtechnologies.com/actuator/health
+          check "identity discovery" https://api.prabhixtechnologies.com/.well-known/openid-configuration
+          check "marketing"         https://prabhixtechnologies.com/
+          check "oneops web"        https://oneops.prabhixtechnologies.com/
+          check "admin console"     https://admin.prabhixtechnologies.com/
+          check "mailroom"          https://mail.prabhixtechnologies.com/
+          check "mobistack web"     https://mobistack.prabhixtechnologies.com/
+          check "mobistack api"     https://mobistack.prabhixtechnologies.com/actuator/health
+          check "store"             https://store.prabhixtechnologies.com/
+          if [ "$failed" -ne 0 ]; then
+            echo "::error title=Smoke checks failed::A host is not answering as expected after the deploy. deploy.sh does not roll back on this — the containers are healthy — so look at Caddy: docker logs prabhix-caddy-1 --since 10m"
+            exit 1
+          fi

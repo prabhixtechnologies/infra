@@ -1,7 +1,10 @@
 # Prabhix platform — base Compose stack.
 # Local:  docker compose -f docker-compose.yml -f docker-compose.local.yml up
 # Prod:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-# Mail:   add -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver
+# Mail inbound: SES receiving is available in ap-south-1 but ingest is not wired; MX stays at
+# GoDaddy. See deploy/RUNBOOK-mail.md. Self-hosted Postfix/Dovecot (fallback):
+#   add -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver
+# Mailroom web UI is the separate `mailroom` profile, not inbound transport.
 #
 # Build contexts point at sibling repositories, so this file only works from a checkout that sits
 # beside them:
@@ -12,7 +15,7 @@
 #     Platform/     the marketing site
 #     Mailroom/     mail front ends and the mail transport
 #     Identity/     sign-in, image-only here
-#     MobiStack/    co-located, its own compose
+#     MobiStack/    backend and web, behind the `mobistack` profile
 #
 # Production never uses those contexts — every service there resolves an `image:` from ECR and a
 # missing sibling costs nothing, which is why the box checks out this repository alone. They exist so
@@ -130,6 +133,8 @@ services:
     build:
       context: ../oneOps/backend
       dockerfile: Dockerfile
+      additional_contexts:
+        identity-client: ../Identity/client
     restart: unless-stopped
     depends_on:
       pgbouncer:
@@ -163,6 +168,8 @@ services:
       # The same shared secret the identity service checks; blank leaves the mirror import-only.
       IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      # oneOps BFF → MobiStack platform admin. Compose DNS; never routed through Caddy.
+      MOBISTACK_INTERNAL_URL: ${MOBISTACK_INTERNAL_URL:-http://mobistack-backend:8080}
       # Ops hub (Cost Explorer / EC2 / optional GitHub checks) — instance role + optional PAT.
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
@@ -297,8 +304,10 @@ services:
   # arg decides which of the two entry points is bundled.
   web:
     build:
-      context: ../oneOps/web
-      dockerfile: Dockerfile
+      context: ../oneOps
+      dockerfile: web/Dockerfile
+      additional_contexts:
+        webkit: ../web-kit
       # Vite also inlines at build time. Unlike marketing, the console is a static SPA served by
       # nginx with no proxy, so the browser calls this URL directly — it must be host-reachable.
       args:
@@ -333,8 +342,10 @@ services:
   # cross-tenant code, and so this one never carries the product.
   admin:
     build:
-      context: ../oneOps/web
-      dockerfile: Dockerfile
+      context: ../oneOps
+      dockerfile: web/Dockerfile
+      additional_contexts:
+        webkit: ../web-kit
       args:
         APP: admin
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
@@ -372,13 +383,17 @@ services:
     # deploy here would try to pull prabhix-mailroom at this repo's commit sha, find nothing, and
     # fail the whole `compose pull` — taking down a deploy of four services that were all fine.
     #
-    # Enable with COMPOSE_PROFILES=mailroom once the image exists and is tagged independently.
+    # Production enables this via COMPOSE_PROFILES=identity,mailroom,mobistack in deploy/.env.prod.
+    # Leave the profile on; the image is tagged independently (MAILROOM_TAG). Local:
+    #   docker compose --profile mailroom ...
     profiles:
       - mailroom
     image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/mailroom:${MAILROOM_TAG:-${TAG:-latest}}
     build:
       context: ../Mailroom/web
       dockerfile: Dockerfile
+      additional_contexts:
+        webkit: ../web-kit
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         # Mailroom has no password form. Blank here means the app tells the visitor it is
@@ -397,10 +412,110 @@ services:
     networks:
       - prabhix
 
+  # MobiStack — the repair-shop product. Its own backend, its own database on the shared instance,
+  # its own cache; one Compose project with everything else.
+  #
+  # It used to be a second compose project attached to this network from a second checkout, with a
+  # second deploy script and a second Caddy that could not bind 80/443. Both products naming their
+  # services `backend` and `web` then made Docker's DNS hand Caddy two addresses for one name. The
+  # services are named `mobistack-backend` and `mobistack-web` here for that reason: the name IS the
+  # alias, and it cannot collide with anything.
+  #
+  # Behind a profile because, like identity and mailroom, the images are built by another
+  # repository and tagged with its commits. COMPOSE_PROFILES in deploy/.env.prod turns it on.
+  mobistack-backend:
+    profiles:
+      - mobistack
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/mobistack-backend:${MOBISTACK_BACKEND_TAG:-${TAG:-latest}}
+    build:
+      context: ../MobiStack/backend
+      dockerfile: Dockerfile
+      additional_contexts:
+        identity-client: ../Identity/client
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${MOBISTACK_SPRING_PROFILES_ACTIVE:-dev}
+      # Straight to Postgres, not through pgbouncer. The pooler's budget (see its comments) was sized
+      # with this product's Hikari pool outside it; moving it behind the pooler is a separate change
+      # that has to re-derive those numbers.
+      SPRING_DATASOURCE_URL: ${MOBISTACK_DB_URL:-jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${MOBISTACK_DB_NAME:-mobistack}}
+      SPRING_DATASOURCE_USERNAME: ${MOBISTACK_DB_USER:-mobistack}
+      SPRING_DATASOURCE_PASSWORD: ${MOBISTACK_DB_PASSWORD:-mobistack}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${MOBISTACK_DB_POOL_MAX:-10}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${MOBISTACK_DB_POOL_MIN:-2}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      FIXFLOW_REDIS_ENABLED: ${FIXFLOW_REDIS_ENABLED:-true}
+      FIXFLOW_CACHE_TYPE: redis
+      # The same identity, the same JWKS, the same service token as the platform backend. One issuer
+      # for every product is the whole point.
+      IDENTITY_ISSUER: ${IDENTITY_ISSUER:-}
+      IDENTITY_JWKS_URI: ${IDENTITY_JWKS_URI:-http://identity:8081/.well-known/jwks.json}
+      IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      FIXFLOW_WEB_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
+      FIXFLOW_PUBLIC_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
+      FIXFLOW_API_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
+      FIXFLOW_REQUIRE_HTTPS: ${FIXFLOW_REQUIRE_HTTPS:-false}
+      FIXFLOW_ANDROID_DOWNLOAD_URL: ${STORE_URL:-http://store.prabhixtechnologies.com:8090}/mobistack/android.apk
+      # Its own Razorpay account by default falls back to the platform's keys, because today they are
+      # one account. Set the MOBISTACK_ ones the day that stops being true.
+      RAZORPAY_KEY_ID: ${MOBISTACK_RAZORPAY_KEY_ID:-${RAZORPAY_KEY_ID:-}}
+      RAZORPAY_KEY_SECRET: ${MOBISTACK_RAZORPAY_KEY_SECRET:-${RAZORPAY_KEY_SECRET:-}}
+      RAZORPAY_WEBHOOK_SECRET: ${MOBISTACK_RAZORPAY_WEBHOOK_SECRET:-${RAZORPAY_WEBHOOK_SECRET:-}}
+      FIXFLOW_OPENAI_API_KEY: ${FIXFLOW_OPENAI_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${MOBISTACK_MAIL_FROM:-noreply@prabhixtechnologies.com}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health/liveness | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 180s
+    networks:
+      - prabhix
+
+  mobistack-web:
+    profiles:
+      - mobistack
+    image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/mobistack-web:${MOBISTACK_WEB_TAG:-${TAG:-latest}}
+    build:
+      context: ../MobiStack/web
+      dockerfile: Dockerfile
+      additional_contexts:
+        webkit: ../web-kit
+      args:
+        VITE_RAZORPAY_KEY_ID: ${MOBISTACK_RAZORPAY_KEY_ID:-${RAZORPAY_KEY_ID:-}}
+        VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
+        VITE_STORE_URL: ${STORE_URL:-http://store.prabhixtechnologies.com:8090}
+    restart: unless-stopped
+    depends_on:
+      - mobistack-backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - prabhix
+
   marketing:
     build:
       context: ../Platform/marketing
       dockerfile: Dockerfile
+      additional_contexts:
+        webkit: ../web-kit
       # Next inlines NEXT_PUBLIC_* into the bundle at build time, so these must be build args.
       # Passing them under `environment` instead does nothing, and an unset NEXT_PUBLIC_ORG_SLUG
       # does not fail the build — it silently ships a site with no storefront, chat widget or
@@ -414,9 +529,6 @@ services:
         NEXT_PUBLIC_API_URL: ${MARKETING_INTERNAL_API_URL:-http://backend:8080}
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
         NEXT_PUBLIC_CONSOLE_URL: ${NEXT_PUBLIC_CONSOLE_URL:-http://localhost:5173}
-        # MobiStack is a separate application with its own repository and stack, not part of this
-        # Compose project. Defaults to the public host; override to a local port only if you are
-        # running that project too.
         NEXT_PUBLIC_MOBISTACK_URL: ${NEXT_PUBLIC_MOBISTACK_URL:-https://mobistack.prabhixtechnologies.com}
         NEXT_PUBLIC_ORG_SLUG: ${NEXT_PUBLIC_ORG_SLUG:-}
         NEXT_PUBLIC_ORG_ID: ${NEXT_PUBLIC_ORG_ID:-}

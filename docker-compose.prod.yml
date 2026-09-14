@@ -8,8 +8,8 @@
 # Steady state, once the database has moved to RDS and MobiStack shares this box:
 #
 #   platform backend   1024m      identity            384m      marketing   384m
-#   mobistack backend   640m      pgbouncer            64m      caddy       128m
-#   web / admin / mailroom / mobistack web              48m each
+#   mobistack-backend   640m      pgbouncer            64m      caddy       128m
+#   web / admin / mailroom / mobistack-web              48m each
 #
 # ~2.8 GiB of ceilings against ~3.7 GiB usable. These are ceilings, not reservations, so real usage
 # sits well below them; the remainder is page cache and the mail server when its profile is up.
@@ -115,6 +115,8 @@ services:
       VIRTUAL_THREADS: "true"
       SWAGGER_ENABLED: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Micrometer → CloudWatch namespace Prabhix. Off unless flipped; see deploy/aws/cloudwatch-alarms.md.
+      CLOUDWATCH_METRICS: ${CLOUDWATCH_METRICS:-false}
       # Through the pooler, and it stays that way on RDS: what changes is where pgbouncer points.
       # prepareThreshold=0 is not optional — transaction pooling hands a different server connection
       # to each transaction, so a server-side prepared statement is not there the second time.
@@ -233,6 +235,7 @@ services:
       # so the check happens where it belongs: in the container that needs it.
       IDENTITY_SIGNING_KEY: ${IDENTITY_SIGNING_KEY:-}
       SWAGGER_ENABLED: "false"
+      CLOUDWATCH_METRICS: ${CLOUDWATCH_METRICS:-false}
     logging:
       driver: json-file
       options:
@@ -271,11 +274,63 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  # Built from the sibling Mailroom repository by its own CI, so there is nothing to build here even
-  # in development — the image is the interface between the two repos. That also means its tags are
-  # that repository's commits, which is why it carries its own MAILROOM_TAG and its own profile.
+# Built from the sibling Mailroom repository by its own CI, so there is nothing to build here even
+# in development — the image is the interface between the two repos. That also means its tags are
+# that repository's commits, which is why it carries its own MAILROOM_TAG. The `mailroom` profile
+# is on in production (`COMPOSE_PROFILES=identity,mailroom,mobistack` in deploy/.env.prod).
   mailroom:
     image: ${REGISTRY:-029096972251.dkr.ecr.ap-south-1.amazonaws.com}/prabhix/mailroom:${MAILROOM_TAG:-${TAG:-latest}}
+    build: !reset null
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 48m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # MobiStack, on the shared box. Direct to RDS with its own role and database, its own ElastiCache
+  # Valkey cache (a stray FLUSHALL in one product must not empty the other's), and the same JVM
+  # discipline as the platform backend — see the notes on that service for each flag.
+  mobistack-backend:
+    build: !reset null
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 640m
+    # The datastore containers do not run here and pgbouncer is not on this service's path, so there
+    # is nothing to wait for.
+    depends_on: !reset null
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -XX:MaxRAMPercentage=60
+        -XX:+UseContainerSupport
+        -XX:+UseCompactObjectHeaders
+        -XX:+ExitOnOutOfMemoryError
+        -Djava.security.egd=file:/dev/./urandom
+      SPRING_PROFILES_ACTIVE: ${MOBISTACK_SPRING_PROFILES_ACTIVE:-prod,valkey}
+      # sslmode=require because RDS ships rds.force_ssl=1, and the error it returns for an
+      # unencrypted attempt is "no pg_hba.conf entry for host", which reads like a firewall problem.
+      SPRING_DATASOURCE_URL: ${MOBISTACK_DB_URL:-jdbc:postgresql://${POSTGRES_HOST:-postgres}:5432/${MOBISTACK_DB_NAME:-mobistack}?sslmode=require}
+      # Defaulted rather than required, like identity's: compose interpolates services behind an
+      # inactive profile too, and the container refuses to start on a blank password anyway.
+      SPRING_DATASOURCE_PASSWORD: ${MOBISTACK_DB_PASSWORD:-}
+      REDIS_CLUSTER_NODES: ${MOBISTACK_REDIS_CLUSTER_NODES:-}
+      FIXFLOW_REQUIRE_HTTPS: "true"
+      FIXFLOW_ANDROID_DOWNLOAD_URL: ${STORE_URL:-https://store.prabhixtechnologies.com}/mobistack/android.apk
+      SWAGGER_ENABLED: "false"
+      CLOUDWATCH_METRICS: ${CLOUDWATCH_METRICS:-false}
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "10"
+
+  mobistack-web:
     build: !reset null
     restart: always
     deploy:

@@ -58,9 +58,9 @@ services:
       LOG_LEVEL: DEBUG
       IDENTITY_ISSUER: http://localhost:8081
       IDENTITY_JWKS_URI: http://identity:8081/.well-known/jwks.json
-      LEGACY_CREDENTIAL_LOGIN: "false"
       # Same value as identity — enables /internal/organizations for hosted signup.
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-local-dev-identity-service-token}
+      MOBISTACK_INTERNAL_URL: ${MOBISTACK_INTERNAL_URL:-http://mobistack-backend:8080}
 
   web:
     ports:
@@ -84,6 +84,22 @@ services:
     build:
       args:
         VITE_API_URL: http://localhost:8080
+        VITE_IDENTITY_ISSUER: http://localhost:8081
+
+  mobistack-backend:
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      IDENTITY_ISSUER: http://localhost:8081
+      IDENTITY_JWKS_URI: http://identity:8081/.well-known/jwks.json
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-local-dev-identity-service-token}
+
+  mobistack-web:
+    ports:
+      - "5176:80"
+    build:
+      args:
         VITE_IDENTITY_ISSUER: http://localhost:8081
 
   marketing:

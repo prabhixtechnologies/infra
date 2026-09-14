@@ -10,9 +10,8 @@ for making signed builds without putting the keystore in git.
 
 | App | Properties file | Example |
 | --- | --- | --- |
-| OneOps + Admin (shared key OK) | `oneOps/mobile/android/keystore.properties` | `keystore.properties.example` beside it |
-| Mailroom | `Mailroom/android/keystore.properties` | `keystore.properties.example` |
-| MobiStack | `MobiStack/mobile/android/keystore.properties` | `keystore.properties.example` |
+| Flutter (all four apps) | `Mobile/apps/<app>/android/keystore.properties` | see `Mobile/ANDROID-RELEASE-SIGNING.md` if present |
+| Native (archived) | on `archive/native-*` under the old `mobile/android` / `android` trees | `keystore.properties.example` on those branches |
 
 Create a key (once per application id, forever):
 
@@ -26,7 +25,7 @@ Back the `.jks` up somewhere durable. Losing it means installed apps cannot be u
 
 ## GitHub Actions secrets
 
-Where a workflow already assembles a release APK (MobiStack `build.yml` / `play-release.yml`), set:
+Where Flutter CI in the Mobile repository assembles a release APK, set:
 
 | Secret | Purpose |
 | --- | --- |
@@ -35,13 +34,8 @@ Where a workflow already assembles a release APK (MobiStack `build.yml` / `play-
 | `ANDROID_KEY_ALIAS` | alias (usually `prabhix` / `mobistack`) |
 | `ANDROID_KEY_PASSWORD` | key password |
 
-OneOps and Mailroom CI currently assemble **debug** only until those secrets exist for their repos.
-After the secrets are added, flip the workflow to `assemble*Release` the same way MobiStack does.
-
-## Admin
-
-Admin shares the OneOps Android project (product flavor). It is signed with the same keystore as
-OneOps. **Do not** publish Admin on the public download page — staff-only distribution.
+Native product-repo Android CI is gone. Flutter APKs are built from `Mobile/`.
+Admin is staff-only — do not publish it on the public download page.
 
 ## Blocked on you
 

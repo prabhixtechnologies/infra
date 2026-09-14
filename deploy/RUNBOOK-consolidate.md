@@ -1,15 +1,21 @@
 # Consolidating onto one instance
 
-Two `t3.small` instances today. The target is one `t3.medium` running both products, with the
-databases on RDS, the caches on ElastiCache, and staging launched on demand instead of kept running.
+Two `t3.small` instances at the start. The target is one `t3.medium` running both products from one
+compose project, with the databases on RDS, the caches on ElastiCache, and staging launched on
+demand instead of kept running.
 
-| | Now | After |
+| | Before | After |
 | --- | --- | --- |
-| `i-05496f940af0517ae` (PrabhixTechnologies) | t3.small, platform | t3.medium, both products |
+| `i-05496f940af0517ae` (PrabhixTechnologies) | t3.small, platform | t3.medium, both products, one compose project |
 | `i-069a080a3068da761` (Mobistack) | t3.small, MobiStack | terminated, Elastic IP released |
+| MobiStack's compose | its own project in `/opt/mobistack` | the `mobistack` profile of this repository's stack |
 | Postgres | two containers | RDS, `ap-south-1` |
 | Redis | two containers | two ElastiCache Valkey serverless caches |
 | Staging | none | launched from an AMI for a rehearsal, then terminated |
+
+Steps 1 to 3 and 6 are done. Step 4 in its final form — MobiStack as a profile of this stack rather
+than a second compose project on the same network — is the one still to run, and step 5 is already
+in place for it.
 
 `i-05496f940af0517ae` is the one to keep, and not by coin toss: it holds the Elastic IP the DNS
 records point at, Caddy's certificate store, the hardened SSH config, the UFW rules, and it is the
@@ -101,48 +107,69 @@ sets `spring.threads.virtual.enabled: true`, so neither holds a fixed pool of pl
 stacks could be reclaimed. Identity sets neither, so its default ceiling of 200 is real, and it is
 capped at 50 in `application.yml`.
 
-## 4. Move MobiStack across
+## 4. Move MobiStack into this stack
 
-MobiStack joins the unified compose stack in the Infra repository, for the DNS reason above. Before
-terminating anything, take what only exists on that box:
+MobiStack has been running on the kept box as a second compose project — `/opt/mobistack`, its own
+`docker-compose.yml` plus a docker-compose.shared.yml overlay, its own `.env` with `IMAGE_TAG`, its own deploy
+script — attached to the `prabhix` network so that Caddy could reach it. That got it off the second
+instance; it left two deploy paths, two environment files, and a pair of `backend`/`web` aliases on
+the network that only stayed harmless because nothing routed on them. This step ends that: the
+`mobistack-backend` and `mobistack-web` services in `docker-compose.yml`, behind the `mobistack`
+profile, replace the second project.
 
-```bash
-# The live environment file. It holds secrets that exist nowhere else.
-scp mobistack:/home/ec2-user/Mobistack/.env ./mobistack.env.backup
-
-# A snapshot of the root volume, as a way back for a week or two.
-aws ec2 describe-instances --region ap-south-1 --instance-ids i-069a080a3068da761 \
-  --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId' --output text
-
-aws ec2 create-snapshot --region ap-south-1 \
-  --volume-id <volume-id> \
-  --description "Mobistack pre-consolidation $(date -I)"
-```
-
-Then, on the kept box, bring MobiStack up under the unified stack and check it answers on the
-container names Caddy will use:
+Expect a minute or two without MobiStack — the old containers have to be gone before the new ones
+start, or both answer to `mobistack-backend` on the network. Do it at a quiet hour.
 
 ```bash
+# 1. Carry the values across. MobiStack's .env names things its own way; the mapping is:
+#      SPRING_DATASOURCE_PASSWORD  -> MOBISTACK_DB_PASSWORD   (Secrets Manager prabhix/prod/database if SECRETS_SOURCE=aws)
+#      REDIS_CLUSTER_NODES         -> MOBISTACK_REDIS_CLUSTER_NODES
+#      RAZORPAY_*                  -> MOBISTACK_RAZORPAY_*   (blank if it is the same account as the platform's)
+#      FIXFLOW_OPENAI_API_KEY      -> FIXFLOW_OPENAI_API_KEY
+#      IMAGE_TAG                   -> MOBISTACK_BACKEND_TAG and MOBISTACK_WEB_TAG
+#    Everything else — IDENTITY_*, SMTP_*, STORE_URL, MOBISTACK_URL — the stack already has.
+cd /opt/prabhix
+grep -E '^(SPRING_DATASOURCE_PASSWORD|REDIS_CLUSTER_NODES|RAZORPAY_|FIXFLOW_OPENAI|IMAGE_TAG)' /opt/mobistack/.env
+$EDITOR deploy/.env.prod           # add the MOBISTACK_* lines; see deploy/.env.prod.example
+
+# 2. Turn the profile on, and prove the stack still parses with it.
+sed -i 's/^COMPOSE_PROFILES=.*/COMPOSE_PROFILES=identity,mailroom,mobistack/' deploy/.env.prod
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deploy/.env.prod \
+  config --services | sort                                  # mobistack-backend and mobistack-web appear
+
+# 3. Take the old project down. `down` rather than `stop`: the containers carry the aliases.
+(cd /opt/mobistack && docker compose -f docker-compose.yml -f docker-compose.shared.yml down)
+docker ps --format '{{.Names}}' | grep -i mobistack         # nothing
+
+# 4. Deploy. Pulls the two images at the tags from step 1, health-gates the backend, then the web.
+bash deploy/deploy.sh
+
+# 5. From inside the network, on the names Caddy uses, then from outside.
 docker run --rm --network prabhix alpine:3 sh -c \
   "apk add -q curl && curl -fsS http://mobistack-backend:8080/actuator/health/readiness"
+curl -fsS https://mobistack.prabhixtechnologies.com/actuator/health
 ```
 
-## 5. Point DNS and enable the Caddy fragment
+Once it has served a day from the profile, `/opt/mobistack` is a directory of files nothing reads —
+move it aside rather than delete it for a week, then delete it. Its `.env` is the last copy of any
+value not carried across in step 1.
 
-Repoint `mobistack.prabhixtechnologies.com` at the kept box's Elastic IP and wait for it to
-propagate. Only then enable the site block — Caddy requests a certificate for every name it is
-configured to serve, so enabling it while DNS still resolves elsewhere produces failing ACME orders
-on a loop against a per-name weekly rate limit:
+Rollback, if step 4 fails its health gate: `deploy.sh` will have restored the platform services,
+and MobiStack's are simply absent. Set `COMPOSE_PROFILES` back to `identity,mailroom`, then
+`(cd /opt/mobistack && docker compose -f docker-compose.yml -f docker-compose.shared.yml up -d)`.
+
+## 5. DNS and the Caddy site blocks
+
+Both `mobistack.prabhixtechnologies.com` and `api.mobistack.prabhixtechnologies.com` resolve to the
+kept box's Elastic IP, Caddy holds certificates for both, and their site blocks are ordinary blocks in
+`deploy/Caddyfile` — no longer a fragment in `deploy/conf.d/`, which was only ever the mechanism for
+adding a name before its A record had moved. On a host without the `mobistack` profile the blocks
+answer 503 with a message saying so, rather than a bare 502.
 
 ```bash
-dig +short mobistack.prabhixtechnologies.com          # must be the kept box
-
-mv deploy/conf.d/mobistack.caddyfile.example deploy/conf.d/mobistack.caddyfile
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate caddy
-docker logs prabhix-caddy-1 --since 2m | grep -Ei 'certificate|error'
+dig +short mobistack.prabhixtechnologies.com api.mobistack.prabhixtechnologies.com   # both the kept box
+docker logs prabhix-caddy-1 --since 10m | grep -Ei 'certificate|error'
 ```
-
-Rollback is the same rename in reverse, then recreate Caddy again.
 
 ## 6. Terminate and release
 

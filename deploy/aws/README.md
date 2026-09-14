@@ -15,7 +15,8 @@ policies below — those need root or an administrator.
 | `ecr-lifecycle.json` | Expiry rules, applied to every repository |
 | `github-oidc-trust.json` | Trust policy: which GitHub repositories may assume the CI role |
 | `ecr-push-policy.json` | What the CI role may do — push and read, nine named repositories |
-| `ecr-pull-policy.json` | What the instance role may do — read only, no push |
+| `env-parameter-policy.json` | Instance role read of `/prabhix/prod/env` |
+| `cloudwatch-alarms.md` | PutMetricAlarm recipes (5xx, p99, outbox, JVM, RDS) → SNS |
 
 ## `iam-platform-deployer.json` — unblocking the deployer itself
 
@@ -187,6 +188,127 @@ like a missing login rather than a missing path.
 
 `REGISTRY` in `deploy/.env.prod` names the registry host. `deploy.sh` authenticates and pulls from
 it. There is no Docker Hub fallback to blank it back to.
+
+## Deploys from GitHub: Systems Manager instead of a key
+
+`.github/workflows/deploy.yml` in this repository runs `deploy/deploy.sh` on the instance. It does
+not SSH in. There is no private key in GitHub, and there is not going to be one: a key in a secret
+is a key that whoever can edit a workflow can exfiltrate, and the MobiStack repository's
+`EC2_SSH_KEY` secret was exactly that until its deploy workflow was deleted — revoke that key in
+`~prabhix/.ssh/authorized_keys` on the box if it is still there.
+
+Instead the workflow assumes a second, narrower role and asks Systems Manager to run the script; the
+SSM agent on the instance pulls the command and reports the output back. Three things to set up.
+
+### 1. The instance can be reached by SSM
+
+The agent ships on Amazon Linux and Ubuntu AMIs; what is usually missing is the permission for it to
+register. It is a managed policy on the role behind the instance profile — the same role that pulls
+from ECR, because there is one role on the box and that is deliberate:
+
+```bash
+aws iam attach-role-policy \
+  --role-name prabhix-ec2-ecr-pull \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+# On the box. Both should say running / Online.
+systemctl is-active amazon-ssm-agent snap.amazon-ssm-agent.amazon-ssm-agent.service 2>/dev/null
+aws ssm describe-instance-information --region ap-south-1 \
+  --query 'InstanceInformationList[].{Id:InstanceId,Ping:PingStatus,Agent:AgentVersion}' --output table
+```
+
+`PingStatus: Online` is the check. A workflow run that sits at Pending for three minutes and then
+fails with "not picking up commands" is this step, not the deploy.
+
+### 2. The deploy role
+
+Separate from `PrabhixGitHubActions`, and trusted by fewer callers: only the `main` branch of this
+repository, and only its `production` environment. The CI role is trusted by every product
+repository, because each pushes its own image; none of them should be able to deploy.
+
+```bash
+aws iam create-role \
+  --role-name PrabhixGitHubDeploy \
+  --assume-role-policy-document file://deploy/aws/github-oidc-deploy-trust.json
+
+aws iam put-role-policy \
+  --role-name PrabhixGitHubDeploy \
+  --policy-name SsmDeploy \
+  --policy-document file://deploy/aws/ssm-deploy-policy.json
+```
+
+`ssm-deploy-policy.json` allows `SendCommand` against one instance and one document,
+`AWS-RunShellScript`, and reading the result. It cannot start a session, touch a parameter, or reach
+a second instance. If the kept instance is ever replaced, the instance id in that file and in the
+workflow's `INSTANCE_ID` default both change; the `PROD_INSTANCE_ID` repository variable is for
+pointing a rehearsal at a staging instance without editing either.
+
+Then, in this repository's Settings → Secrets and variables → Actions → Variables:
+
+```
+AWS_DEPLOY_ROLE_ARN = arn:aws:iam::029096972251:role/PrabhixGitHubDeploy
+```
+
+### 3. The environment
+
+Settings → Environments → New environment → `production`. Required reviewers there make every deploy
+a two-person action; without them the environment is only a label, and the workflow runs on the
+first click. Either is a legitimate choice; the workflow does not care which.
+
+The trust policy's second subject, `environment:production`, is what GitHub sends for a job that
+declares that environment, so the role stays assumable if the branch condition is ever tightened.
+
+### Running it
+
+Actions → Deploy → Run workflow. Every service has its own tag input; leave the ones that have not
+moved blank and they follow `tag`, which defaults to `latest`. The same inputs are what the admin
+console's Promote button sends through the `workflow_dispatch` API, so a deploy started from either
+place appears in the Actions tab with its tags and its output.
+
+The runner gets the last 24 KB of the remote output — enough for the verdict and, on a rollback, the
+reason. The full transcript is on the box under `~prabhix/deploy-logs/`, one file per run.
+
+## The environment file: Parameter Store instead of one disk
+
+`deploy/.env.prod` was the one copy of the production configuration, on the instance's root volume.
+`deploy/env-store.sh` keeps it in Systems Manager as the SecureString parameter `/prabhix/prod/env`.
+**Production default is `ENV_SOURCE=ssm`:** `deploy.sh` refreshes the file from the parameter before
+every deploy. `ENV_SOURCE=file` is the fallback when Parameter Store is not wired yet. The secrets
+marked `[S]` in the example are not in it when `SECRETS_SOURCE=aws`; they stay in Secrets Manager,
+which rotates, where a parameter does not.
+
+The instance reads it with an inline policy on its role, beside the ECR and Secrets Manager ones:
+
+```bash
+aws iam put-role-policy \
+  --role-name prabhix-ec2-ecr-pull \
+  --policy-name EnvParameterRead \
+  --policy-document file://deploy/aws/env-parameter-policy.json
+```
+
+Writing it is done from a workstation with the deployer's credentials, which already carry
+`ssm:PutParameter` on `parameter/prabhix/*` from `iam-platform-deployer.json`:
+
+```bash
+# On the box, once: the example already says ENV_SOURCE=ssm. Fill values, then push.
+# Fallback: ENV_SOURCE=file until this parameter exists.
+bash deploy/env-store.sh push
+
+# Anywhere with the deployer's credentials, afterwards:
+bash deploy/env-store.sh pull      # to a local deploy/.env.prod (backs up what was there)
+$EDITOR deploy/.env.prod
+bash deploy/env-store.sh diff      # keys that would change; --values to see the values
+bash deploy/env-store.sh push
+```
+
+The next deploy picks the change up. A rebuilt instance needs only the role and
+`bash deploy/env-store.sh pull` to have its configuration back, which is the reason for all of this.
+
+## CloudWatch metrics and SNS alarms
+
+Micrometer export to namespace `Prabhix` is off until `CLOUDWATCH_METRICS=true` (or Spring profile
+`cloudwatch`) on Identity, oneOps and MobiStack. Alarm recipes (5xx, p99, outbox backlog, JVM heap,
+RDS connections) → SNS email are in [`cloudwatch-alarms.md`](cloudwatch-alarms.md). No Terraform.
 
 ## Cache: ElastiCache Valkey instead of the Redis container
 

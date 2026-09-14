@@ -1,8 +1,8 @@
-# deploy-remote.ps1 — manual production deploy from a Windows workstation.
+# deploy-remote.ps1 — production deploy from a Windows workstation, over SSH.
 #
-# Deploys are deliberately manual: no SSH private key is stored in GitHub, so there is no Actions
-# workflow that can reach the host. CI's job ends at pushing images to Amazon ECR; this script is
-# what moves them onto the server.
+# The same deploy.sh that .github/workflows/deploy.yml runs through SSM. This is the path for when
+# GitHub or SSM is what is broken; the workflow is the everyday one, because it leaves a record and
+# needs no key on a laptop.
 #
 # Usage:
 #   .\deploy\deploy-remote.ps1                       # deploy :latest to the production host
@@ -26,6 +26,9 @@ param(
     [string]$MarketingTag = "",
     [string]$IdentityTag = "",
     [string]$MailroomTag = "",
+    [string]$MobiStackBackendTag = "",
+    [string]$MobiStackWebTag = "",
+    [string]$AppStoreTag = "",
     [string]$RemoteRoot = "/opt/prabhix",
     # Deploy the checkout that is already on the host, at the commit you say it is at, instead of
     # pulling. For when the host cannot reach GitHub -- a deploy key not yet added, an outage.
@@ -86,6 +89,9 @@ $overrides = [ordered]@{
     MARKETING_TAG = $MarketingTag
     IDENTITY_TAG  = $IdentityTag
     MAILROOM_TAG  = $MailroomTag
+    MOBISTACK_BACKEND_TAG = $MobiStackBackendTag
+    MOBISTACK_WEB_TAG     = $MobiStackWebTag
+    APP_STORE_TAG         = $AppStoreTag
 }
 $exports = ($overrides.GetEnumerator() | Where-Object { $_.Value } |
     ForEach-Object { "export $($_.Key)=`"$($_.Value)`"" }) -join "`n"

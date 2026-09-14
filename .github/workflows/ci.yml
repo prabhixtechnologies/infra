@@ -24,7 +24,28 @@ jobs:
         run: |
           pip install --quiet pyyaml
           python deploy/check-yaml.py \
-            docker-compose.yml docker-compose.local.yml docker-compose.prod.yml
+            docker-compose.yml docker-compose.local.yml docker-compose.prod.yml \
+            .github/workflows/ci.yml .github/workflows/deploy.yml
+
+      # deploy.sh knows every service by name — which variable pins its tag, which container to read
+      # the previous tag from. A service added to compose and not to that list deploys at `latest`
+      # and is left out of the rollback, with nothing in the output to say so.
+      - name: deploy.sh names every application service
+        run: |
+          set -a && . deploy/.env.prod.example && set +a
+          for key in $(grep -oP '^[A-Z][A-Z0-9_]*(?==)' deploy/.env.prod.example | sort -u); do
+            [ -n "${!key:-}" ] || export "$key=ci-placeholder"
+          done
+          listed=$(grep -oP '^SERVICES="\K[^"]+' deploy/deploy.sh)
+          for service in $(docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+              --profile identity --profile mailroom --profile mobistack config --services); do
+            case "$service" in postgres|redis|pgbouncer|caddy|mailpit|prometheus|grafana) continue ;; esac
+            case " $listed " in
+              *" $service "*) ;;
+              *) echo "::error file=deploy/deploy.sh::$service is in compose but not in SERVICES"; exit 1 ;;
+            esac
+          done
+          echo "deploy.sh knows: $listed"
 
       # The invariant is that every variable the production stack requires is named in the example
       # file — not that the example holds real values, which it deliberately does not. Mandatory
@@ -43,9 +64,9 @@ jobs:
           done
           docker compose -f docker-compose.yml -f docker-compose.prod.yml config >/dev/null
 
-      # identity and mailroom sit behind profiles, so both are enabled here — a service that has
-      # quietly dropped out of the stack is otherwise indistinguishable from one that is merely
-      # switched off.
+      # identity, mailroom and mobistack sit behind profiles, so all three are enabled here — a
+      # service that has quietly dropped out of the stack is otherwise indistinguishable from one
+      # that is merely switched off.
       #
       # The build contexts point at sibling repositories that are not checked out here. Production
       # never uses them either, so their absence must not fail this, and `config` parses the file
@@ -57,9 +78,9 @@ jobs:
             [ -n "${!key:-}" ] || export "$key=ci-placeholder"
           done
           services=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-            --profile identity --profile mailroom config --services | sort | tr '\n' ' ')
+            --profile identity --profile mailroom --profile mobistack config --services | sort | tr '\n' ' ')
           echo "services: $services"
-          for expected in backend web admin marketing identity mailroom caddy pgbouncer; do
+          for expected in backend web admin marketing identity mailroom mobistack-backend mobistack-web caddy pgbouncer; do
             case " $services " in
               *" $expected "*) ;;
               *) echo "::error::$expected is missing from the stack"; exit 1 ;;
@@ -85,6 +106,14 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
           shellcheck --severity=warning deploy/*.sh deploy/aws/*.sh
+
+      # The IAM documents are only ever read by the AWS CLI, which reports a malformed one as a
+      # parameter validation error that does not name the file.
+      - name: IAM policies are JSON
+        run: |
+          for policy in deploy/aws/*.json; do
+            python3 -m json.tool "$policy" >/dev/null || { echo "::error file=$policy::not valid JSON"; exit 1; }
+          done
 
   runbooks:
     name: Runbooks

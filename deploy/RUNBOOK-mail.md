@@ -6,6 +6,38 @@ below are done unless marked otherwise; two DNS-level items remain and are liste
 
 ## What is still open
 
+**MX still points at GoDaddy**, so hosted addresses do not receive internet mail here. Inbound
+transport is decided below; do not treat Mailroom as live until MX is moved.
+
+## Inbound transport decision
+
+Outbound is SES in `ap-south-1`. Inbound is a separate choice.
+
+**Decision: SES inbound receiving in ap-south-1 is the intended path**, once ingest is wired.
+The region has an email-receiving endpoint (`inbound-smtp.ap-south-1.amazonaws.com`). The shape
+is SES receipt rules → S3 (raw MIME) → SNS notification → the existing `MailIngestionService`
+(`InboundSource.WEBHOOK` / `stageRaw`). That ingest path is **not built yet**: today's inbound
+code is LMTP from Postfix (`POST /api/v1/mail/inbound/lmtp`) and IMAP poll. The SES SNS webhook
+that exists today is bounce and complaint feedback only.
+
+Until ingest exists, **do not flip MX**. Leave it at GoDaddy (`smtp.secureserver.net` /
+`mailstore1.secureserver.net`). Mailroom stays unlisted as live in marketing for that reason.
+
+**Fallback if SES ingest is delayed or we need on-box delivery:** a dedicated mail-server
+(Postfix + Dovecot + Rspamd) via the `mailserver` compose profile:
+
+```
+docker compose -f docker-compose.yml -f ../Mailroom/mail-server/docker-compose.mail.yml --profile mailserver up -d
+```
+
+That profile stays opt-in. Enabling it opens 25/587/993 and accepts MX; it is a part-time ops
+job (PTR, blocklists, port 25 unblock). Prefer SES receiving when the webhook/S3 ingest is
+ready rather than running Postfix on the same t3.medium as the rest of the platform.
+
+The Mailroom **web** service is a different profile (`mailroom`) and is unrelated to inbound MX.
+
+## Remaining DNS and SES sandbox
+
 **SPF still fails.** The record is `v=spf1 include:secureserver.net -all`, which does not include SES
 and ends in a hard fail. DKIM passes and this domain's DMARC uses relaxed alignment, so mail
 authenticates on DKIM alone and is not being quarantined — but SPF actively *fails* rather than being
@@ -135,14 +167,11 @@ Until then, verify the individual addresses used for testing:
 aws sesv2 create-email-identity --email-identity you@example.com
 ```
 
-## Inbound mail is a separate question
+## Inbound mail
 
-    100|MX points at GoDaddy, so mail addressed to `@prabhixtechnologies.com` is delivered there and never
-reaches this box. The six mailboxes the seed created — `owner@`, `support@`, `billing@`, `careers@`,
-`security@`, `no-reply@` — exist as rows in the `oneops` database, not as anything that can receive
-mail today.
+MX still points at GoDaddy, so `@prabhixtechnologies.com` is not delivered to this box. The
+mailboxes in the database cannot receive internet mail until MX moves. See **Inbound transport
+decision** at the top of this file: SES receiving in ap-south-1 is the intended path once ingest
+is wired; the mail-server profile is the fallback. Do not flip MX, and do not mark Mailroom live,
+until one of those receivers is actually ingesting.
 
-Repointing MX here means running the mail server profile and accepting responsibility for inbound
-spam filtering and storage. Leaving MX at GoDaddy and reading it over IMAP is the smaller move, and
-is what Mailroom's IMAP support is for. That decision is not made yet and should not be made by
-whoever next edits this file without asking.

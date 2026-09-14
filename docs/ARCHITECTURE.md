@@ -47,7 +47,7 @@ Databases are on one RDS instance (`oneops`, `identity`, `mobistack`), caches on
   so platform staff roles are the only human admin authority.
 - **Mailroom is one person's mail.** No queue, no assignee, no SLA. Admins additionally get *Company
   mail* — see PRODUCTS.md, decision 1.
-- **A capability is not a product.** Helpdesk is a section of OneOps. `marketing/src/content/products.ts`
+- **A capability is not a product.** Helpdesk is a section of OneOps. `Platform/marketing/src/content/products.ts`
   encodes this with `kind: app | module`; only an `app` gets an "Open app" link.
 
 ---

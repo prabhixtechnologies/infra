@@ -103,19 +103,95 @@ app.prabhixtechnologies.com {
 
 # Extra sites, dropped in as files rather than written here.
 #
-# This exists for co-locating MobiStack on this box. A site block cannot simply be added above and
-# left dormant: Caddy tries to obtain a certificate for every name it is configured to serve, so a
-# block for a hostname whose DNS still points somewhere else means failing ACME orders on a loop,
-# against a rate limit that is counted per name and per week. The name has to appear here only
-# after the A record does.
-#
-# So the fragment ships disabled — deploy/conf.d/mobistack.caddyfile.example — and enabling it is a
-# rename, which is also the rollback. See deploy/RUNBOOK-consolidate.md.
+# For a hostname whose A record has not moved here yet. A site block cannot simply be added above
+# and left dormant: Caddy tries to obtain a certificate for every name it is configured to serve, so
+# a block for a hostname whose DNS still points somewhere else means failing ACME orders on a loop,
+# against a rate limit that is counted per name and per week. Such a block ships as
+# `deploy/conf.d/<name>.caddyfile.example`, and enabling it is a rename — which is also the
+# rollback. MobiStack arrived on this box that way and, its DNS long settled, is a normal block
+# below now; the store is the one fragment left.
 #
 # A directory mount rather than more single files, for the inode reason described on the caddy
 # volumes in docker-compose.yml: a bind-mounted file is replaced by `git pull`, and the container
 # keeps serving the contents of the inode it opened at start.
 import /etc/caddy/conf.d/*.caddyfile
+
+# MobiStack — the repair-shop product, on this box since the consolidation.
+#
+# Upstreams are the `mobistack-backend` and `mobistack-web` services behind the `mobistack` compose
+# profile. They carry the product's name for a reason worth keeping: MobiStack used to run as a
+# second compose project on this network with services called `backend` and `web`, Docker's embedded
+# DNS registered those as aliases alongside the platform's own, and a lookup of `backend` returned two
+# A records — so Caddy round-robined half of MobiStack's API traffic into the wrong application. A
+# service whose name is unique on the network cannot do that.
+mobistack.prabhixtechnologies.com {
+	# security_headers, not no_document_headers: this host serves an HTML application.
+	#
+	# The snippet deliberately carries no CSP, which is what lets MobiStack keep its own — the one
+	# in MobiStack's web/nginx.conf, with the Razorpay script, frame and connect allowances that a
+	# shared policy could not express. Caddy replaces upstream headers it also sets, so the CSP
+	# survives only because the snippet stays out of it.
+	import security_headers
+
+	# Restores what nginx sends and the shared snippet would otherwise overwrite. MobiStack is never
+	# framed, including by Prabhix's own hosts, so DENY rather than the snippet's SAMEORIGIN.
+	header X-Frame-Options DENY
+
+	# APK downloads are published only on store.prabhixtechnologies.com (S3-backed). Legacy
+	# /download/android bookmarks permanently redirect there; nothing is streamed from this host.
+	handle /download/android* {
+		redir https://store.prabhixtechnologies.com/mobistack/android.apk permanent
+	}
+	handle /api/v1/public/downloads/android* {
+		redir https://store.prabhixtechnologies.com/mobistack/android.apk permanent
+	}
+	handle /download/ios* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /api/* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /actuator/health* {
+		reverse_proxy mobistack-backend:8080
+	}
+	# Routed here rather than left to fall through to the web container, whose nginx also proxies
+	# these two paths; one hop is better than two, and Swagger is off in production anyway.
+	handle /swagger-ui* {
+		reverse_proxy mobistack-backend:8080
+	}
+	handle /v3/api-docs* {
+		reverse_proxy mobistack-backend:8080
+	}
+
+	handle {
+		reverse_proxy mobistack-web:80
+	}
+
+	# Same arrangement as mail. below: the images come from another repository, the services sit
+	# behind a profile, and a host without that profile enabled should say so rather than 502.
+	handle_errors 502 503 {
+		header Content-Type "text/plain; charset=utf-8"
+		respond "MobiStack is not deployed on this host yet.
+
+The hostname is live and TLS is valid, but no MobiStack container is running behind it.
+Add mobistack to COMPOSE_PROFILES once its images have been published, and set
+MOBISTACK_BACKEND_TAG and MOBISTACK_WEB_TAG to the MobiStack commit you want.
+" 503
+	}
+}
+
+# API-only host. Everything here is JSON or a file download, never a framed document, so the
+# document headers the sibling host needs would be noise — no_document_headers is the right snippet.
+#
+# MobiStack's canonical origin stays mobistack.prabhixtechnologies.com: magic links, invoices and
+# redirects are all built from FIXFLOW_PUBLIC_ORIGIN and are unaffected by this name existing. This
+# is a second way in, not a second identity. It exists because the record already did — an unclaimed
+# name on an instance that answers on 443 is a certificate error rather than either a working host or
+# NXDOMAIN.
+api.mobistack.prabhixtechnologies.com {
+	import no_document_headers
+	reverse_proxy mobistack-backend:8080
+}
 
 # Spring Boot API — one origin for clients, whichever service is behind it.
 #

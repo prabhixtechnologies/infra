@@ -14,16 +14,20 @@ Operations guide for EC2 + Docker Compose deployments.
    sudo bash deploy/ec2-bootstrap.sh
    ```
 3. **Clone repo** to `/opt/prabhix` as user `prabhix`.
-4. **Create secrets:**
+4. **Create secrets and the environment:**
    ```bash
    cp deploy/.env.prod.example deploy/.env.prod
    # Fill every [M] variable — especially JWT_SECRET, DB_PASSWORD, Razorpay, S3
+   # Production keeps this file in Parameter Store. Push once, then deploy.sh pulls it:
+   bash deploy/env-store.sh push
+   # Fallback while SSM is not ready: set ENV_SOURCE=file in deploy/.env.prod
    ```
 5. **DNS** — point A records for `@`, `www`, `oneops`, `admin`, `api` to the Elastic IP.
    Also point `app` there: Caddy serves it purely to redirect to `oneops`, so dropping the record
    would break bookmarks and the links in transactional email already sitting in people's inboxes.
    For mail: `mail` A record + MX (see [mail-server/README.md](../../Mailroom/mail-server/README.md)).
-   `mobistack` is a separate deployment — point it at that host, not this one.
+   `mobistack` and `api.mobistack` point here too — MobiStack runs on this box behind the
+   `mobistack` compose profile, and both site blocks are in the `Caddyfile`.
 
    A subdomain with no record of its own does not fail loudly. The registrar's wildcard answers
    instead, so the name resolves to a parking IP and the browser reports a TLS trust error rather
@@ -31,7 +35,7 @@ Operations guide for EC2 + Docker Compose deployments.
    Confirm each name resolves to the Elastic IP:
 
    ```powershell
-   "@","www","oneops","admin","api","app" | ForEach-Object {
+   "@","www","oneops","admin","api","app","mail","mobistack","store" | ForEach-Object {
      $n = if ($_ -eq "@") { "prabhixtechnologies.com" } else { "$_.prabhixtechnologies.com" }
      "$n -> $((Resolve-DnsName $n -Type A).IPAddress -join ',')"
    }
@@ -105,9 +109,18 @@ still deploying out of.
 
 ## Routine deploy
 
-CI pushes images to ECR on merge to `main`. Moving them onto the server is **always manual** — no
-SSH private key is stored in GitHub, so nothing in Actions can reach the host. From your
-workstation:
+CI in each repository pushes its images to ECR on merge to `main`, tagged with the commit's short
+sha and `latest`. Moving them onto the server is a separate, deliberate step, and there is one way
+to do it: **Actions → Deploy → Run workflow** in this repository. It runs `deploy/deploy.sh` on the
+host through Systems Manager — no SSH key anywhere in GitHub — and then checks every public host
+from outside. Setup is in `deploy/aws/README.md`, "Deploys from GitHub"; the admin console's
+Promote button calls the same workflow.
+
+Every service has its own tag input. The eight images are built from five repositories, so a sha
+from one history does not exist in the others: fill in the tags for the services that moved, leave
+the rest blank and they follow `tag`, which defaults to `latest`.
+
+When GitHub or SSM is what is broken, the same script over SSH from a workstation that holds the key:
 
 ```powershell
 .\deploy\deploy-remote.ps1                        # everything at :latest
@@ -115,13 +128,8 @@ workstation:
 .\deploy\deploy-remote.ps1 -BackendTag 78a9ec6    # one service, the rest untouched
 ```
 
-The per-service form is the normal one now. The six images are built from five repositories, so a
-sha from one history does not exist in the others and a bare `-Tag` is only right when you genuinely
-mean `latest`. The switches are `-BackendTag`, `-WebTag`, `-AdminTag`, `-MarketingTag`,
-`-IdentityTag` and `-MailroomTag`; anything not given follows `-Tag`.
-
-That pulls the repo on the host, runs `deploy/deploy.sh`, then runs the smoke checks. To do the same
-by hand on the server:
+The switches are `-BackendTag`, `-WebTag`, `-AdminTag`, `-MarketingTag`, `-IdentityTag`,
+`-MailroomTag`, `-MobiStackBackendTag` and `-MobiStackWebTag`. Or by hand on the server:
 
 ```bash
 cd /opt/prabhix
@@ -130,7 +138,10 @@ export BACKEND_TAG=<short-sha-from-oneOps-ci>   # or TAG=latest for the lot
 bash deploy/deploy.sh
 ```
 
-Flyway migrations run automatically when the new backend container starts.
+Whichever way it is started, `deploy.sh` pulls only the services whose profile is on
+(`COMPOSE_PROFILES` in `deploy/.env.prod` — `identity,mailroom,mobistack` in production), gates each
+backend on its own health check, and rolls every service back to the image it was running if any
+gate fails. Flyway migrations run when each new backend container starts.
 
 ### If CI has not pushed the image you need
 
@@ -219,6 +230,23 @@ aws s3 cp s3://prabhix-backups/postgres/oneops/<TIMESTAMP>.sql.gz - | gunzip | \
   psql -U oneops -d oneops
 docker compose -f docker-compose.yml -f docker-compose.prod.yml start backend
 ```
+
+---
+
+## Environment file (Parameter Store)
+
+`ENV_SOURCE=ssm` is the production default. `deploy.sh` refreshes `deploy/.env.prod` from the
+SecureString parameter `/prabhix/prod/env` before every deploy, so a rebuilt box can start from
+Parameter Store rather than from a file that only existed on the old disk.
+
+`ENV_SOURCE=file` is the fallback: the copy on disk is the only copy. Use it for first bootstrap
+until `deploy/aws/env-parameter-policy.json` is on the instance role and `bash deploy/env-store.sh
+push` has run once.
+
+Do not put live secrets in git. The five `[S]` values stay in Secrets Manager when
+`SECRETS_SOURCE=aws`; the rest of the file is hostnames, URLs and flags.
+
+See `deploy/aws/README.md`, "The environment file: Parameter Store instead of one disk".
 
 ---
 

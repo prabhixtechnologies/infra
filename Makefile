@@ -14,22 +14,22 @@ COMPOSE_MAIL  := docker compose -f docker-compose.yml -f $(MAILROOM)/mail-server
 
 .PHONY: up down logs fresh psql backend-test backend-run web-dev marketing-dev mail-up mail-down
 
-## Start the full local stack (postgres, redis, backend, web, marketing, mailpit)
+## Start the full local stack (Identity, OneOps, Mailroom, MobiStack, marketing)
 up:
-	$(COMPOSE_LOCAL) up -d --build
+	$(COMPOSE_LOCAL) --profile identity --profile mailroom --profile mobistack up -d --build
 
 ## Stop local stack
 down:
-	$(COMPOSE_LOCAL) down
+	$(COMPOSE_LOCAL) --profile identity --profile mailroom --profile mobistack down
 
 ## Tail logs for all local services
 logs:
-	$(COMPOSE_LOCAL) logs -f
+	$(COMPOSE_LOCAL) --profile identity --profile mailroom --profile mobistack logs -f
 
 ## Wipe volumes and restart from scratch (destructive)
 fresh:
-	$(COMPOSE_LOCAL) down -v
-	$(COMPOSE_LOCAL) up -d --build
+	$(COMPOSE_LOCAL) --profile identity --profile mailroom --profile mobistack down -v
+	$(COMPOSE_LOCAL) --profile identity --profile mailroom --profile mobistack up -d --build
 
 ## Open psql against the compose postgres
 psql:

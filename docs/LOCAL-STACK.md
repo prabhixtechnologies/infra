@@ -28,14 +28,17 @@ Product links are build-time. Missing marketing env used to fall back to **produ
 
 Marketing: `Platform/marketing/.env.local` for `npm run dev`; Infra compose passes the same as Docker **build args**.
 
-## Quick start (Infra + Identity + Mailroom)
+## Quick start (full local stack)
 
 ```powershell
 cd Infra
-docker compose -f docker-compose.yml -f docker-compose.local.yml --profile identity --profile mailroom up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile identity --profile mailroom --profile mobistack up -d --build
 ```
 
-Core: postgres, redis, mailpit, identity (:8081), app-store (:8090), platform backend/web/marketing, mailroom web (:5175).
+Core: postgres, redis, mailpit, identity (:8081), app-store (:8090), platform backend/web/admin/marketing, mailroom web (:5175), MobiStack API (:8082) and web (:5176).
+
+Sign in at Identity `http://localhost:8081` with the seeded owner
+(`admin@prabhixtechnologies.com` / `dev-password` after both seed scripts).
 
 ## Hosts file (Administrator once)
 
@@ -67,13 +70,8 @@ deleted. See `PRODUCTS.md`, decision 1.
 
 Drop files into `store-artifacts/{mobistack,oneops,mailroom}/android.apk`.
 
-## MobiStack (alongside Infra)
+## MobiStack
 
-Infra already owns `:5432` / `:8080` / `:6379`. Local overlay publishes MobiStack on **:5176** (web), **:8082** (API), **:5433** (postgres), **:6380** (redis).
-
-```powershell
-cd ../MobiStack
-docker compose --profile full -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.prabhix.yml up -d --build
-```
-
-Requires the Infra `prabhix` network. Identity JWKS: `http://host.docker.internal:8081/.well-known/jwks.json`.
+Included in the Infra compose `mobistack` profile (same command as Quick start). Local overlay
+publishes **:5176** (web) and **:8082** (API) on the shared postgres/redis. Do not start the
+old MobiStack compose project alongside this — it collided on service names.

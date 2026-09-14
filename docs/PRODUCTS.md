@@ -50,19 +50,28 @@ Consequences:
 
 - `Mailroom/web` loses `/queue` and `/settings/{mailboxes,tags,canned-replies}`; OneOps gains
   `features/helpdesk` and Settings → Mail.
-- The half-extracted `Mailroom/backend` is deleted. Mail stays a module of the oneOps backend behind
+- The half-extracted Mailroom backend is deleted. Mail stays a module of the oneOps backend behind
   `api.prabhixtechnologies.com`, which is the only API host any Mailroom client talks to. A service
   extraction can be redone later on top of the shared identity client, when there is a reason.
 - `Platform/marketing/src/content/products.ts` describes Helpdesk as a OneOps module and Mailroom as
   personal mail — and lists Mailroom as live once hosted addresses receive internet mail.
 
+### Inbound transport
+
+Outbound already uses SES in `ap-south-1`. For inbound, **SES email receiving in the same region**
+(receipt rules → S3 → SNS → platform ingest) is the intended path: the region has
+`inbound-smtp.ap-south-1.amazonaws.com`. That ingest is not wired yet (today's inbound is LMTP from
+Postfix and IMAP poll; the existing SES SNS webhook is bounce/complaint only). Until it is,
+inbound MX stays at GoDaddy. The fallback is a dedicated mail-server instance
+(`Mailroom/mail-server`, compose profile `mailserver`). See [RUNBOOK-mail.md](../deploy/RUNBOOK-mail.md).
+Mailroom is not marketed as live while MX still points at the registrar.
+
 ## Decision 2 — Flutter is the only mobile codebase
 
-`Mobile/` (Flutter, Melos) is the single mobile implementation for all four apps. The native trees —
-`oneOps/mobile` (Kotlin, SwiftUI), `Mailroom/android` (Kotlin) and `MobiStack/mobile` (Expo) — are
-**frozen**: CI still builds them, no feature lands in them, and each is archived to an
-`archive/native-*` branch once the matching Flutter app passes its checklist in
-[SURFACES.md](SURFACES.md).
+`Mobile/` (Flutter, Melos) is the single mobile implementation for all four apps. The native trees
+were archived onto `archive/native-oneops`, `archive/native-mailroom`, and
+`archive/native-mobistack` and removed from the product working trees. See
+[Mobile/ARCHIVE.md](../../Mobile/ARCHIVE.md) and [SURFACES.md](SURFACES.md).
 
 Why: three stacks at three levels of completeness is the whole cause of "the mobile app is not in sync
 with the web app". The Flutter workspace already holds the shared identity and API packages and more

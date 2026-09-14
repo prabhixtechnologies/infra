@@ -16,7 +16,7 @@ MAX_WAIT="${MAX_WAIT:-120}"
 # One list rather than three named variables, because the bug this guards against was introduced by
 # adding a fourth. Anything added here is remembered, exported, logged and rolled back by the code
 # below without that code changing, which is the only way a per-service tag stays honest.
-SERVICES="backend web admin marketing identity mailroom"
+SERVICES="backend web admin marketing identity mailroom mobistack-backend mobistack-web app-store"
 tag_var_for() {
   case "$1" in
     backend) echo BACKEND_TAG ;;
@@ -25,6 +25,9 @@ tag_var_for() {
     marketing) echo MARKETING_TAG ;;
     identity) echo IDENTITY_TAG ;;
     mailroom) echo MAILROOM_TAG ;;
+    mobistack-backend) echo MOBISTACK_BACKEND_TAG ;;
+    mobistack-web) echo MOBISTACK_WEB_TAG ;;
+    app-store) echo APP_STORE_TAG ;;
   esac
 }
 TAG_VARS="TAG"
@@ -48,12 +51,30 @@ done
 log() { echo "[deploy $(date -Iseconds)] $*"; }
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing $ENV_FILE — copy from deploy/.env.prod.example" >&2
+  echo "Missing $ENV_FILE — copy from deploy/.env.prod.example, or run deploy/env-store.sh pull" >&2
   exit 1
 fi
 
 # shellcheck disable=SC1090
 set -a && source "$ENV_FILE" && set +a
+
+# The file on disk is a cache of the Parameter Store copy when it says so. Refreshed before every
+# deploy, so an edit made to the parameter is what runs and an edit made to the file alone is
+# overwritten — which is the point: the parameter is the copy a rebuilt box can start from, and a
+# value that exists only on this disk is a value that exists nowhere once the disk is gone.
+#
+# Defaults to the file, like SECRETS_SOURCE, so nothing changes until the line is flipped. No
+# fallback from ssm to the stale file, for the same reason there is none for secrets.
+ENV_SOURCE="${ENV_SOURCE:-file}"
+if [ "$ENV_SOURCE" = "ssm" ]; then
+  log "Refreshing $ENV_FILE from Parameter Store"
+  if ! ENV_FILE="$ENV_FILE" bash "$SCRIPT_DIR/env-store.sh" pull; then
+    log "Could not read the environment parameter — refusing to deploy from a file that may be stale"
+    exit 1
+  fi
+  # shellcheck disable=SC1090
+  set -a && source "$ENV_FILE" && set +a
+fi
 
 # Secrets come from AWS Secrets Manager, not from the env file.
 #
@@ -351,12 +372,43 @@ if [ "$logged_mail" != "0" ]; then
   rollback
 fi
 
+# MobiStack's backend, when its profile is on. After the platform backend rather than in parallel
+# with it, because both run Flyway against the same RDS instance on startup and the connection
+# budget there is small; and health-gated on its own, so a broken MobiStack image rolls MobiStack
+# back without touching the four services that were fine.
+if echo "$APP_SERVICES" | grep -qw mobistack-backend; then
+  log "Deploying mobistack-backend (Flyway migrations run on Boot startup)"
+  $COMPOSE --env-file "$ENV_FILE" up -d --no-deps mobistack-backend
+
+  log "Health-gating mobistack-backend"
+  elapsed=0
+  mobistack_health() {
+    docker inspect "$($COMPOSE --env-file "$ENV_FILE" ps -q mobistack-backend)" \
+      --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null || echo missing
+  }
+  until [ "$(mobistack_health)" = "healthy" ]; do
+    status=$(mobistack_health)
+    if [ "$status" = "none" ]; then
+      log "mobistack-backend image declares no healthcheck; continuing without a gate"
+      break
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+    # Its healthcheck allows a 180s start period, so the gate is generous by the same amount.
+    if [ "$elapsed" -ge $((MAX_WAIT + 180)) ]; then
+      log "mobistack-backend did not become healthy after $((MAX_WAIT + 180))s (last status: $status)"
+      rollback
+    fi
+  done
+  log "mobistack-backend is ready"
+fi
+
 log "Deploying frontends"
 FRONTENDS=""
 for service in $APP_SERVICES; do
   case "$service" in
-    # Both already deployed above, each behind its own health gate.
-    backend|identity) continue ;;
+    # Already deployed above, each behind its own health gate.
+    backend|identity|mobistack-backend) continue ;;
     *) FRONTENDS="$FRONTENDS $service" ;;
   esac
 done

@@ -41,7 +41,7 @@ Marketing "Sign in → Mailroom"
 
 Same pattern for OneOps `:5173`, Admin `:5174`, MobiStack `:5176`.
 
-Platform API credential login (`POST /api/v1/auth/login`, magic link, OTP, …) returns **410** locally (`LEGACY_CREDENTIAL_LOGIN=false`).
+Product backends no longer accept credential login. `POST /api/v1/auth/login` on oneOps or MobiStack is gone; sign-in is Identity only.
 
 ## Mobile
 
