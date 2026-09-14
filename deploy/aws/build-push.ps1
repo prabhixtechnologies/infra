@@ -110,9 +110,6 @@ $images = @(
         # A record.
         VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
         VITE_ONEOPS_URL      = "https://oneops.prabhixtechnologies.com"
-        # Same origin until the mailbox API is cut over to its own host. Without this (and without
-        # the HTTPS fallback in config.ts) the image would call http://localhost:8083 from browsers.
-        VITE_MAILROOM_API_URL = "https://api.prabhixtechnologies.com"
     } }
 
     @{ Name = "mobistack-backend"; Repo = "MobiStack"; Image = "prabhix/mobistack-backend"; Context = "backend"; Args = @{} }

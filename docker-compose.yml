@@ -385,7 +385,6 @@ services:
         # misconfigured, rather than showing an empty screen or a sign-in that cannot work.
         VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
         VITE_ONEOPS_URL: ${VITE_ONEOPS_URL:-http://localhost:5173}
-        VITE_MAILROOM_API_URL: ${VITE_MAILROOM_API_URL:-}
     restart: unless-stopped
     depends_on:
       - backend

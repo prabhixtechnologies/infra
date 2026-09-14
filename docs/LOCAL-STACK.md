@@ -57,13 +57,11 @@ docker exec -e PGPASSWORD=prabhix prabhix-postgres-1 psql -h 127.0.0.1 -U prabhi
 
 (This volume uses `prabhix`/`prabhix` — not the `.env.example` `oneops` defaults.)
 
-## Mailroom backend (:8083)
+## Mailroom's API
 
-```powershell
-docker exec -e PGPASSWORD=prabhix prabhix-postgres-1 psql -h 127.0.0.1 -U prabhix -d postgres -c "CREATE DATABASE mailroom OWNER prabhix;"
-cd ../Mailroom/backend
-mvn -DskipTests spring-boot:run
-```
+There is no Mailroom backend. The web client and the Flutter app talk to the platform backend on
+`:8080` for everything (`/api/v1/mailbox/*` for personal mail); the partial `:8083` extraction was
+deleted. See `PRODUCTS.md`, decision 1.
 
 ## APKs
 
