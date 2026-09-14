@@ -3,12 +3,16 @@
 `docs/ROADMAP.md` is the honest inventory of what is built today. This is the forward plan: what is
 being built, in what order, and why that order.
 
-**Status.** Phases A through F are built and tested. **Identity OIDC cutover is live** for OneOps,
-Admin, Mailroom, and MobiStack web + mobile (hosted login + PKCE; product APIs resolve org/permissions
-via `/auth/me`). Remaining platform work is documented in [IDENTITY.md](IDENTITY.md) (HS256 drop after
-Identity mobile builds are fully in the field) and [MOBILE-FLUTTER.md](MOBILE-FLUTTER.md) (Flutter
-rewrite of all product apps). AWS hardening is deferred by decision. The per-phase notes below are
-historical build order — do not read “Built, not yet cut over” as current production state.
+**Status.** Phases A through D are built, tested and live: **Identity OIDC is the only sign-in** for
+OneOps, Admin, Mailroom and MobiStack on web and mobile, and the product backends verify through the
+shared `identity-spring-boot-starter`. Phases E and F are **built on the backend and not finished on
+the surfaces**, and the per-phase notes below have been corrected to say so: MobiStack's shared
+catalog exists in the schema and the API but no client used it and nobody could be granted review
+authority; Mailroom's personal-mail API exists but the helpdesk UI was carried into Mailroom and the
+extracted `backend/` was a drifting fork. The consolidation program that closes both is the product
+boundary in [PRODUCTS.md](PRODUCTS.md) plus the surface list in [SURFACES.md](SURFACES.md). The
+Flutter apps in `Mobile/` are the only mobile codebase ([MOBILE-FLUTTER.md](MOBILE-FLUTTER.md)). AWS
+hardening beyond RDS, ElastiCache and CloudWatch is still deferred by decision.
 
 The thesis in one paragraph: **Prabhix becomes an identity provider that happens to own products,
 rather than products that each own a login.** Every surface — OneOps, the admin console, MobiStack,
@@ -23,10 +27,11 @@ follows from that sentence.
 | Repo | Owns | Does not own |
 | --- | --- | --- |
 | `Identity` | Who you are. Credentials, lockout, sessions, refresh rotation, magic links, OTP, SSO linking, and the OAuth/OIDC protocol surface. | What you can do. No organization, shop, role or permission appears in its schema. |
-| `oneOps` | OneOps and the admin console: the backend, both consoles and mobile. Organizations, memberships, roles, permissions, chat, files, commerce, billing. | Authentication. Mail, once the extraction below is finished — it still holds the mail module today. |
+| `oneOps` | OneOps and the admin console: the backend, both consoles, and the frozen native apps. Organizations, memberships, roles, permissions, chat, commerce, billing, mail and the helpdesk, and the platform ops BFF. | Authentication. |
 | `Platform` | The marketing site, and nothing else. | Everything it used to: it was the monorepo, and the split below emptied it. |
-| `Mailroom` | The mail product end to end: personal mailboxes with folders, a web client, an Android app, the Postfix/Dovecot/Rspamd transport under `mail-server/`, and a `backend/` API skeleton. | Authentication is Identity. The mailbox API and mail schema still run in the oneOps backend until the extraction cutover (see `Mailroom/backend/README.md`) is approved for deploy. |
-| `MobiStack` | Two things that are being separated — a global component-compatibility commons, and per-shop inventory. | Authentication. |
+| `Mailroom` | The personal-mail client (web; Android frozen) and the Postfix/Dovecot/Rspamd transport under `mail-server/`. | Authentication is Identity. The mail module and schema stay in the oneOps backend; the partial `backend/` extraction was deleted rather than left to drift. |
+| `MobiStack` | Two things with opposite sharing rules — the shared Fitment Catalog and per-shop inventory. | Authentication. |
+| `Mobile` | The Flutter apps for all four products. The only mobile codebase that takes new work. | — |
 | `Infra` | How it all runs: Compose, Caddy, the deploy scripts, the databases' init SQL, and these documents. | Any application code. |
 
 `Platform` began as a monorepo holding the backend, both consoles, mobile, marketing, the mail
@@ -192,7 +197,14 @@ Impersonation stays audit-logged and banner-visible.
 
 ## Phase E — MobiStack: a commons and a tenant, not one confused thing
 
-**Built.** MobiStack held two products with **opposite data-sharing rules**, both behind a single
+**Backend built; surfaces being cut over.** The schema and API below exist. Until the consolidation
+program, no web or mobile client used them — every client still read the per-shop compatibility
+groups — and `COMMONS_REVIEW` was granted to no role, so the review queue was unreachable. The
+correction is in PRODUCTS.md and SURFACES.md: a **Fitment Catalog** area that every shop sees, a
+**My Shop** area that only the shop sees, and review authority granted to platform staff through the
+admin console.
+
+MobiStack held two products with **opposite data-sharing rules**, both behind a single
 "organization" concept. That was the whole source of the confusion: "organization" meant something
 different on each side.
 
@@ -244,7 +256,13 @@ acquisition through network effects; inventory is the paid product.
 
 ## Phase F — Mailroom
 
-**Done.** Personal mailboxes with folders, which the schema could not express before: `mail_mailboxes`
+**API and web client done; the boundary was wrong and is being corrected.** The helpdesk queue UI
+was carried into Mailroom during the repository split, and `MailboxService.create` never recorded a
+personal mailbox's owner, so a member with no admin permission could not see their own mailbox. Both
+are fixed by decision 1 in PRODUCTS.md: the helpdesk returns to OneOps at `/inbox`, personal
+mailboxes always give their owner a member row, and Mailroom gains an explicit *Company mail* mode.
+
+Personal mailboxes with folders, which the schema could not express before: `mail_mailboxes`
 was org-scoped and shared, there was thread *status* rather than folders, compose was reply-only, and
 `mail_thread_drafts` and `mail_aliases` had schema but no API.
 
