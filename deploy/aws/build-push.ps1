@@ -67,7 +67,7 @@ $images = @(
     # api. rather than id. because that is where the Caddyfile serves the login page and discovery
     # until id. has an A record. Products compare the issuer by string equality, so moving it later
     # invalidates every token in flight and both consoles have to be rebuilt together again.
-    @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "web";
+    @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "."; Dockerfile = "web/Dockerfile";
        ExtraContexts = [ordered]@{ webkit = "web-kit" }
        Args = [ordered]@{
         APP                     = "oneops"
@@ -82,7 +82,7 @@ $images = @(
 
     # Same context and Dockerfile as web; APP picks the entry point, so the two images differ only in
     # which routes they contain. No Razorpay key -- the admin app has no checkout.
-    @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "web";
+    @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "."; Dockerfile = "web/Dockerfile";
        ExtraContexts = [ordered]@{ webkit = "web-kit" }
        Args = [ordered]@{
         APP                     = "admin"
@@ -177,6 +177,8 @@ $built = @()
 foreach ($image in $selected) {
     $sha = $shas[$image.Repo]
     $context = Join-Path (Join-Path $root $image.Repo) $image.Context
+    $dockerfileRel = if ($image.Dockerfile) { $image.Dockerfile } else { "Dockerfile" }
+    $dockerfile = Join-Path $context $dockerfileRel
     $target = "$registry/$($image.Image)"
 
     Write-Host ""
@@ -184,7 +186,7 @@ foreach ($image in $selected) {
 
     $argv = @(
         "build", "--platform", $Platform,
-        "-f", (Join-Path $context "Dockerfile"),
+        "-f", $dockerfile,
         "-t", "${target}:$sha", "-t", "${target}:latest"
     )
     foreach ($key in $image.Args.Keys) {
