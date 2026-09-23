@@ -1,45 +1,49 @@
 # Android release signing
 
-Release APKs for OneOps, Admin, Mailroom, and MobiStack are signed from a local
-`keystore.properties` (git-ignored) or from GitHub Actions secrets. This document is the checklist
-for making signed builds without putting the keystore in git.
+Upload keystore for **Play and sideload release** of the four Flutter apps.
 
 **Do not commit `.jks` / `.keystore` files or real passwords.**
 
-## Per-app keystore files (local)
+Canonical playbook (Play Console steps, SHA-256, listings): [PLAY-STORE.md](PLAY-STORE.md).
 
-| App | Properties file | Example |
-| --- | --- | --- |
-| Flutter (all four apps) | `Mobile/apps/<app>/android/keystore.properties` | see `Mobile/ANDROID-RELEASE-SIGNING.md` if present |
-| Native (archived) | on `archive/native-*` under the old `mobile/android` / `android` trees | `keystore.properties.example` on those branches |
+## This machine
 
-Create a key (once per application id, forever):
+| Item | Path |
+| --- | --- |
+| Keystore | `D:\Projects\KEYS\prabhix-play-upload.jks` |
+| Alias | `upload` |
+| Credentials | `D:\Projects\KEYS\prabhix-play-upload.credentials.txt` |
+| Gradle properties | `D:\Projects\KEYS\prabhix-play-upload.key.properties` |
+| Per-app copy | `Mobile/apps/<app>/android/key.properties` (git-ignored) |
+| Example | `Mobile/key.properties.example` |
 
-```bash
-keytool -genkeypair -v -keystore prabhix-release.jks -alias prabhix \
-  -keyalg RSA -keysize 4096 -validity 10000 \
-  -dname "CN=Prabhix Technologies, O=Prabhix Technologies, C=IN"
-```
+SHA-256 (public, safe to share with Play):
 
-Back the `.jks` up somewhere durable. Losing it means installed apps cannot be updated in place.
+`30:94:AA:00:BC:18:7A:4E:1A:6E:A2:24:29:53:99:8D:C0:78:B1:64:D4:64:72:5E:0B:7C:2C:4C:64:A0:60:F6`
+
+Release Gradle uses that keystore when `key.properties` exists; otherwise it falls back to the debug key (local-only, never for Play).
+
+MobiStack’s **Play** upload certificate is still the older SHA-1 `E9:C5:DC:40:…:7E`.
+A reset to this keystore is pending. Until Play approves it, sideload with this
+`.jks` (USB) or wait; do not expect Play to accept a new MobiStack AAB.
+
+**Not** the Play upload key (do not use these to sign Play MobiStack updates):
+
+| File | SHA-1 | What it is |
+|---|---|---|
+| `C:\Users\abhis\.prabhix-secrets\platform-leftovers\prabhix-release.jks` | `52:66:18:5B:…` | Aug 2026 sideload key |
+| `~\.android\debug.keystore` | `63:BE:06:E7:…` | Android debug |
+| `D:\Projects\KEYS\ageinminutes.jks` | (other app, 2021) | Unrelated |
+
+USB install: `powershell -File Mobile/scripts/install-device-apks.ps1` (uninstalls Play-signed copies first).
 
 ## GitHub Actions secrets
-
-Where Flutter CI in the Mobile repository assembles a release APK, set:
 
 | Secret | Purpose |
 | --- | --- |
 | `ANDROID_RELEASE_KEYSTORE_BASE64` | `base64 -w0` of the `.jks` |
 | `ANDROID_KEYSTORE_PASSWORD` | store password |
-| `ANDROID_KEY_ALIAS` | alias (usually `prabhix` / `mobistack`) |
-| `ANDROID_KEY_PASSWORD` | key password |
+| `ANDROID_KEY_ALIAS` | `upload` |
+| `ANDROID_KEY_PASSWORD` | key password (same as store) |
 
-Native product-repo Android CI is gone. Flutter APKs are built from `Mobile/`.
-Admin is staff-only — do not publish it on the public download page.
-
-## Blocked on you
-
-1. Generate or recover each release keystore.
-2. Store backups offline.
-3. Add the four secrets above to the GitHub repos that should produce installable release APKs.
-4. Approve a deploy/release workflow run when you want artifacts published.
+Admin is staff-only — do not publish it on the public S3 download page or Play Production without an explicit decision.
