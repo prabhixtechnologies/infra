@@ -61,7 +61,10 @@ build_json() {
 }
 
 put_secret() {
-  local name="$1" vars="$2" id="$PREFIX/$name" payload
+  local name="$1"
+  local vars="$2"
+  local id="$PREFIX/$name"
+  local payload
   echo "== $id"
 
   payload=$(build_json "$vars") || return 1

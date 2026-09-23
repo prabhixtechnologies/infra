@@ -102,7 +102,6 @@ echo "    sessions visible: $(echo "$sessions" | python3 -c 'import json,sys;pri
 # Sign in again so there is a session to kill that is not the one doing the killing.
 curl -sS -o /tmp/login2.json --max-time 20 -c /tmp/jar2 -H 'Content-Type: application/json' \
   -H "Origin: $ONEOPS" -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" "$API/auth/login" >/dev/null
-A2=$(python3 -c 'import json;print(json.load(open("/tmp/login2.json")).get("accessToken",""))')
 S2=$(python3 -c 'import json;print(json.load(open("/tmp/login2.json")).get("sessionId") or "")')
 
 # Second browser can exchange before revocation.

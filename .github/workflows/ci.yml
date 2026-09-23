@@ -129,4 +129,12 @@ jobs:
       # A runbook is followed once, by hand, under time pressure. A step naming a file that moved
       # six commits ago fails at the worst moment, and nothing else in this repository reads them.
       - name: Referenced files exist and the identifiers agree
-        run: python deploy/check-runbooks.py
+        run: |
+          parent="$GITHUB_WORKSPACE/.."
+          git clone --depth 1 https://github.com/prabhixtechnologies/oneOps.git "$parent/oneOps"
+          git clone --depth 1 https://github.com/prabhixtechnologies/Platform.git "$parent/Platform"
+          git clone --depth 1 https://github.com/prabhixtechnologies/Mobistack.git "$parent/MobiStack"
+          git clone --depth 1 https://github.com/prabhixtechnologies/Identity.git "$parent/Identity"
+          git clone --depth 1 https://github.com/prabhixtechnologies/Mailroom.git "$parent/Mailroom"
+          git clone --depth 1 https://github.com/prabhixtechnologies/Mobile.git "$parent/Mobile"
+          python deploy/check-runbooks.py

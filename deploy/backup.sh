@@ -8,6 +8,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$REPO_ROOT/deploy/.env.prod}"
 
 if [ -f "$ENV_FILE" ]; then
+  # The file is created on the server and is not in the repository.
+  # shellcheck disable=SC1090
   set -a && source "$ENV_FILE" && set +a
 fi
 
