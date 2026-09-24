@@ -139,11 +139,46 @@ Isolation is enforced in **three layers**, deliberately redundant:
    `organization_id = :orgId` to every query. A missing tenant context throws rather than returning
    all rows.
 
-Postgres **Row-Level Security** is additionally enabled on the highest-risk tables (`mail_messages`,
-`mail_threads`, `billing_invoices`).
+Isolation is that filter. Postgres row-level security is not enabled on these tables.
 
 Cross-organization access is only possible through `ops/`, under a distinct `PLATFORM_ADMIN`
 authority narrowed by staff role, and writes every access to the audit log.
+
+### Schema rules
+
+Three databases stay: `identity`, `oneops`, and `mobistack`, each with its own login role. A foreign
+key does not cross them. Identity owns the person. oneOps and MobiStack each keep a `users` row with
+the same id, because their own foreign keys have to point at something in their own database.
+
+These pairs look alike and are different tables. They stay:
+
+- `billing_*` in oneOps is Prabhix charging an organization. `billing_*` in MobiStack is a shop paying
+  for the app.
+- `commerce_*` is an organization's store. It is not the organization's subscription.
+- A shop's `products`, `brands`, and `device_models` are that shop's stock. `catalog_brands`,
+  `catalog_devices`, `catalog_components`, and `catalog_fitments` are the shared fitment commons.
+- `chat_canned_replies` and `mail.mail_canned_replies` are two inboxes.
+- Identity `users.platform_admin` is a claim about the person, returned at sign-in. The authority that
+  actually authorizes a request is oneOps `platform_staff_roles`.
+
+Rules for the next table:
+
+- oneOps tenant column is `organization_id`. `site_leads`, `site_job_roles`, `site_job_applications`,
+  and `site_subscribers` are the exception: they are Prabhix's own website, not a customer tenant.
+- MobiStack tenant column is `shop_id`. The JSON field on existing endpoints is still `workspaceId`.
+- oneOps money is integer paise (`*_paise`), in billing and in commerce. MobiStack money is
+  `numeric(14,2)` rupees. A commerce price of `118000` is ₹1,180.00.
+- New feature tables take a module prefix. `users` and `organizations` stay unprefixed; they are the
+  hubs other tables point at.
+- Passwords, sessions, and one-time codes live only in the identity database. `mail.mail_mailboxes.password_hash`
+  is the IMAP credential, not an account password.
+
+Mail stays in schema `mail` inside the oneOps database. A mail row still stores the uuid of an
+organization, a person, a team, or a file, and oneOps V9 does not put a foreign key on those columns.
+Constraints inside the mail schema stay, so a message still has to name a thread that exists. Mail is
+not a separate database yet. The application still reads and writes those tables in-process.
+
+Every table and column is listed in [DATA-MODEL.html](DATA-MODEL.html). Open that file in a browser. The same list is in [DATA-MODEL.md](DATA-MODEL.md).
 
 ---
 

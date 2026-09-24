@@ -40,16 +40,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA mail
 ALTER DEFAULT PRIVILEGES IN SCHEMA mail
     GRANT USAGE, SELECT ON SEQUENCES TO mail;
 
--- Enough of public to name the four tables its foreign keys point at, and nothing more. USAGE on the
--- schema is only the right to resolve a name; it grants nothing on any table in it.
+-- Enough of public to resolve a name, and nothing more. USAGE on the schema grants nothing on any
+-- table in it.
 GRANT USAGE ON SCHEMA public TO mail;
 
--- REFERENCES, not SELECT. This is the whole point of the arrangement, and the part worth
--- understanding before changing it: REFERENCES is the right to point a foreign key at a column.
--- Enforcement afterwards is done by internal triggers that run as the referenced table's owner, so
--- mail can insert a thread for an organization, and be refused one for an organization that does not
--- exist, while remaining unable to read a single row of organizations. Integrity without visibility,
--- which is exactly what a service boundary inside one database should be.
+-- oneOps V9 dropped the foreign keys from schema mail to organizations, users, teams, and
+-- stored_files. Mail now stores those ids and does not need REFERENCES to insert a row. The grants
+-- below stay so a later constraint can be added without a new privilege change. They still do not
+-- include SELECT: the mail role cannot read those tables.
 GRANT REFERENCES (id) ON public.organizations  TO mail;
 GRANT REFERENCES (id) ON public.users          TO mail;
 GRANT REFERENCES (id) ON public.teams          TO mail;
@@ -63,8 +61,8 @@ GRANT REFERENCES (id) ON public.users          TO mail;
 GRANT REFERENCES (id) ON public.teams          TO mail;
 GRANT REFERENCES (id) ON public.stored_files   TO mail;
 
--- Prove it rather than assume it. A grant that did not land is not visible in any error until the
--- day mail cannot write, so fail here instead.
+-- Prove it rather than assume it. Mail no longer needs these grants to insert, so a missing one
+-- would stay invisible until a foreign key is added back. Fail here instead.
 DO $$
 DECLARE
     missing text;

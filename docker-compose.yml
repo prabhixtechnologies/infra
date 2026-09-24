@@ -175,6 +175,11 @@ services:
       AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
       AWS_CE_REGION: ${AWS_CE_REGION:-us-east-1}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Cloud Messaging. LOGGING keeps a machine without a Firebase key from trying to send.
+      # FCM_SERVICE_ACCOUNT_JSON is the Firebase admin private key, one line, never committed.
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-LOGGING}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
     # The extra alias is what lets MobiStack share this network.
     #
     # MobiStack also has a service called `backend`. Docker's embedded DNS registers the service

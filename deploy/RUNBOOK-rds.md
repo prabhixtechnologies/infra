@@ -276,11 +276,10 @@ psql "host=$RDS user=identity dbname=identity sslmode=require" \
   -v owner_name='Your Name' \
   -f Identity/deploy/seed.sql
 
-# MobiStack: the platform admin, and the shared compatibility catalog.
+# MobiStack: the platform admin mirror (no password; Identity holds that), and the catalog.
 psql "host=$RDS user=mobistack dbname=mobistack sslmode=require" \
   -v ON_ERROR_STOP=1 \
   -v admin_email=admin@prabhixtechnologies.com \
-  -v admin_password="$ADMIN_PASSWORD" \
   -v admin_name='Your Name' \
   -f MobiStack/deploy/seed.sql
 psql "host=$RDS user=mobistack dbname=mobistack sslmode=require" \
@@ -288,8 +287,9 @@ psql "host=$RDS user=mobistack dbname=mobistack sslmode=require" \
 ```
 
 Take the passwords from the environment rather than typing them into the command, which would put
-them in the shell history. All four are safe to run again; the two account scripts rotate the password
-and clear a lockout on a second run, which is the way back in when nobody can sign in to fix it.
+them in the shell history. Identity's seed stores the sign-in secret and rotates it on a second run.
+oneOps' owner_password is only the mailbox credential. MobiStack stores no password; a second run
+restores `system_admin` on the mirror. All four are safe to run again.
 
 **The owner's id must match across the two databases.** Identity signs a token whose `sub` is its
 `users.id`, and Platform looks up its own `users` row by that uuid — a mismatch lets the sign-in

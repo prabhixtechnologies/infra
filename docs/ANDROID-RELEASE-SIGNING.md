@@ -23,9 +23,9 @@ SHA-256 (public, safe to share with Play):
 
 Release Gradle uses that keystore when `key.properties` exists; otherwise it falls back to the debug key (local-only, never for Play).
 
-MobiStack’s **Play** upload certificate is still the older SHA-1 `E9:C5:DC:40:…:7E`.
-A reset to this keystore is pending. Until Play approves it, sideload with this
-`.jks` (USB) or wait; do not expect Play to accept a new MobiStack AAB.
+MobiStack’s **Play** upload certificate is this keystore. Confirmed in Play
+Console on 2026-09-24 (SHA-1 `65:7A:6E:38:…:62`). The older SHA-1 `E9:C5:DC:40:…:7E`
+is no longer the upload certificate. Upload `1.2.1+5` before bumping versionCode.
 
 **Not** the Play upload key (do not use these to sign Play MobiStack updates):
 

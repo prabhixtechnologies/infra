@@ -7,27 +7,30 @@ touching Play Console, signing, or package names.
 `D:\Projects\KEYS\prabhix-play-upload.jks`. Passwords are in
 `D:\Projects\KEYS\prabhix-play-upload.credentials.txt`.
 
-## Continue here (2026-09-22) — next session
+## Continue here (2026-09-24) — next session
 
-**Blocked on Google, not on local work:** MobiStack cannot take a new Play
-upload until Play approves the **upload key reset**. The current-source AAB is
-already built. Do **not** bump `Mobile/apps/mobistack` past `1.2.1+5` until
-that AAB is accepted.
+**Upload key reset is approved.** Checked live in Play Console → MobiStack →
+App signing. The **Upload key certificate** is this machine’s keystore:
 
-### Do this when the reset is approved
+- SHA-1 `65:7A:6E:38:0D:42:03:A1:97:51:9F:5D:C5:F0:E0:07:01:B1:87:62`
+- SHA-256 `30:94:AA:00:BC:18:7A:4E:1A:6E:A2:24:29:53:99:8D:C0:78:B1:64:D4:64:72:5E:0B:7C:2C:4C:64:A0:60:F6`
 
-1. Play Console → MobiStack → **App signing**. Confirm the **upload** SHA-1 is
-   now `65:7A:6E:38:0D:42:03:A1:97:51:9F:5D:C5:F0:E0:07:01:B1:87:62`
-   (this keystore), not `E9:C5:DC:40:EF:E7:94:F4:E2:ED:F0:3E:F1:7F:4E:3B:7B:50:20:7E`.
-2. Internal testing → existing **Untitled / draft** release (track
-   `4699612970327663424`) → upload
-   `Mobile/build/play/mobistack-release.aab` (1.2.1, versionCode **5**,
-   built 2026-09-22, 60.7 MB). Automatic protection stays **off**.
-3. Next → Save and publish. Testers already opted into Internal use
-   https://play.google.com/apps/internaltest/4699612970327663424
-   (uninstall any USB/sideload copy first or Play download conflicts).
-4. Then closed Alpha (track `4698130848654705919`): target **India**, send for
-   review. Closed opt-in is still disabled until that track is live.
+Do not request another reset. The old upload SHA-1 `E9:C5:DC:40:…:7E` is no
+longer the certificate Play will accept.
+
+**MobiStack 1.2.1 (versionCode 5) is on Internal testing.** Published
+2026-09-24 20:46. Play accepted the upload key. Testers:
+https://play.google.com/apps/internaltest/4699612970327663424
+(uninstall any USB/sideload copy first or Play download conflicts).
+
+The catalog-payment phone build is the same versionCode 5, so it cannot replace
+this release. Bump versionCode before the next MobiStack upload.
+
+### Do this next
+
+1. Closed Alpha (track `4698130848654705919`): target **India**, send for
+   review. Closed opt-in stays disabled until that track is live.
+2. After a versionCode bump, upload the catalog-gate build.
 
 ### What is already true
 
@@ -36,7 +39,7 @@ that AAB is accepted.
 | New upload keystore | `D:\Projects\KEYS\prabhix-play-upload.jks` alias `upload` |
 | New upload SHA-1 / SHA-256 | `65:7A:6E:38:…:62` / `30:94:AA:00:…:F6` |
 | PEM used for reset | `D:\Projects\KEYS\prabhix-play-upload.pem` |
-| Reset request | **Pending** in Play (reason: lost old upload key) |
+| Reset request | **Approved** (confirmed in Play Console 2026-09-24). Upload certificate matches this keystore |
 | Old Play upload SHA-1 | `E9:C5:DC:40:…:7E` — **private key not on this PC** |
 | Search (2026-09-22) | `prabhix-play-upload.jks`, leftover `prabhix-release.jks`, debug keystore, `ageinminutes.jks`, Recycle Bin, git — none match `E9:C5` |
 | Leftover sideload jks | `C:\Users\abhis\.prabhix-secrets\platform-leftovers\prabhix-release.jks` SHA-1 `52:66:18:5B:…` — **not** the Play upload key |
@@ -165,9 +168,9 @@ testing completes (see below).
   - Mailroom + Admin: `1 (1.0.0)` **published** 2026-09-21 (tracks Active).
 - **MobiStack 1.2.1+5 AAB** built 2026-09-22
   (`Mobile/build/play/mobistack-release.aab`). Play **rejected** the upload:
-  current upload key SHA-1 `E9:C5:DC:40:…:7E` vs this keystore `65:7A:6E:38:…:62`.
-  **Upload key reset is pending** (PEM submitted). Re-upload 1.2.1+5 after Google
-  approves; do not bump version again until that lands.
+  then-current upload key SHA-1 `E9:C5:DC:40:…:7E` vs this keystore `65:7A:6E:38:…:62`.
+  **Upload key reset was approved** (confirmed 2026-09-24). Re-upload 1.2.1+5;
+  do not bump version again until that AAB is accepted.
 - **MobiStack Closed testing – Alpha** (track
   `4698130848654705919`): testers list **Internal Testing** (1 user) selected;
   draft release exists. Countries still **0** (India is listed as Not targeted;
