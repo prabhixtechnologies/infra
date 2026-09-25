@@ -158,7 +158,13 @@ def main() -> int:
             # file:// paths in the aws README are relative to the repository root in some commands
             # and to deploy/aws in others, because that is where the reader is standing. Accept both
             # rather than pretending only one is correct. Sibling paths resolve at the umbrella.
-            if sibling:
+            #
+            # This repository is checked out as `infra` on GitHub and as `Infra` on the laptop.
+            # A sibling lookup for `Infra/...` misses the checkout on Linux, so those paths are
+            # resolved inside this repo first.
+            if reference.startswith("Infra/"):
+                candidates = [REPO / reference.removeprefix("Infra/"), UMBRELLA / reference]
+            elif sibling:
                 candidates = [UMBRELLA / reference]
             else:
                 candidates = [REPO / reference, REPO / "deploy" / "aws" / reference,
@@ -214,6 +220,7 @@ def main() -> int:
         print("\nProblems:")
         for problem in problems:
             print(f"  {problem}")
+            print(f"::error::{problem}")
         return 1
     print("Every path the runbooks name exists, and the identifiers agree.")
     return 0
