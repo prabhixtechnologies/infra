@@ -40,6 +40,7 @@ DOCS = [
     "deploy/aws/README.md",
     "deploy/aws/README-iam.md",
     "deploy/aws/cloudwatch-alarms.md",
+    "docs/DEPLOY.md",
     "docs/OPERATIONS.md",
     "docs/MAIL.md",
     "docs/IDENTITY.md",

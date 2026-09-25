@@ -1,5 +1,10 @@
 # Prabhix Production Runbook
 
+Day-to-day shipping is [docs/DEPLOY.md](../docs/DEPLOY.md). A push to `main` builds images and
+publishes them to ECR. Nothing on the production host moves until a person runs
+`deploy/pull-restart.ps1 -Confirm` or the manual **Deploy** workflow. This file is the first-time
+host setup.
+
 Operations guide for EC2 + Docker Compose deployments.
 
 ---

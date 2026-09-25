@@ -1,10 +1,11 @@
-# Deploy — puts published images live on the production host.
+# Deploy — manual. A push to main builds images and stops at ECR. This workflow is the approval
+# that puts those images on the production host. It does not run on push.
 #
-# Hand-triggered, from this repository only. CI in each product repository ends at pushing an image
-# to ECR tagged with its commit; this is the one place that turns a set of such tags into a running
-# stack, and it does it by running deploy/deploy.sh on the box — the same script deploy-remote.ps1
-# runs over SSH — so there is one deploy sequence, one health gate and one rollback, whoever starts
-# it.
+# The laptop equivalent is deploy/pull-restart.ps1. Both pull the tag (default latest) and restart
+# the containers. They do not git pull the host checkout. Flyway runs when the Java containers start.
+#
+# Turn on required reviewers: GitHub → Settings → Environments → production. Until that exists, the
+# environment name below is only a label.
 #
 # The runner never holds a key to the instance. It assumes an IAM role through GitHub's OIDC provider
 # and asks Systems Manager to run the script; the agent on the instance pulls the command and reports
@@ -104,8 +105,8 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       # The remote script is assembled here, as one string, so that what runs on the box is visible
-      # in the log before it runs. Only tags that were given are exported: an exported empty value
-      # would reach compose as a deliberate empty tag and fail the pull on `:`.
+      # in the log before it runs. A blank tag means latest: CI publishes that on every green main
+      # build. An old sha in a box is how one service is rolled back without moving the others.
       - name: Compose the remote command
         id: script
         env:
@@ -126,42 +127,31 @@ jobs:
           summary=""
           for name in TAG BACKEND_TAG WEB_TAG ADMIN_TAG MARKETING_TAG IDENTITY_TAG MAILROOM_TAG \
                       MOBISTACK_BACKEND_TAG MOBISTACK_WEB_TAG APP_STORE_TAG; do
-            value="${!name:-}"
-            if [ -n "$value" ]; then
-              # A tag is [A-Za-z0-9_.-], nothing else; anything else is someone typing into the
-              # wrong box, and it is refused here rather than interpreted by a shell on the box.
-              if ! printf '%s' "$value" | grep -Eq '^[A-Za-z0-9_.-]{1,128}$'; then
-                echo "::error title=Bad tag::$name='$value' is not an image tag."
-                exit 1
-              fi
-              exports="${exports:+$exports; }export $name=$value"
-              summary="${summary:+$summary }$name=$value"
+            value="${!name:-latest}"
+            if ! printf '%s' "$value" | grep -Eq '^[A-Za-z0-9_.-]{1,128}$'; then
+              echo "::error title=Bad tag::$name='$value' is not an image tag."
+              exit 1
             fi
+            exports="${exports:+$exports; }export $name=$value"
+            summary="${summary:+$summary }$name=$value"
           done
           echo "summary=$summary" >> "$GITHUB_OUTPUT"
 
-          # Runs as the deploy user, not as root: the checkout is owned by it, and git refuses to
-          # touch a repository owned by someone else. Output is kept on the box in full because
-          # Systems Manager returns only the last 24 KB of it to us — enough for the verdict and the
-          # rollback reason, not always for the cause.
+          # Does not git pull. The host checkout cannot fetch GitHub, and the images are already in
+          # ECR. Flyway runs when backend and mobistack-backend start.
           cat > remote.sh <<EOF
           set -euo pipefail
           sudo -u ${REMOTE_USER} -H bash -c '
             set -euo pipefail
             cd ${REMOTE_ROOT}
-            mkdir -p "\$HOME/deploy-logs"
-            log="\$HOME/deploy-logs/\$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}.log"
-            {
-              echo "[remote] deploy requested by github run ${GITHUB_RUN_ID} (${summary})"
-              echo "[remote] commit before: \$(git log --oneline -1)"
-              git pull --ff-only
-              echo "[remote] commit after:  \$(git log --oneline -1)"
-              ${exports}
-              bash deploy/deploy.sh
-            } 2>&1 | tee "\$log"
-            status=\${PIPESTATUS[0]}
-            echo "[remote] full log: \$log"
-            exit "\$status"
+            ${exports}
+            compose="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deploy/.env.prod --profile identity --profile mailroom --profile mobistack"
+            services="backend web admin marketing identity mailroom mobistack-backend mobistack-web app-store"
+            echo "[remote] github run ${GITHUB_RUN_ID} (${summary})"
+            \$compose pull \$services
+            \$compose up -d --no-deps --pull always --no-build \$services
+            \$compose up -d --force-recreate --no-deps caddy
+            echo "[remote] restarted"
           '
           EOF
           echo "Remote script:"
