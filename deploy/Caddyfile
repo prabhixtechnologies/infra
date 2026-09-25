@@ -202,23 +202,13 @@ api.mobistack.prabhixtechnologies.com {
 # the sign-in flow, which is the part of this that is easy to get subtly wrong. The extractions after
 # it — mail is the intended next one — become a routing change here.
 #
-# Two switches rather than one, because the two halves of this carry very different risk.
+# JSON calls are selected by path, not by a shared /api/v1/auth prefix: /api/v1/identity/* is Identity
+# and /api/v1/oneops/* is the platform backend. MobiStack stays on mobistack.prabhixtechnologies.com.
 #
-# AUTH_UPSTREAM moves /api/v1/auth/* — live sign-in traffic for every product that exists today. It
-# defaults to the backend on purpose: hardcoding identity:8081 before that container exists would 502
-# every login on the next `docker compose up`, and rolling back would mean editing the proxy config
-# under pressure. Flipping one line in deploy/.env.prod is the whole cutover and the same line is the
-# whole rollback.
-#
-# OIDC_UPSTREAM moves the hosted login page, discovery, JWKS and the authorization endpoints. Nothing
-# in production calls these yet — a build without VITE_IDENTITY_ISSUER never reaches them — so
-# pointing them at identity carries none of the risk above, and leaving them on the backend has a
-# cost: the page cannot be seen, so nothing about it can be verified before the day it has to work.
-# It defaults to identity for that reason.
-#
-# On a stack running without the identity profile these paths 502 rather than 404, because Caddy
-# resolves the upstream per request and there is no such host. Setting OIDC_UPSTREAM back to
-# prabhix-backend:8080 restores the old 404 and is the rollback.
+# OIDC_UPSTREAM serves the hosted login page, discovery, JWKS, the authorization endpoints, and
+# /api/v1/identity/*. It defaults to identity. On a stack running without the identity profile those
+# paths 502 rather than 404, because Caddy resolves the upstream per request and there is no such host.
+# Setting OIDC_UPSTREAM back to prabhix-backend:8080 restores the old 404 and is the rollback.
 api.prabhixtechnologies.com {
 	import no_document_headers
 
@@ -235,33 +225,15 @@ api.prabhixtechnologies.com {
 		respond 404
 	}
 
-	# /me is the one auth path that must NOT follow AUTH_UPSTREAM, so it is pinned here ahead of the
-	# wildcard below. Both services answer it, but with different bodies: identity returns who someone
-	# is, and deliberately nothing about a tenant, because an identity token carries no organization
-	# and no permissions. The console needs `organizationId` and `permissions` — it picks the org
-	# header and gates every menu on them, and its schema requires both.
-	#
-	# So sending this one path to identity along with the rest would let sign-in succeed, exchange a
-	# code, and then fail parsing the response — at step 6, which is the point of no easy return. The
-	# backend resolves both per request from its own database, which is where staff authority is
-	# granted and the only place it can be trusted from.
-	handle /api/v1/auth/me {
-		reverse_proxy prabhix-backend:8080
+	# JSON APIs are split by product prefix, so sign-in and tenant calls no longer share /api/v1/auth.
+	# Identity answers who someone is. OneOps answers organizationId and permissions, and invitations,
+	# because those rows live in the platform database.
+	handle /api/v1/identity/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
 	}
 
-	# Pinned for a simpler reason: identity has no such path, and an organization invitation is not
-	# something it could answer. The token names an org, a role and who sent it, all of which live in
-	# the platform's database — identity holds no organizations at all.
-	#
-	# Unpinned, the invitation page would 404 the moment AUTH_UPSTREAM moves, and it is the one page
-	# whose visitors have no account yet and no way to report that it is broken. It sits under /auth
-	# only because it is reachable before signing in.
-	handle /api/v1/auth/invites/* {
+	handle /api/v1/oneops/* {
 		reverse_proxy prabhix-backend:8080
-	}
-
-	handle /api/v1/auth/* {
-		reverse_proxy {$AUTH_UPSTREAM:prabhix-backend:8080}
 	}
 
 	# OIDC discovery and JWKS. Every product reads these before it can verify a single token, so they

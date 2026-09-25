@@ -17,7 +17,7 @@ Outbound is SES in `ap-south-1`. Inbound is a separate choice.
 The region has an email-receiving endpoint (`inbound-smtp.ap-south-1.amazonaws.com`). The shape
 is SES receipt rules → S3 (raw MIME) → SNS notification → the existing `MailIngestionService`
 (`InboundSource.WEBHOOK` / `stageRaw`). That ingest path is **not built yet**: today's inbound
-code is LMTP from Postfix (`POST /api/v1/mail/inbound/lmtp`) and IMAP poll. The SES SNS webhook
+code is LMTP from Postfix (`POST /api/v1/oneops/mail/inbound/lmtp`) and IMAP poll. The SES SNS webhook
 that exists today is bounce and complaint feedback only.
 
 Until ingest exists, **do not flip MX**. Leave it at GoDaddy (`smtp.secureserver.net` /

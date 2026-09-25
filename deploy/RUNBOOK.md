@@ -57,7 +57,7 @@ Operations guide for EC2 + Docker Compose deployments.
      -ConsoleBase "https://oneops.prabhixtechnologies.com" `
      -OrgSlug "<your NEXT_PUBLIC_ORG_SLUG>"
    ```
-8. **Configure Razorpay webhook** → `https://api.prabhixtechnologies.com/api/v1/billing/webhooks/razorpay`
+8. **Configure Razorpay webhook** → `https://api.prabhixtechnologies.com/api/v1/oneops/billing/webhooks/razorpay` (MobiStack: `https://mobistack.prabhixtechnologies.com/api/v1/mobistack/billing/webhooks/razorpay`)
 
 ---
 
@@ -349,7 +349,7 @@ eval "$(bash deploy/secrets-env.sh)"    # then any docker compose command works
 |---|---|
 | EXTERNAL_IMAP | `MAIL_IMAP_ENABLED=true`, mailbox `imap_*` fields, poll errors in logs |
 | SELF_HOSTED | Mailserver profile running, MX points to Elastic IP, Postfix logs |
-| LMTP push | `MAIL_LMTP_TOKEN` matches, `/api/v1/mail/inbound/lmtp` reachable from postfix network |
+| LMTP push | `MAIL_LMTP_TOKEN` matches, `/api/v1/oneops/mail/inbound/lmtp` reachable from postfix network |
 
 ### Self-hosted transport
 

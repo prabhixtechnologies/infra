@@ -4,10 +4,10 @@ The facts an agent needs are in `.cursor/rules/aws-prod.mdc`. This file is the l
 
 ## Reach the database
 
-1. If `D:\Projects\KEYS\PrabhixTechnologies.pem` or `D:\Projects\KEYS\MobiStack.pem` exists, SSH to `ec2-user@35.154.59.116` with that key. Confirm the address with one describe of `i-05496f940af0517ae` only when SSH fails.
+1. SSH with `%USERPROFILE%\.ssh\PrabhixTechnologies.pem`. The app user is `prabhix`; a stock login is `ec2-user`. `D:\Projects\KEYS\PrabhixTechnologies.pem` and `D:\Projects\KEYS\MobiStack.pem` are not on this machine. Confirm the address with one describe of `i-05496f940af0517ae` only when SSH fails. Do not `git pull` or reset `/opt/prabhix`.
 2. On the server, read `POSTGRES_HOST`, `MOBISTACK_DB_USER`, `MOBISTACK_DB_PASSWORD`, and `MOBISTACK_DB_NAME` from `/opt/prabhix/deploy/.env.prod`. Do not print them.
 3. Run the loader there, on the VPC, with `sslmode=require`. The phone file is `MobiStack/catalog/phones.json`. The script is `MobiStack/catalog/load_phones.py`. It inserts brands and devices only. It does not insert spare-part rows. Same size or the same mAh is not a fitment.
-4. If neither private key is on disk, stop. The IAM user cannot use Session Manager or EC2 Instance Connect, and RDS is not reachable from this PC.
+4. If `%USERPROFILE%\.ssh\PrabhixTechnologies.pem` is not on disk, stop. The IAM user cannot use Session Manager or EC2 Instance Connect, and RDS is not reachable from this PC.
 
 ## Cleanup
 

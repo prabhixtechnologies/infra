@@ -92,7 +92,7 @@ Test-Endpoint -Name "Console (OneOps)" -Url $ConsoleBase -Assert {
 }
 
 # 4. Unauthenticated API — expect UNAUTHENTICATED JSON shape
-Test-Endpoint -Name "API auth gate" -Url "$ApiBase/api/v1/mail/mailboxes" -AllowErrorStatus -Assert {
+Test-Endpoint -Name "API auth gate" -Url "$ApiBase/api/v1/oneops/mail/mailboxes" -AllowErrorStatus -Assert {
     param($r)
     if ($r.StatusCode -ne 401) { throw "Expected 401, got $($r.StatusCode)" }
     $json = Get-BodyText $r | ConvertFrom-Json
@@ -106,7 +106,7 @@ Test-Endpoint -Name "API auth gate" -Url "$ApiBase/api/v1/mail/mailboxes" -Allow
 # on a last page, because clients validate the response shape and a missing key breaks them.
 if ($OrgSlug) {
     Test-Endpoint -Name "Storefront catalog" `
-        -Url "$ApiBase/api/v1/commerce/public/$OrgSlug/products" `
+        -Url "$ApiBase/api/v1/oneops/commerce/public/products?orgSlug=$OrgSlug" `
         -Headers @{ Origin = $MarketingBase } -Assert {
         param($r)
         if ($r.StatusCode -ne 200) { throw "Expected 200, got $($r.StatusCode)" }
@@ -123,7 +123,7 @@ if ($OrgSlug) {
     # 6. Origin allowlist actually refuses a foreign origin. The public endpoints have no token, so
     # this is the only thing standing between them and use from someone else's site.
     Test-Endpoint -Name "Storefront origin allowlist" `
-        -Url "$ApiBase/api/v1/commerce/public/$OrgSlug/products" `
+        -Url "$ApiBase/api/v1/oneops/commerce/public/products?orgSlug=$OrgSlug" `
         -Headers @{ Origin = "https://smoke-test.invalid" } -AllowErrorStatus -Assert {
         param($r)
         if ($r.StatusCode -ne 403) { throw "Expected 403 for a foreign Origin, got $($r.StatusCode)" }
