@@ -1,0 +1,576 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1404" height="1444" viewBox="0 0 1404 1444">
+<defs><linearGradient id="g-technologies-light" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0e7490"/><stop offset="1" stop-color="#4338ca"/></linearGradient><linearGradient id="g-technologies-dark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#818cf8"/></linearGradient><linearGradient id="g-oneops-light" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4338ca"/><stop offset="1" stop-color="#a21caf"/></linearGradient><linearGradient id="g-oneops-dark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#818cf8"/><stop offset="1" stop-color="#e879f9"/></linearGradient><linearGradient id="g-admin-light" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6d28d9"/><stop offset="1" stop-color="#0e7490"/></linearGradient><linearGradient id="g-admin-dark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/></linearGradient><linearGradient id="g-mobistack-light" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b45309"/><stop offset="1" stop-color="#0f766e"/></linearGradient><linearGradient id="g-mobistack-dark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#2dd4bf"/></linearGradient><linearGradient id="g-mailroom-light" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8c3b2a"/><stop offset="1" stop-color="#0f766e"/></linearGradient><linearGradient id="g-mailroom-dark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c17a62"/><stop offset="1" stop-color="#2dd4bf"/></linearGradient></defs>
+<rect width="1404" height="1444" fill="#ffffff"/>
+<text x="30" y="48" font-family="Segoe UI, system-ui, sans-serif" font-size="22" font-weight="700" fill="#0c1524" text-anchor="start">Prabhix design tokens — five product identities</text>
+<text x="30" y="68" font-family="Segoe UI, system-ui, sans-serif" font-size="11" font-weight="400" fill="#56687e" text-anchor="start">Generated from tokens.json. Every product carries two accents, so each theme composes its own gradient. Status hues are reserved and never used as an accent.</text>
+<text x="30" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">bg</text>
+<text x="126" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">surface</text>
+<text x="222" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">surface-sunken</text>
+<text x="318" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">ink</text>
+<text x="414" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">ink-muted</text>
+<text x="510" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">border-strong</text>
+<text x="606" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">accent</text>
+<text x="702" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">accent-subtle</text>
+<text x="798" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">accent-2</text>
+<text x="894" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">accent-2-subtle</text>
+<text x="990" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">success</text>
+<text x="1086" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">warning</text>
+<text x="1182" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">danger</text>
+<text x="1278" y="90" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="#71859d" text-anchor="start">info</text>
+<text x="30" y="112" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">Prabhix Technologies</text>
+<text x="220" y="112" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="400" fill="#56687e" text-anchor="start">cyan + indigo  ·  neutral surface  ·  comfortable</text>
+<text x="22" y="153" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="122" width="92" height="56" rx="6" fill="#eef2f7" stroke="#dfe6ef" stroke-width="1"/>
+<text x="39" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="39" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#eef2f7</text>
+<rect x="126" y="122" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#dfe6ef" stroke-width="1"/>
+<text x="135" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="135" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="222" y="122" width="92" height="56" rx="6" fill="#dfe6ef" stroke="#dfe6ef" stroke-width="1"/>
+<text x="231" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="231" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#dfe6ef</text>
+<rect x="318" y="122" width="92" height="56" rx="6" fill="#0c1524" stroke="#dfe6ef" stroke-width="1"/>
+<text x="327" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="414" y="122" width="92" height="56" rx="6" fill="#56687e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="423" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#56687e</text>
+<rect x="510" y="122" width="92" height="56" rx="6" fill="#71859d" stroke="#dfe6ef" stroke-width="1"/>
+<text x="519" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="122" width="92" height="56" rx="6" fill="#0e7490" stroke="#dfe6ef" stroke-width="1"/>
+<text x="615" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="615" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0e7490</text>
+<rect x="702" y="122" width="92" height="56" rx="6" fill="#ecfeff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="711" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#155e75" text-anchor="start">Aa</text>
+<text x="711" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#ecfeff</text>
+<rect x="798" y="122" width="92" height="56" rx="6" fill="#4338ca" stroke="#dfe6ef" stroke-width="1"/>
+<text x="807" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="807" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#4338ca</text>
+<rect x="894" y="122" width="92" height="56" rx="6" fill="#eef2ff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="903" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#3730a3" text-anchor="start">Aa</text>
+<text x="903" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#eef2ff</text>
+<rect x="990" y="122" width="92" height="56" rx="6" fill="#027a48" stroke="#dfe6ef" stroke-width="1"/>
+<text x="999" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="999" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#027a48</text>
+<rect x="1086" y="122" width="92" height="56" rx="6" fill="#a16207" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1095" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1095" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a16207</text>
+<rect x="1182" y="122" width="92" height="56" rx="6" fill="#b42318" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1191" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1191" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b42318</text>
+<rect x="1278" y="122" width="92" height="56" rx="6" fill="#1d4ed8" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1287" y="144" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1287" y="170" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1d4ed8</text>
+<rect x="30" y="182" width="1340" height="22" rx="5" fill="url(#g-technologies-light)"/>
+<text x="39" y="197" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  cyan → indigo</text>
+<text x="22" y="239" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="208" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="39" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="39" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="126" y="208" width="92" height="56" rx="6" fill="#1a2532" stroke="#2c3a49" stroke-width="1"/>
+<text x="135" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="135" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1a2532</text>
+<rect x="222" y="208" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="231" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="231" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="318" y="208" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#2c3a49" stroke-width="1"/>
+<text x="327" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="414" y="208" width="92" height="56" rx="6" fill="#9aabc0" stroke="#2c3a49" stroke-width="1"/>
+<text x="423" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#9aabc0</text>
+<rect x="510" y="208" width="92" height="56" rx="6" fill="#71859d" stroke="#2c3a49" stroke-width="1"/>
+<text x="519" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="208" width="92" height="56" rx="6" fill="#22d3ee" stroke="#2c3a49" stroke-width="1"/>
+<text x="615" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#083344" text-anchor="start">Aa</text>
+<text x="615" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#22d3ee</text>
+<rect x="702" y="208" width="92" height="56" rx="6" fill="#083344" stroke="#2c3a49" stroke-width="1"/>
+<text x="711" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#67e8f9" text-anchor="start">Aa</text>
+<text x="711" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#083344</text>
+<rect x="798" y="208" width="92" height="56" rx="6" fill="#818cf8" stroke="#2c3a49" stroke-width="1"/>
+<text x="807" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1e1b4b" text-anchor="start">Aa</text>
+<text x="807" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#818cf8</text>
+<rect x="894" y="208" width="92" height="56" rx="6" fill="#1e1b4b" stroke="#2c3a49" stroke-width="1"/>
+<text x="903" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#a5b4fc" text-anchor="start">Aa</text>
+<text x="903" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1e1b4b</text>
+<rect x="990" y="208" width="92" height="56" rx="6" fill="#32d583" stroke="#2c3a49" stroke-width="1"/>
+<text x="999" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#053321" text-anchor="start">Aa</text>
+<text x="999" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="1086" y="208" width="92" height="56" rx="6" fill="#facc15" stroke="#2c3a49" stroke-width="1"/>
+<text x="1095" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#422006" text-anchor="start">Aa</text>
+<text x="1095" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="1182" y="208" width="92" height="56" rx="6" fill="#f97066" stroke="#2c3a49" stroke-width="1"/>
+<text x="1191" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#55160c" text-anchor="start">Aa</text>
+<text x="1191" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f97066</text>
+<rect x="1278" y="208" width="92" height="56" rx="6" fill="#60a5fa" stroke="#2c3a49" stroke-width="1"/>
+<text x="1287" y="230" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#172554" text-anchor="start">Aa</text>
+<text x="1287" y="256" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="30" y="268" width="1340" height="22" rx="5" fill="url(#g-technologies-dark)"/>
+<text x="39" y="283" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(12,21,36,0.75)" text-anchor="start">gradient-brand  ·  cyan → indigo</text>
+<text x="30" y="320" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">OneOps</text>
+<text x="220" y="320" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="400" fill="#56687e" text-anchor="start">indigo + fuchsia  ·  neutral surface  ·  comfortable</text>
+<text x="22" y="361" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="330" width="92" height="56" rx="6" fill="#eef2f7" stroke="#dfe6ef" stroke-width="1"/>
+<text x="39" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="39" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#eef2f7</text>
+<rect x="126" y="330" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#dfe6ef" stroke-width="1"/>
+<text x="135" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="135" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="222" y="330" width="92" height="56" rx="6" fill="#dfe6ef" stroke="#dfe6ef" stroke-width="1"/>
+<text x="231" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="231" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#dfe6ef</text>
+<rect x="318" y="330" width="92" height="56" rx="6" fill="#0c1524" stroke="#dfe6ef" stroke-width="1"/>
+<text x="327" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="414" y="330" width="92" height="56" rx="6" fill="#56687e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="423" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#56687e</text>
+<rect x="510" y="330" width="92" height="56" rx="6" fill="#71859d" stroke="#dfe6ef" stroke-width="1"/>
+<text x="519" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="330" width="92" height="56" rx="6" fill="#4338ca" stroke="#dfe6ef" stroke-width="1"/>
+<text x="615" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="615" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#4338ca</text>
+<rect x="702" y="330" width="92" height="56" rx="6" fill="#eef2ff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="711" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#3730a3" text-anchor="start">Aa</text>
+<text x="711" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#eef2ff</text>
+<rect x="798" y="330" width="92" height="56" rx="6" fill="#a21caf" stroke="#dfe6ef" stroke-width="1"/>
+<text x="807" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="807" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a21caf</text>
+<rect x="894" y="330" width="92" height="56" rx="6" fill="#fdf4ff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="903" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#86198f" text-anchor="start">Aa</text>
+<text x="903" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#fdf4ff</text>
+<rect x="990" y="330" width="92" height="56" rx="6" fill="#027a48" stroke="#dfe6ef" stroke-width="1"/>
+<text x="999" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="999" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#027a48</text>
+<rect x="1086" y="330" width="92" height="56" rx="6" fill="#a16207" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1095" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1095" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a16207</text>
+<rect x="1182" y="330" width="92" height="56" rx="6" fill="#b42318" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1191" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1191" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b42318</text>
+<rect x="1278" y="330" width="92" height="56" rx="6" fill="#1d4ed8" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1287" y="352" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1287" y="378" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1d4ed8</text>
+<rect x="30" y="390" width="1340" height="22" rx="5" fill="url(#g-oneops-light)"/>
+<text x="39" y="405" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  indigo → fuchsia</text>
+<text x="22" y="447" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="416" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="39" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="39" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="126" y="416" width="92" height="56" rx="6" fill="#1a2532" stroke="#2c3a49" stroke-width="1"/>
+<text x="135" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="135" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1a2532</text>
+<rect x="222" y="416" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="231" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="231" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="318" y="416" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#2c3a49" stroke-width="1"/>
+<text x="327" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="414" y="416" width="92" height="56" rx="6" fill="#9aabc0" stroke="#2c3a49" stroke-width="1"/>
+<text x="423" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#9aabc0</text>
+<rect x="510" y="416" width="92" height="56" rx="6" fill="#71859d" stroke="#2c3a49" stroke-width="1"/>
+<text x="519" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="416" width="92" height="56" rx="6" fill="#818cf8" stroke="#2c3a49" stroke-width="1"/>
+<text x="615" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1e1b4b" text-anchor="start">Aa</text>
+<text x="615" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#818cf8</text>
+<rect x="702" y="416" width="92" height="56" rx="6" fill="#1e1b4b" stroke="#2c3a49" stroke-width="1"/>
+<text x="711" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#a5b4fc" text-anchor="start">Aa</text>
+<text x="711" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1e1b4b</text>
+<rect x="798" y="416" width="92" height="56" rx="6" fill="#e879f9" stroke="#2c3a49" stroke-width="1"/>
+<text x="807" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#4a044e" text-anchor="start">Aa</text>
+<text x="807" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#e879f9</text>
+<rect x="894" y="416" width="92" height="56" rx="6" fill="#4a044e" stroke="#2c3a49" stroke-width="1"/>
+<text x="903" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#f0abfc" text-anchor="start">Aa</text>
+<text x="903" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#4a044e</text>
+<rect x="990" y="416" width="92" height="56" rx="6" fill="#32d583" stroke="#2c3a49" stroke-width="1"/>
+<text x="999" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#053321" text-anchor="start">Aa</text>
+<text x="999" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="1086" y="416" width="92" height="56" rx="6" fill="#facc15" stroke="#2c3a49" stroke-width="1"/>
+<text x="1095" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#422006" text-anchor="start">Aa</text>
+<text x="1095" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="1182" y="416" width="92" height="56" rx="6" fill="#f97066" stroke="#2c3a49" stroke-width="1"/>
+<text x="1191" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#55160c" text-anchor="start">Aa</text>
+<text x="1191" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f97066</text>
+<rect x="1278" y="416" width="92" height="56" rx="6" fill="#60a5fa" stroke="#2c3a49" stroke-width="1"/>
+<text x="1287" y="438" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#172554" text-anchor="start">Aa</text>
+<text x="1287" y="464" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="30" y="476" width="1340" height="22" rx="5" fill="url(#g-oneops-dark)"/>
+<text x="39" y="491" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  indigo → fuchsia</text>
+<text x="30" y="528" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">Admin console</text>
+<text x="220" y="528" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="400" fill="#56687e" text-anchor="start">violet + cyan  ·  neutral surface  ·  compact</text>
+<text x="22" y="569" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="538" width="92" height="56" rx="6" fill="#eef2f7" stroke="#dfe6ef" stroke-width="1"/>
+<text x="39" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="39" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#eef2f7</text>
+<rect x="126" y="538" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#dfe6ef" stroke-width="1"/>
+<text x="135" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="135" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="222" y="538" width="92" height="56" rx="6" fill="#dfe6ef" stroke="#dfe6ef" stroke-width="1"/>
+<text x="231" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="231" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#dfe6ef</text>
+<rect x="318" y="538" width="92" height="56" rx="6" fill="#0c1524" stroke="#dfe6ef" stroke-width="1"/>
+<text x="327" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="414" y="538" width="92" height="56" rx="6" fill="#56687e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="423" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#56687e</text>
+<rect x="510" y="538" width="92" height="56" rx="6" fill="#71859d" stroke="#dfe6ef" stroke-width="1"/>
+<text x="519" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="538" width="92" height="56" rx="6" fill="#6d28d9" stroke="#dfe6ef" stroke-width="1"/>
+<text x="615" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="615" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#6d28d9</text>
+<rect x="702" y="538" width="92" height="56" rx="6" fill="#f5f3ff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="711" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#5b21b6" text-anchor="start">Aa</text>
+<text x="711" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f5f3ff</text>
+<rect x="798" y="538" width="92" height="56" rx="6" fill="#0e7490" stroke="#dfe6ef" stroke-width="1"/>
+<text x="807" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="807" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0e7490</text>
+<rect x="894" y="538" width="92" height="56" rx="6" fill="#ecfeff" stroke="#dfe6ef" stroke-width="1"/>
+<text x="903" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#155e75" text-anchor="start">Aa</text>
+<text x="903" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#ecfeff</text>
+<rect x="990" y="538" width="92" height="56" rx="6" fill="#027a48" stroke="#dfe6ef" stroke-width="1"/>
+<text x="999" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="999" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#027a48</text>
+<rect x="1086" y="538" width="92" height="56" rx="6" fill="#a16207" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1095" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1095" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a16207</text>
+<rect x="1182" y="538" width="92" height="56" rx="6" fill="#b42318" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1191" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1191" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b42318</text>
+<rect x="1278" y="538" width="92" height="56" rx="6" fill="#1d4ed8" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1287" y="560" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1287" y="586" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1d4ed8</text>
+<rect x="30" y="598" width="1340" height="22" rx="5" fill="url(#g-admin-light)"/>
+<text x="39" y="613" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  violet → cyan</text>
+<text x="22" y="655" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="624" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="39" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="39" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="126" y="624" width="92" height="56" rx="6" fill="#1a2532" stroke="#2c3a49" stroke-width="1"/>
+<text x="135" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="135" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1a2532</text>
+<rect x="222" y="624" width="92" height="56" rx="6" fill="#0c1524" stroke="#2c3a49" stroke-width="1"/>
+<text x="231" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="231" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0c1524</text>
+<rect x="318" y="624" width="92" height="56" rx="6" fill="#f6f8fb" stroke="#2c3a49" stroke-width="1"/>
+<text x="327" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f6f8fb</text>
+<rect x="414" y="624" width="92" height="56" rx="6" fill="#9aabc0" stroke="#2c3a49" stroke-width="1"/>
+<text x="423" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#9aabc0</text>
+<rect x="510" y="624" width="92" height="56" rx="6" fill="#71859d" stroke="#2c3a49" stroke-width="1"/>
+<text x="519" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#71859d</text>
+<rect x="606" y="624" width="92" height="56" rx="6" fill="#a78bfa" stroke="#2c3a49" stroke-width="1"/>
+<text x="615" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#2e1065" text-anchor="start">Aa</text>
+<text x="615" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a78bfa</text>
+<rect x="702" y="624" width="92" height="56" rx="6" fill="#2e1065" stroke="#2c3a49" stroke-width="1"/>
+<text x="711" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#c4b5fd" text-anchor="start">Aa</text>
+<text x="711" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#2e1065</text>
+<rect x="798" y="624" width="92" height="56" rx="6" fill="#22d3ee" stroke="#2c3a49" stroke-width="1"/>
+<text x="807" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#083344" text-anchor="start">Aa</text>
+<text x="807" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#22d3ee</text>
+<rect x="894" y="624" width="92" height="56" rx="6" fill="#083344" stroke="#2c3a49" stroke-width="1"/>
+<text x="903" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#67e8f9" text-anchor="start">Aa</text>
+<text x="903" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#083344</text>
+<rect x="990" y="624" width="92" height="56" rx="6" fill="#32d583" stroke="#2c3a49" stroke-width="1"/>
+<text x="999" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#053321" text-anchor="start">Aa</text>
+<text x="999" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="1086" y="624" width="92" height="56" rx="6" fill="#facc15" stroke="#2c3a49" stroke-width="1"/>
+<text x="1095" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#422006" text-anchor="start">Aa</text>
+<text x="1095" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="1182" y="624" width="92" height="56" rx="6" fill="#f97066" stroke="#2c3a49" stroke-width="1"/>
+<text x="1191" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#55160c" text-anchor="start">Aa</text>
+<text x="1191" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f97066</text>
+<rect x="1278" y="624" width="92" height="56" rx="6" fill="#60a5fa" stroke="#2c3a49" stroke-width="1"/>
+<text x="1287" y="646" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#172554" text-anchor="start">Aa</text>
+<text x="1287" y="672" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="30" y="684" width="1340" height="22" rx="5" fill="url(#g-admin-dark)"/>
+<text x="39" y="699" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  violet → cyan</text>
+<text x="30" y="736" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">MobiStack</text>
+<text x="220" y="736" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="400" fill="#56687e" text-anchor="start">ochre + teal  ·  sand surface  ·  compact</text>
+<text x="22" y="777" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="746" width="92" height="56" rx="6" fill="#f4f1ea" stroke="#dfe6ef" stroke-width="1"/>
+<text x="39" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="39" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f4f1ea</text>
+<rect x="126" y="746" width="92" height="56" rx="6" fill="#faf8f4" stroke="#dfe6ef" stroke-width="1"/>
+<text x="135" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="135" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#faf8f4</text>
+<rect x="222" y="746" width="92" height="56" rx="6" fill="#e9e3d7" stroke="#dfe6ef" stroke-width="1"/>
+<text x="231" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="231" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#e9e3d7</text>
+<rect x="318" y="746" width="92" height="56" rx="6" fill="#12100e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="327" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="414" y="746" width="92" height="56" rx="6" fill="#6a6358" stroke="#dfe6ef" stroke-width="1"/>
+<text x="423" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#6a6358</text>
+<rect x="510" y="746" width="92" height="56" rx="6" fill="#8d8273" stroke="#dfe6ef" stroke-width="1"/>
+<text x="519" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8d8273</text>
+<rect x="606" y="746" width="92" height="56" rx="6" fill="#b45309" stroke="#dfe6ef" stroke-width="1"/>
+<text x="615" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="615" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b45309</text>
+<rect x="702" y="746" width="92" height="56" rx="6" fill="#fffbeb" stroke="#dfe6ef" stroke-width="1"/>
+<text x="711" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#92400e" text-anchor="start">Aa</text>
+<text x="711" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#fffbeb</text>
+<rect x="798" y="746" width="92" height="56" rx="6" fill="#0f766e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="807" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="807" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0f766e</text>
+<rect x="894" y="746" width="92" height="56" rx="6" fill="#f0fdfa" stroke="#dfe6ef" stroke-width="1"/>
+<text x="903" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#115e59" text-anchor="start">Aa</text>
+<text x="903" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f0fdfa</text>
+<rect x="990" y="746" width="92" height="56" rx="6" fill="#027a48" stroke="#dfe6ef" stroke-width="1"/>
+<text x="999" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="999" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#027a48</text>
+<rect x="1086" y="746" width="92" height="56" rx="6" fill="#a16207" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1095" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1095" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a16207</text>
+<rect x="1182" y="746" width="92" height="56" rx="6" fill="#b42318" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1191" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1191" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b42318</text>
+<rect x="1278" y="746" width="92" height="56" rx="6" fill="#1d4ed8" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1287" y="768" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1287" y="794" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1d4ed8</text>
+<rect x="30" y="806" width="1340" height="22" rx="5" fill="url(#g-mobistack-light)"/>
+<text x="39" y="821" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  ochre → teal</text>
+<text x="22" y="863" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="832" width="92" height="56" rx="6" fill="#12100e" stroke="#2c3a49" stroke-width="1"/>
+<text x="39" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="39" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="126" y="832" width="92" height="56" rx="6" fill="#221f1a" stroke="#2c3a49" stroke-width="1"/>
+<text x="135" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="135" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#221f1a</text>
+<rect x="222" y="832" width="92" height="56" rx="6" fill="#12100e" stroke="#2c3a49" stroke-width="1"/>
+<text x="231" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="231" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="318" y="832" width="92" height="56" rx="6" fill="#faf8f4" stroke="#2c3a49" stroke-width="1"/>
+<text x="327" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#faf8f4</text>
+<rect x="414" y="832" width="92" height="56" rx="6" fill="#b3a993" stroke="#2c3a49" stroke-width="1"/>
+<text x="423" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b3a993</text>
+<rect x="510" y="832" width="92" height="56" rx="6" fill="#8d8273" stroke="#2c3a49" stroke-width="1"/>
+<text x="519" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8d8273</text>
+<rect x="606" y="832" width="92" height="56" rx="6" fill="#fbbf24" stroke="#2c3a49" stroke-width="1"/>
+<text x="615" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#451a03" text-anchor="start">Aa</text>
+<text x="615" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#fbbf24</text>
+<rect x="702" y="832" width="92" height="56" rx="6" fill="#451a03" stroke="#2c3a49" stroke-width="1"/>
+<text x="711" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#fcd34d" text-anchor="start">Aa</text>
+<text x="711" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#451a03</text>
+<rect x="798" y="832" width="92" height="56" rx="6" fill="#2dd4bf" stroke="#2c3a49" stroke-width="1"/>
+<text x="807" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#042f2e" text-anchor="start">Aa</text>
+<text x="807" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#2dd4bf</text>
+<rect x="894" y="832" width="92" height="56" rx="6" fill="#042f2e" stroke="#2c3a49" stroke-width="1"/>
+<text x="903" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#5eead4" text-anchor="start">Aa</text>
+<text x="903" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#042f2e</text>
+<rect x="990" y="832" width="92" height="56" rx="6" fill="#32d583" stroke="#2c3a49" stroke-width="1"/>
+<text x="999" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#053321" text-anchor="start">Aa</text>
+<text x="999" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="1086" y="832" width="92" height="56" rx="6" fill="#facc15" stroke="#2c3a49" stroke-width="1"/>
+<text x="1095" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#422006" text-anchor="start">Aa</text>
+<text x="1095" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="1182" y="832" width="92" height="56" rx="6" fill="#f97066" stroke="#2c3a49" stroke-width="1"/>
+<text x="1191" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#55160c" text-anchor="start">Aa</text>
+<text x="1191" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f97066</text>
+<rect x="1278" y="832" width="92" height="56" rx="6" fill="#60a5fa" stroke="#2c3a49" stroke-width="1"/>
+<text x="1287" y="854" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#172554" text-anchor="start">Aa</text>
+<text x="1287" y="880" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="30" y="892" width="1340" height="22" rx="5" fill="url(#g-mobistack-dark)"/>
+<text x="39" y="907" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(12,21,36,0.75)" text-anchor="start">gradient-brand  ·  ochre → teal</text>
+<text x="30" y="944" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">Mailroom</text>
+<text x="220" y="944" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="400" fill="#56687e" text-anchor="start">clay + teal  ·  sand surface  ·  comfortable</text>
+<text x="22" y="985" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="954" width="92" height="56" rx="6" fill="#f4f1ea" stroke="#dfe6ef" stroke-width="1"/>
+<text x="39" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="39" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f4f1ea</text>
+<rect x="126" y="954" width="92" height="56" rx="6" fill="#faf8f4" stroke="#dfe6ef" stroke-width="1"/>
+<text x="135" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="135" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#faf8f4</text>
+<rect x="222" y="954" width="92" height="56" rx="6" fill="#e9e3d7" stroke="#dfe6ef" stroke-width="1"/>
+<text x="231" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#0c1524" text-anchor="start">Aa</text>
+<text x="231" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#e9e3d7</text>
+<rect x="318" y="954" width="92" height="56" rx="6" fill="#12100e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="327" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="414" y="954" width="92" height="56" rx="6" fill="#6a6358" stroke="#dfe6ef" stroke-width="1"/>
+<text x="423" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#6a6358</text>
+<rect x="510" y="954" width="92" height="56" rx="6" fill="#8d8273" stroke="#dfe6ef" stroke-width="1"/>
+<text x="519" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8d8273</text>
+<rect x="606" y="954" width="92" height="56" rx="6" fill="#8c3b2a" stroke="#dfe6ef" stroke-width="1"/>
+<text x="615" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="615" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8c3b2a</text>
+<rect x="702" y="954" width="92" height="56" rx="6" fill="#fbf4f1" stroke="#dfe6ef" stroke-width="1"/>
+<text x="711" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#713024" text-anchor="start">Aa</text>
+<text x="711" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#fbf4f1</text>
+<rect x="798" y="954" width="92" height="56" rx="6" fill="#0f766e" stroke="#dfe6ef" stroke-width="1"/>
+<text x="807" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="807" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0f766e</text>
+<rect x="894" y="954" width="92" height="56" rx="6" fill="#f0fdfa" stroke="#dfe6ef" stroke-width="1"/>
+<text x="903" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#115e59" text-anchor="start">Aa</text>
+<text x="903" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#f0fdfa</text>
+<rect x="990" y="954" width="92" height="56" rx="6" fill="#027a48" stroke="#dfe6ef" stroke-width="1"/>
+<text x="999" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="999" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#027a48</text>
+<rect x="1086" y="954" width="92" height="56" rx="6" fill="#a16207" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1095" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1095" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#a16207</text>
+<rect x="1182" y="954" width="92" height="56" rx="6" fill="#b42318" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1191" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1191" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b42318</text>
+<rect x="1278" y="954" width="92" height="56" rx="6" fill="#1d4ed8" stroke="#dfe6ef" stroke-width="1"/>
+<text x="1287" y="976" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="start">Aa</text>
+<text x="1287" y="1002" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#1d4ed8</text>
+<rect x="30" y="1014" width="1340" height="22" rx="5" fill="url(#g-mailroom-light)"/>
+<text x="39" y="1029" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  clay → teal</text>
+<text x="22" y="1071" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="1040" width="92" height="56" rx="6" fill="#12100e" stroke="#2c3a49" stroke-width="1"/>
+<text x="39" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="39" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="126" y="1040" width="92" height="56" rx="6" fill="#221f1a" stroke="#2c3a49" stroke-width="1"/>
+<text x="135" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="135" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#221f1a</text>
+<rect x="222" y="1040" width="92" height="56" rx="6" fill="#12100e" stroke="#2c3a49" stroke-width="1"/>
+<text x="231" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="600" fill="#f6f8fb" text-anchor="start">Aa</text>
+<text x="231" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#12100e</text>
+<rect x="318" y="1040" width="92" height="56" rx="6" fill="#faf8f4" stroke="#2c3a49" stroke-width="1"/>
+<text x="327" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#faf8f4</text>
+<rect x="414" y="1040" width="92" height="56" rx="6" fill="#b3a993" stroke="#2c3a49" stroke-width="1"/>
+<text x="423" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b3a993</text>
+<rect x="510" y="1040" width="92" height="56" rx="6" fill="#8d8273" stroke="#2c3a49" stroke-width="1"/>
+<text x="519" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8d8273</text>
+<rect x="606" y="1040" width="92" height="56" rx="6" fill="#c17a62" stroke="#2c3a49" stroke-width="1"/>
+<text x="615" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#331512" text-anchor="start">Aa</text>
+<text x="615" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#c17a62</text>
+<rect x="702" y="1040" width="92" height="56" rx="6" fill="#331512" stroke="#2c3a49" stroke-width="1"/>
+<text x="711" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#dda894" text-anchor="start">Aa</text>
+<text x="711" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#331512</text>
+<rect x="798" y="1040" width="92" height="56" rx="6" fill="#2dd4bf" stroke="#2c3a49" stroke-width="1"/>
+<text x="807" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#042f2e" text-anchor="start">Aa</text>
+<text x="807" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#2dd4bf</text>
+<rect x="894" y="1040" width="92" height="56" rx="6" fill="#042f2e" stroke="#2c3a49" stroke-width="1"/>
+<text x="903" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#5eead4" text-anchor="start">Aa</text>
+<text x="903" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#042f2e</text>
+<rect x="990" y="1040" width="92" height="56" rx="6" fill="#32d583" stroke="#2c3a49" stroke-width="1"/>
+<text x="999" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#053321" text-anchor="start">Aa</text>
+<text x="999" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="1086" y="1040" width="92" height="56" rx="6" fill="#facc15" stroke="#2c3a49" stroke-width="1"/>
+<text x="1095" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#422006" text-anchor="start">Aa</text>
+<text x="1095" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="1182" y="1040" width="92" height="56" rx="6" fill="#f97066" stroke="#2c3a49" stroke-width="1"/>
+<text x="1191" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#55160c" text-anchor="start">Aa</text>
+<text x="1191" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f97066</text>
+<rect x="1278" y="1040" width="92" height="56" rx="6" fill="#60a5fa" stroke="#2c3a49" stroke-width="1"/>
+<text x="1287" y="1062" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="#172554" text-anchor="start">Aa</text>
+<text x="1287" y="1088" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="30" y="1100" width="1340" height="22" rx="5" fill="url(#g-mailroom-dark)"/>
+<text x="39" y="1115" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="600" fill="rgba(255,255,255,0.85)" text-anchor="start">gradient-brand  ·  clay → teal</text>
+<text x="30" y="1152" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">Categorical — charts, grouped series, generated avatars</text>
+<text x="22" y="1193" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="1162" width="92" height="56" rx="6" fill="#4338ca"/>
+<text x="39" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">1</text>
+<text x="39" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#4338ca</text>
+<rect x="126" y="1162" width="92" height="56" rx="6" fill="#0891b2"/>
+<text x="135" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">2</text>
+<text x="135" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0891b2</text>
+<rect x="222" y="1162" width="92" height="56" rx="6" fill="#b45309"/>
+<text x="231" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">3</text>
+<text x="231" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#b45309</text>
+<rect x="318" y="1162" width="92" height="56" rx="6" fill="#039855"/>
+<text x="327" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">4</text>
+<text x="327" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#039855</text>
+<rect x="414" y="1162" width="92" height="56" rx="6" fill="#9333ea"/>
+<text x="423" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">5</text>
+<text x="423" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#9333ea</text>
+<rect x="510" y="1162" width="92" height="56" rx="6" fill="#8c3b2a"/>
+<text x="519" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">6</text>
+<text x="519" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#8c3b2a</text>
+<rect x="606" y="1162" width="92" height="56" rx="6" fill="#0d9488"/>
+<text x="615" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">7</text>
+<text x="615" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#0d9488</text>
+<rect x="702" y="1162" width="92" height="56" rx="6" fill="#ca8a04"/>
+<text x="711" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">8</text>
+<text x="711" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#ca8a04</text>
+<rect x="798" y="1162" width="92" height="56" rx="6" fill="#2563eb"/>
+<text x="807" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">9</text>
+<text x="807" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#2563eb</text>
+<rect x="894" y="1162" width="92" height="56" rx="6" fill="#db2777"/>
+<text x="903" y="1184" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">10</text>
+<text x="903" y="1210" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#db2777</text>
+<text x="22" y="1253" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="1222" width="92" height="56" rx="6" fill="#a5b4fc"/>
+<text x="39" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">1</text>
+<text x="39" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#a5b4fc</text>
+<rect x="126" y="1222" width="92" height="56" rx="6" fill="#22d3ee"/>
+<text x="135" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">2</text>
+<text x="135" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#22d3ee</text>
+<rect x="222" y="1222" width="92" height="56" rx="6" fill="#fbbf24"/>
+<text x="231" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">3</text>
+<text x="231" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#fbbf24</text>
+<rect x="318" y="1222" width="92" height="56" rx="6" fill="#32d583"/>
+<text x="327" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">4</text>
+<text x="327" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#32d583</text>
+<rect x="414" y="1222" width="92" height="56" rx="6" fill="#c084fc"/>
+<text x="423" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">5</text>
+<text x="423" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#c084fc</text>
+<rect x="510" y="1222" width="92" height="56" rx="6" fill="#dda894"/>
+<text x="519" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">6</text>
+<text x="519" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#dda894</text>
+<rect x="606" y="1222" width="92" height="56" rx="6" fill="#2dd4bf"/>
+<text x="615" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">7</text>
+<text x="615" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#2dd4bf</text>
+<rect x="702" y="1222" width="92" height="56" rx="6" fill="#facc15"/>
+<text x="711" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(12,21,36,0.75)" text-anchor="start">8</text>
+<text x="711" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(12,21,36,0.75)" text-anchor="start">#facc15</text>
+<rect x="798" y="1222" width="92" height="56" rx="6" fill="#60a5fa"/>
+<text x="807" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">9</text>
+<text x="807" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#60a5fa</text>
+<rect x="894" y="1222" width="92" height="56" rx="6" fill="#f472b6"/>
+<text x="903" y="1244" font-family="Segoe UI, system-ui, sans-serif" font-size="13" font-weight="700" fill="rgba(255,255,255,0.85)" text-anchor="start">10</text>
+<text x="903" y="1270" font-family="ui-monospace, Menlo, monospace" font-size="8.5" font-weight="400" fill="rgba(255,255,255,0.85)" text-anchor="start">#f472b6</text>
+<text x="30" y="1308" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0c1524" text-anchor="start">Tag swatches — 15 user-assignable colours, each derived so its ink clears AA in both themes</text>
+<text x="22" y="1344" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">L</text>
+<rect x="30" y="1318" width="85" height="44" rx="22" fill="#eef2f7"/>
+<text x="72.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#2c3a49" text-anchor="middle">neutral</text>
+<rect x="119" y="1318" width="85" height="44" rx="22" fill="#fee4e2"/>
+<text x="161.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#912018" text-anchor="middle">red</text>
+<rect x="208" y="1318" width="85" height="44" rx="22" fill="#ffe4e6"/>
+<text x="250.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#9f1239" text-anchor="middle">rose</text>
+<rect x="297" y="1318" width="85" height="44" rx="22" fill="#fce7f3"/>
+<text x="339.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#9d174d" text-anchor="middle">pink</text>
+<rect x="386" y="1318" width="85" height="44" rx="22" fill="#fae8ff"/>
+<text x="428.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#86198f" text-anchor="middle">fuchsia</text>
+<rect x="475" y="1318" width="85" height="44" rx="22" fill="#ede9fe"/>
+<text x="517.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#5b21b6" text-anchor="middle">violet</text>
+<rect x="564" y="1318" width="85" height="44" rx="22" fill="#e0e7ff"/>
+<text x="606.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#3730a3" text-anchor="middle">indigo</text>
+<rect x="653" y="1318" width="85" height="44" rx="22" fill="#dbeafe"/>
+<text x="695.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#1e40af" text-anchor="middle">blue</text>
+<rect x="742" y="1318" width="85" height="44" rx="22" fill="#cffafe"/>
+<text x="784.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#155e75" text-anchor="middle">cyan</text>
+<rect x="831" y="1318" width="85" height="44" rx="22" fill="#ccfbf1"/>
+<text x="873.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#115e59" text-anchor="middle">teal</text>
+<rect x="920" y="1318" width="85" height="44" rx="22" fill="#d1fadf"/>
+<text x="962.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#05603a" text-anchor="middle">green</text>
+<rect x="1009" y="1318" width="85" height="44" rx="22" fill="#ecfccb"/>
+<text x="1051.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#3f6212" text-anchor="middle">lime</text>
+<rect x="1098" y="1318" width="85" height="44" rx="22" fill="#fef9c3"/>
+<text x="1140.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#854d0e" text-anchor="middle">yellow</text>
+<rect x="1187" y="1318" width="85" height="44" rx="22" fill="#fef3c7"/>
+<text x="1229.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#92400e" text-anchor="middle">ochre</text>
+<rect x="1276" y="1318" width="85" height="44" rx="22" fill="#f6e6df"/>
+<text x="1318.5" y="1345" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#713024" text-anchor="middle">clay</text>
+<text x="22" y="1392" font-family="Segoe UI, system-ui, sans-serif" font-size="9" font-weight="700" fill="#9aabc0" text-anchor="end">D</text>
+<rect x="30" y="1366" width="85" height="44" rx="22" fill="#0c1524"/>
+<text x="72.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#c8d4e1" text-anchor="middle">neutral</text>
+<rect x="119" y="1366" width="85" height="44" rx="22" fill="#55160c"/>
+<text x="161.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#fda29b" text-anchor="middle">red</text>
+<rect x="208" y="1366" width="85" height="44" rx="22" fill="#4c0519"/>
+<text x="250.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#fda4af" text-anchor="middle">rose</text>
+<rect x="297" y="1366" width="85" height="44" rx="22" fill="#500724"/>
+<text x="339.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#f9a8d4" text-anchor="middle">pink</text>
+<rect x="386" y="1366" width="85" height="44" rx="22" fill="#4a044e"/>
+<text x="428.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#f0abfc" text-anchor="middle">fuchsia</text>
+<rect x="475" y="1366" width="85" height="44" rx="22" fill="#2e1065"/>
+<text x="517.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#c4b5fd" text-anchor="middle">violet</text>
+<rect x="564" y="1366" width="85" height="44" rx="22" fill="#1e1b4b"/>
+<text x="606.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#a5b4fc" text-anchor="middle">indigo</text>
+<rect x="653" y="1366" width="85" height="44" rx="22" fill="#172554"/>
+<text x="695.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#93c5fd" text-anchor="middle">blue</text>
+<rect x="742" y="1366" width="85" height="44" rx="22" fill="#083344"/>
+<text x="784.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#67e8f9" text-anchor="middle">cyan</text>
+<rect x="831" y="1366" width="85" height="44" rx="22" fill="#042f2e"/>
+<text x="873.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#5eead4" text-anchor="middle">teal</text>
+<rect x="920" y="1366" width="85" height="44" rx="22" fill="#053321"/>
+<text x="962.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#6ce9a6" text-anchor="middle">green</text>
+<rect x="1009" y="1366" width="85" height="44" rx="22" fill="#1a2e05"/>
+<text x="1051.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#bef264" text-anchor="middle">lime</text>
+<rect x="1098" y="1366" width="85" height="44" rx="22" fill="#422006"/>
+<text x="1140.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#fde047" text-anchor="middle">yellow</text>
+<rect x="1187" y="1366" width="85" height="44" rx="22" fill="#451a03"/>
+<text x="1229.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#fcd34d" text-anchor="middle">ochre</text>
+<rect x="1276" y="1366" width="85" height="44" rx="22" fill="#331512"/>
+<text x="1318.5" y="1393" font-family="Segoe UI, system-ui, sans-serif" font-size="9.5" font-weight="700" fill="#dda894" text-anchor="middle">clay</text>
+</svg>
