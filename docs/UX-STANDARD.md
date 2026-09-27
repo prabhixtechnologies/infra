@@ -55,6 +55,25 @@ of its shell. What no product may vary: the spacing scale, the type roles, the r
 elevation scale, the motion tokens, and the semantic alias names. Divergence is a declared theme in
 `tokens.json`, or it is drift.
 
+**Swatches are derived from a seed, never stored and never picked.** `toneFor(seed)` (and `pxTagFor`
+in Dart — the same list and the same hash, both generated) maps a string to one of the 15 tag
+swatches. Three rules govern its use:
+
+- **Seed on the most stable identifier, not the display name.** A sender's address, not "Sam"; a
+  workspace id, not its name. Renaming a thing should not recolour it, and one person writing under
+  two display names should stay one colour.
+- **Only where variety is open-ended and user-owned.** A conversation tag, a folder the user made, a
+  person, a tenant. Not the seven system mail folders: those mean the same thing in every mailbox,
+  and reading Trash as "the red one" is a learned signal worth more than decoration. Where identity
+  and state collide on one element, state wins.
+- **Colour is never the only signal.** Initials, the folder name, the tag text still carry the
+  meaning. The swatch makes a list scannable; it never encodes anything on its own.
+
+`--px-tag-*-ink` is asserted AA against its own `-bg`. It also clears 4.5:1 against every product
+surface in both modes (6.46:1 worst case), which is what makes it usable for a tinted icon on a
+sidebar and not just for a filled chip. If a surface is ever added that does not clear it, that
+belongs in the contrast gate rather than in a reviewer's judgement.
+
 ---
 
 ## 2. Components
@@ -94,8 +113,20 @@ Five affordances, on every one of them:
 
 1. **Primary activation** — click / tap / Enter / Space. One obvious default action.
 2. **Context menu** — right-click on pointer, long-press on touch, and `Shift+F10`/`ContextMenu` key
-   from the keyboard. All three open the *same* menu with the *same* items. This is currently
-   implemented zero times across the entire portfolio.
+   from the keyboard. All three open the *same* menu with the *same* items.
+
+   On web this is `RowActions` + `RowActionsTrigger` from `@prabhix/ui`: one `RowAction[]` feeds the
+   right-click menu, the always-visible button, and the confirmation step, so the three cannot
+   disagree. Two things about it are not obvious and were both found the hard way:
+
+   - **The keyboard keys are handled explicitly, not inherited.** Browsers are supposed to turn
+     `Shift+F10` and the `ContextMenu` key into a `contextmenu` event, and cannot be relied on to.
+   - **Opening a Radix menu programmatically requires controlled state.** Radix menus open on
+     `pointerdown`, so calling `.click()` on the trigger does nothing whatsoever. A keyboard path
+     built that way looks correct in review and fails in use.
+
+   The visible trigger is part of the contract, not a nicety. A right-click menu nobody knows about
+   is not an affordance, and right-click is unavailable on touch.
 3. **Hover actions** — the two or three most common actions revealed on pointer hover, each a real
    labelled button, each also present in the context menu.
 4. **Swipe actions** on touch — one leading, one trailing, both reversible or confirmed, both
