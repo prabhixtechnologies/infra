@@ -75,7 +75,7 @@
 # Source: deploy/static/well-known/assetlinks.json — see Infra/docs/PLAY-STORE.md.
 (android_assetlinks) {
 	handle /.well-known/assetlinks.json {
-		root * /etc/caddy/static/well-known
+		root * /etc/caddy/static
 		header Content-Type application/json
 		file_server
 	}

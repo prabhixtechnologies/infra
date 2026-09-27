@@ -246,8 +246,11 @@ else
   log "Using managed database at $POSTGRES_HOST"
 fi
 
-log "Starting pgbouncer"
-$COMPOSE --env-file "$ENV_FILE" up -d pgbouncer
+# PgBouncer renders its authentication file from the environment only when the container starts.
+# Recreate it even when the image is unchanged so a database-password rotation cannot leave the
+# pooler accepting the retired credential while applications have already moved to the new one.
+log "Recreating pgbouncer so database credential rotations take effect"
+$COMPOSE --env-file "$ENV_FILE" up -d --force-recreate pgbouncer
 
 log "Waiting for pgbouncer"
 until $COMPOSE --env-file "$ENV_FILE" exec -T pgbouncer pg_isready -h 127.0.0.1 -p 5432 -U "${POSTGRES_USER:-oneops}" >/dev/null 2>&1; do

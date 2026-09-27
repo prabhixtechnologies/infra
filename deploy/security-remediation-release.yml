@@ -52,7 +52,7 @@ repositories:
     baselineCommit: 6a46d17aaa8c3bf80698caaee7f6d5688cdb4217
     approvedCommit: 1d08cbb886b3d96167b6982114cdf887d07ceba9
     image: prabhix/app-store
-    imageTag: 1d08cbb
+    imageTag: 1d08cbb886b3d96167b6982114cdf887d07ceba9
   webKit:
     baselineCommit: fe26e44bd5e53f7c5f4cda19034cd6ebf5cc976a
     approvedCommit: 6841e45aab52e52d4fb970ee08f4540e71c6c447
