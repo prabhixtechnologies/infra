@@ -1,6 +1,7 @@
 # Immutable source and image set approved for the security cutover.
 release: security-remediation
-state: approved
+state: deployed
+deployedAt: "2026-09-27T16:08:00Z"
 cutover:
   requiresMaintenanceMode: true
   requiresRdsRecoveryPoint: true
@@ -51,6 +52,7 @@ repositories:
   infra:
     baselineCommit: 6a46d17aaa8c3bf80698caaee7f6d5688cdb4217
     approvedCommit: 1d08cbb886b3d96167b6982114cdf887d07ceba9
+    operationsCommit: 5a186acc0ce2b2880ed748597bcba9ec4630e54d
     image: prabhix/app-store
     imageTag: 1d08cbb886b3d96167b6982114cdf887d07ceba9
   webKit:
