@@ -27,7 +27,16 @@ jobs:
             docker-compose.yml docker-compose.local.yml docker-compose.prod.yml \
             .github/workflows/ci.yml .github/workflows/deploy.yml
 
+      - name: Check out Mailroom transport configuration
+        uses: actions/checkout@v4
+        with:
+          repository: prabhixtechnologies/Mailroom
+          ref: ed09b4bd165d0e30ecfa25a59f1c4786a88d7026
+          path: .ci/Mailroom
+
       - name: Security hardening config
+        env:
+          MAILROOM_MAIL_SERVER: ${{ github.workspace }}/.ci/Mailroom/mail-server
         run: python deploy/check-security-config.py
 
       # deploy.sh knows every service by name — which variable pins its tag, which container to read

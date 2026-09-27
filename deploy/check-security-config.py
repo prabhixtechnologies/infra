@@ -8,12 +8,15 @@ Run in CI and locally:
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-MAIL = REPO.parent / "Mailroom" / "mail-server"
+MAIL = pathlib.Path(
+    os.environ.get("MAILROOM_MAIL_SERVER", REPO.parent / "Mailroom" / "mail-server")
+).resolve()
 
 errors: list[str] = []
 
