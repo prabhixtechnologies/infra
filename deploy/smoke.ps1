@@ -12,6 +12,7 @@ param(
     [string]$AdminBase = "",
     # Mailroom. Skipped when empty, for a deployment that does not run it.
     [string]$MailroomBase = "",
+    [string]$MobistackBase = "",
     # Needed for the public storefront checks. Skipped when empty.
     [string]$OrgSlug = ""
 )
@@ -89,6 +90,18 @@ Test-Endpoint -Name "Marketing site" -Url $MarketingBase -Assert {
 Test-Endpoint -Name "Console (OneOps)" -Url $ConsoleBase -Assert {
     param($r)
     if ($r.StatusCode -ne 200) { throw "Expected 200, got $($r.StatusCode)" }
+}
+
+# Edge denial — these must not be reachable on public hosts (404, not 401/403).
+foreach ($pair in @(
+        @{ Name = "Internal bootstrap API"; Url = "$ApiBase/internal/bootstrap" },
+        @{ Name = "Public inbound LMTP"; Url = "$ApiBase/api/v1/oneops/mail/inbound/lmtp" },
+        @{ Name = "Swagger UI"; Url = "$ApiBase/swagger-ui/index.html" }
+    )) {
+    Test-Endpoint -Name $pair.Name -Url $pair.Url -AllowErrorStatus -Assert {
+        param($r)
+        if ($r.StatusCode -ne 404) { throw "Expected 404 at the edge, got $($r.StatusCode)" }
+    }
 }
 
 # 4. Unauthenticated API — expect UNAUTHENTICATED JSON shape
@@ -226,6 +239,33 @@ function Test-BuiltWithIdentityIssuer {
 
 Test-BuiltWithIdentityIssuer -Name "Console (OneOps)" -Url $ConsoleBase
 
+function Test-AndroidAssetLinks {
+    param(
+        [string]$Name,
+        [string]$BaseUrl
+    )
+    if ($BaseUrl -match '^https://api\.') {
+        Write-Host "==> $Name Android assetlinks : skipped (API-only host)" -ForegroundColor DarkGray
+        return
+    }
+    if ($BaseUrl -notmatch 'prabhixtechnologies\.com') {
+        Write-Host "==> $Name Android assetlinks : skipped (not a production host)" -ForegroundColor DarkGray
+        return
+    }
+    Test-Endpoint -Name "$Name Android assetlinks" -Url "$BaseUrl/.well-known/assetlinks.json" -Assert {
+        param($r)
+        if ($r.StatusCode -ne 200) { throw "Expected 200, got $($r.StatusCode)" }
+        $body = Get-BodyText $r
+        if ($body -notmatch 'app\.prabhix\.fixflow') { throw "assetlinks missing package app.prabhix.fixflow" }
+        if ($body -notmatch 'com\.prabhix\.operator') { throw "assetlinks missing package com.prabhix.operator" }
+        if ($body -notmatch '3094aa00bc187a4e1a6ea2242953998dc078b164d464725e0b7c2c4c64a060f6') {
+            throw "assetlinks missing Play upload certificate fingerprint"
+        }
+    }
+}
+
+Test-AndroidAssetLinks -Name "OneOps" -BaseUrl $ConsoleBase
+
 if ($AdminBase) {
     Test-DocumentCsp -Name "Admin" -Url $AdminBase
     Test-BuiltWithIdentityIssuer -Name "Admin" -Url $AdminBase
@@ -234,6 +274,20 @@ if ($AdminBase) {
 if ($MailroomBase) {
     Test-DocumentCsp -Name "Mailroom" -Url $MailroomBase
     Test-BuiltWithIdentityIssuer -Name "Mailroom" -Url $MailroomBase
+}
+
+if ($MobistackBase) {
+    foreach ($pair in @(
+            @{ Name = "MobiStack admin API (edge)"; Url = "$MobistackBase/api/v1/mobistack/admin/workspaces" },
+            @{ Name = "MobiStack internal API (edge)"; Url = "$MobistackBase/internal/bootstrap" }
+        )) {
+        Test-Endpoint -Name $pair.Name -Url $pair.Url -AllowErrorStatus -Assert {
+            param($r)
+            if ($r.StatusCode -ne 404) { throw "Expected 404 at the edge, got $($r.StatusCode)" }
+        }
+    }
+
+    Test-AndroidAssetLinks -Name "MobiStack" -BaseUrl $MobistackBase
 }
 
 Write-Host ""

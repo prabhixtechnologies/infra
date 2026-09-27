@@ -168,6 +168,24 @@ services:
       # The same shared secret the identity service checks; blank leaves the mirror import-only.
       IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      INTERNAL_SIGNING_SECRET: ${INTERNAL_SIGNING_SECRET:-}
+      PRABHIX_SECURITY_TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12}
+      PRABHIX_SECURITY_PUBLIC_BFF_CREDENTIAL: ${PRABHIX_PUBLIC_BFF_CREDENTIAL:-}
+      MAIL_LMTP_TOKEN: ${MAIL_LMTP_TOKEN:-}
+      MAIL_LMTP_HMAC_SECRET: ${MAIL_LMTP_SIGNING_SECRET:-${MAIL_LMTP_TOKEN:-}}
+      MAIL_LMTP_REPLAY_REQUIRED: ${MAIL_LMTP_REPLAY_REQUIRED:-false}
+      MOBILE_ONEOPS_ANDROID_MIN_BUILD: ${MOBILE_ONEOPS_ANDROID_MIN_BUILD:-1}
+      MOBILE_ONEOPS_ANDROID_LATEST_BUILD: ${MOBILE_ONEOPS_ANDROID_LATEST_BUILD:-1}
+      MOBILE_ONEOPS_ANDROID_FORCE: ${MOBILE_ONEOPS_ANDROID_FORCE:-false}
+      MOBILE_ONEOPS_ANDROID_STORE_URL: ${MOBILE_ONEOPS_ANDROID_STORE_URL:-}
+      MOBILE_ADMIN_ANDROID_MIN_BUILD: ${MOBILE_ADMIN_ANDROID_MIN_BUILD:-1}
+      MOBILE_ADMIN_ANDROID_LATEST_BUILD: ${MOBILE_ADMIN_ANDROID_LATEST_BUILD:-1}
+      MOBILE_ADMIN_ANDROID_FORCE: ${MOBILE_ADMIN_ANDROID_FORCE:-false}
+      MOBILE_ADMIN_ANDROID_STORE_URL: ${MOBILE_ADMIN_ANDROID_STORE_URL:-}
+      MOBILE_MAILROOM_ANDROID_MIN_BUILD: ${MOBILE_MAILROOM_ANDROID_MIN_BUILD:-1}
+      MOBILE_MAILROOM_ANDROID_LATEST_BUILD: ${MOBILE_MAILROOM_ANDROID_LATEST_BUILD:-1}
+      MOBILE_MAILROOM_ANDROID_FORCE: ${MOBILE_MAILROOM_ANDROID_FORCE:-false}
+      MOBILE_MAILROOM_ANDROID_STORE_URL: ${MOBILE_MAILROOM_ANDROID_STORE_URL:-}
       # oneOps BFF → MobiStack platform admin. Compose DNS; never routed through Caddy.
       MOBISTACK_INTERNAL_URL: ${MOBISTACK_INTERNAL_URL:-http://mobistack-backend:8080}
       # Ops hub (Cost Explorer / EC2 / optional GitHub checks) — instance role + optional PAT.
@@ -287,6 +305,8 @@ services:
       # to the platform's /internal/organizations going the other way. Blank disables both, which for
       # signup means the hosted page says so rather than creating an account it must then withdraw.
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      IDENTITY_RATE_LIMIT_PEPPER: ${IDENTITY_RATE_LIMIT_PEPPER:-}
+      IDENTITY_TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12}
       # Where the organization half of a signup is created. prabhix-backend rather than backend: see
       # the alias comment on the backend service — with MobiStack on this network, `backend` resolves
       # to two unrelated applications.
@@ -463,6 +483,8 @@ services:
       IDENTITY_JWKS_URI: ${IDENTITY_JWKS_URI:-http://identity:8081/.well-known/jwks.json}
       IDENTITY_INTERNAL_URL: ${IDENTITY_INTERNAL_URL:-http://identity:8081}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-}
+      FIXFLOW_AUTH_SECURITY_SIGN_IN_AFTER: ${SECURITY_SIGN_IN_AFTER:-}
+      FIXFLOW_PLATFORM_TRUSTED_PROXIES: ${TRUSTED_PROXY_ADDRESSES:-}
       FIXFLOW_WEB_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
       FIXFLOW_PUBLIC_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
       FIXFLOW_API_ORIGIN: ${MOBISTACK_URL:-http://localhost:5176}
@@ -538,6 +560,9 @@ services:
         NEXT_PUBLIC_ORG_SLUG: ${NEXT_PUBLIC_ORG_SLUG:-}
         NEXT_PUBLIC_ORG_ID: ${NEXT_PUBLIC_ORG_ID:-}
     restart: unless-stopped
+    environment:
+      # Server-only credential on calls from the Next BFF to public backend APIs. Never NEXT_PUBLIC_*.
+      PRABHIX_PUBLIC_BFF_CREDENTIAL: ${PRABHIX_PUBLIC_BFF_CREDENTIAL:-}
     depends_on:
       - backend
     # BusyBox wget: node:alpine has no curl.
@@ -589,6 +614,7 @@ services:
       # keeps serving the old contents — and `caddy reload` reports success while changing nothing,
       # because it re-reads the same stale inode. deploy.sh recreates this container for that reason.
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/static/well-known:/etc/caddy/static/well-known:ro
       # Extra site blocks, imported by glob. A directory rather than more single files, so adding a
       # site is dropping in a file instead of editing the one above — and so the inode problem
       # described for the Caddyfile does not multiply. Empty by default; the glob matching nothing
@@ -627,7 +653,6 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
     networks:
       - prabhix
 
@@ -639,9 +664,10 @@ services:
     depends_on:
       - prometheus
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER when enabling the monitoring profile}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD when enabling the monitoring profile}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro

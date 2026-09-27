@@ -2,7 +2,8 @@
 #
 # This script does not build anything and it does not change the server checkout. GitHub Actions
 # builds on push to main and pushes :latest plus the commit sha. After that build is green, and
-# only when a person has decided production should move, run this.
+# only when a person has decided production should move, run this. The remote action delegates to
+# deploy/deploy.sh so ordering, Flyway gates and rollback have one implementation.
 #
 #   powershell -File deploy/pull-restart.ps1 -All -Confirm
 #   powershell -File deploy/pull-restart.ps1 -Service backend,mobistack-backend -Confirm
@@ -61,44 +62,14 @@ foreach ($name in $selected) {
 
 $exports = ($selected | ForEach-Object { "export $($known[$_])=$Tag" }) -join "`n"
 $serviceList = $selected -join " "
-Write-Host "==> Production: pull $Tag and restart $serviceList" -ForegroundColor Cyan
+Write-Host "==> Production: deploy $serviceList at $Tag and revalidate the stack" -ForegroundColor Cyan
 
 $remote = @"
 set -euo pipefail
 cd $RemoteRoot
-export TAG=$Tag
 $exports
-compose="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deploy/.env.prod --profile identity --profile mailroom --profile mobistack"
-echo "[remote] pulling $serviceList at $Tag"
-`$compose pull $serviceList
-`$compose up -d --no-deps --pull always --no-build $serviceList
-deadline=`$((SECONDS + 120))
-while :; do
-  pending=0
-  for name in $serviceList; do
-    cid=`$(`$compose ps -q "`$name")
-    state=`$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "`$cid")
-    echo "[remote] `$name `$state"
-    case "`$state" in
-      healthy|none) ;;
-      starting) pending=1 ;;
-      *)
-        echo "[remote] `$name is `$state"
-        docker logs --tail 40 "`$cid" || true
-        exit 1
-        ;;
-    esac
-  done
-  if [ "`$pending" -eq 0 ]; then
-    echo "[remote] restarted"
-    exit 0
-  fi
-  if [ "`$SECONDS" -ge "`$deadline" ]; then
-    echo "[remote] still starting after 120s"
-    exit 1
-  fi
-  sleep 5
-done
+echo "[remote] invoking the audited deploy orchestrator for $serviceList"
+bash deploy/deploy.sh
 "@
 
 $lf = $remote.Replace("`r`n", "`n")

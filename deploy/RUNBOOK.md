@@ -280,9 +280,12 @@ Each is a JSON object keyed by variable name, so adding a variable does not chan
 
 ### Moving to Secrets Manager
 
-Needs `deploy/aws/secrets-policy.json` attached to the instance role (`prabhix-ec2-ecr-pull`) —
-the instance has no Secrets Manager access by default and every step below fails with `AccessDenied`
-until it does.
+Needs `deploy/aws/secrets-read-policy.json` (or the matching read-only statement in
+`secrets-policy.json`) attached to the instance role (`prabhix-ec2-ecr-pull`) — the instance has
+no Secrets Manager access by default and every step below fails with `AccessDenied` until it does.
+One-time bootstrap and rotations use `secrets-bootstrap-policy.json` or
+`secrets-break-glass-policy.json` on a break-glass principal only; see
+`deploy/RUNBOOK-secrets-rotation.md`.
 
 ```bash
 cd /opt/prabhix
@@ -368,11 +371,13 @@ See [mail-server/README.md](../../Mailroom/mail-server/README.md) for full deliv
 
 ## Backups
 
-Nightly cron on EC2:
+Production uses RDS; the local `deploy/backup.sh` expects a Compose `postgres` container and must not
+be used as evidence of a production backup. Before a migration release, create or verify an RDS
+recovery point using `RUNBOOK-rds.md` section 8. If a logical S3 dump is required, run `pg_dump`
+from the EC2 host against the private RDS endpoint with credentials kept in the host environment;
+never copy the database password or URL to a workstation or CI log.
 
-```cron
-0 3 * * * /opt/prabhix/deploy/backup.sh >> /var/log/prabhix-backup.log 2>&1
-```
+The old cron example applied only to a host-local Postgres deployment.
 
 ---
 

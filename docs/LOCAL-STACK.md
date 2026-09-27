@@ -75,3 +75,16 @@ Drop files into `store-artifacts/{mobistack,oneops,mailroom}/android.apk`.
 Included in the Infra compose `mobistack` profile (same command as Quick start). Local overlay
 publishes **:5176** (web) and **:8082** (API) on the shared postgres/redis. Do not start the
 old MobiStack compose project alongside this — it collided on service names.
+
+## Monitoring profile (optional)
+
+Prometheus and Grafana bind to **127.0.0.1** only. Set non-default credentials in `Infra/.env`
+before enabling the profile:
+
+```env
+GRAFANA_ADMIN_USER=grafana-local
+GRAFANA_ADMIN_PASSWORD=<choose-a-local-password>
+```
+
+Copy `docker/prometheus/secrets/bearer_token.example` to `bearer_token` and paste a platform-admin
+token — do not use placeholder text. Prometheus admin reload (`/-/reload`) is disabled.

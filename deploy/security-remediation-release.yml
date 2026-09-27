@@ -1,0 +1,70 @@
+# Pre-remediation source baseline plus immutable cutover slots.
+# Before approval, CI/release management fills each approvedCommit/imageTag from the same build.
+release: security-remediation
+state: awaiting-ci
+cutover:
+  requiresMaintenanceMode: true
+  requiresRdsRecoveryPoint: true
+  requiresGlobalSessionRevocation: true
+  requiresPlayAvailabilityBeforeMinimumVersionGate: true
+repositories:
+  identity:
+    baselineCommit: 3ddc17ffb8f8e649709ba07afb80bada71f164ca
+    approvedCommit: 0cf8613ee59e8308f96bacb1bacbf0b98156ab1e
+    image: prabhix/identity
+    imageTag: 0cf8613
+    flywayTarget: "3"
+  oneOps:
+    baselineCommit: c87661eac3f2cc478ea6e8e92a817be6fa31e54e
+    approvedCommit: 3e167b09a5a933897d6d858d394987717dde2bf5
+    images:
+      - prabhix/backend
+      - prabhix/web
+      - prabhix/admin
+    imageTag: 3e167b0
+    flywayTarget: "10"
+  mobistack:
+    baselineCommit: 3371c5198ed67b7df1263fb59e64ceb275416307
+    approvedCommit: eccaf6b5da96b9b66f87d7eda65698e883547a0a
+    images:
+      - prabhix/mobistack-backend
+      - prabhix/mobistack-web
+    imageTag: eccaf6b
+    flywayTarget: "7"
+  mailroom:
+    baselineCommit: ef6ebeb60e4cdaa947cd5b8fa0f96addd5bfc70a
+    approvedCommit: ed09b4bd165d0e30ecfa25a59f1c4786a88d7026
+    image: prabhix/mailroom
+    imageTag: ed09b4b
+  platform:
+    baselineCommit: 0f843fa04947ceb54a6d7e6f9a4b3869f2aced82
+    approvedCommit: 02d6ef2ae88e0a1e95f7e003224c9d3edbdc42cc
+    image: prabhix/marketing
+    imageTag: 02d6ef2
+  mobile:
+    baselineCommit: 0488249763a88b9343dfd1fa076e91af5cc5da92
+    approvedCommit: 0f477804feac19ffa3fb4ea75de4fa082a456f85
+    versionCodes:
+      mobistack: 8
+      oneops: 3
+      mailroom: 3
+      admin: 3
+  infra:
+    baselineCommit: 6a46d17aaa8c3bf80698caaee7f6d5688cdb4217
+    approvedCommit: pending
+    image: prabhix/app-store
+    imageTag: pending
+  webKit:
+    baselineCommit: fe26e44bd5e53f7c5f4cda19034cd6ebf5cc976a
+    approvedCommit: 6841e45aab52e52d4fb970ee08f4540e71c6c447
+packages:
+  identitySpringBootStarter: 0cf8613ee59e8308f96bacb1bacbf0b98156ab1e
+gates:
+  - all-repository-ci
+  - dependency-audits
+  - flyway-rehearsal
+  - browser-e2e
+  - flutter-integration
+  - payment-sandbox
+  - mail-inbound-outbound
+  - production-smoke

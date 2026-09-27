@@ -36,7 +36,7 @@ for name in "${SECRETS[@]}"; do
     echo "secrets-env.sh: cannot read $id" >&2
     echo "$payload" | tail -2 >&2
     echo "" >&2
-    echo "If this says AccessDenied, the instance role is missing deploy/aws/secrets-policy.json." >&2
+    echo "If this says AccessDenied, the instance role is missing deploy/aws/secrets-read-policy.json." >&2
     echo "If it says ResourceNotFound, run deploy/aws/secrets-bootstrap.sh once." >&2
     exit 1
   fi

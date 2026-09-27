@@ -16,6 +16,9 @@ policies below — those need root or an administrator.
 | `github-oidc-trust.json` | Trust policy: which GitHub repositories may assume the CI role |
 | `ecr-push-policy.json` | What the CI role may do — push and read, nine named repositories |
 | `env-parameter-policy.json` | Instance role read of `/prabhix/prod/env` |
+| `secrets-read-policy.json` | Instance role read-only access to the three production secrets |
+| `secrets-bootstrap-policy.json` | One-time bootstrap / break-glass write + `ListSecrets` |
+| `secrets-break-glass-policy.json` | Short-lived rotation writes (no create/list) |
 | `cloudwatch-alarms.md` | PutMetricAlarm recipes (5xx, p99, outbox, JVM, RDS) → SNS |
 
 ## `iam-platform-deployer.json` — unblocking the deployer itself

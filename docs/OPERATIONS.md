@@ -63,7 +63,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile monito
 
 | Service | URL (local) | Notes |
 |---------|-------------|-------|
-| Prometheus | http://localhost:9090 | Scrapes backend every 15s |
+| Prometheus | http://127.0.0.1:9090 | Scrapes backend every 15s; bound to loopback locally |
 | Grafana | http://localhost:3001 | Default `admin` / `admin` (override via env) |
 
 ### Actuator auth

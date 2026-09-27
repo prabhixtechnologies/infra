@@ -8,7 +8,6 @@
         "ecr:GetAuthorizationToken",
         "ecr:DescribeRepositories",
         "logs:DescribeLogGroups",
-        "secretsmanager:ListSecrets",
         "ssm:DescribeParameters",
         "s3:ListAllMyBuckets",
         "iam:ListOpenIDConnectProviders",
@@ -90,17 +89,17 @@
       "Resource": "arn:aws:logs:ap-south-1:029096972251:log-group:/prabhix/*"
     },
     {
-      "Sid": "SecretsForRuntimeConfig",
+      "Sid": "SecretsReadForDeployDiagnosis",
       "Effect": "Allow",
       "Action": [
-        "secretsmanager:CreateSecret",
-        "secretsmanager:PutSecretValue",
         "secretsmanager:GetSecretValue",
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:UpdateSecret",
-        "secretsmanager:TagResource"
+        "secretsmanager:DescribeSecret"
       ],
-      "Resource": "arn:aws:secretsmanager:ap-south-1:029096972251:secret:prabhix/*"
+      "Resource": [
+        "arn:aws:secretsmanager:ap-south-1:029096972251:secret:prabhix/prod/database-*",
+        "arn:aws:secretsmanager:ap-south-1:029096972251:secret:prabhix/prod/jwt-*",
+        "arn:aws:secretsmanager:ap-south-1:029096972251:secret:prabhix/prod/identity-signing-key-*"
+      ]
     },
     {
       "Sid": "SsmParametersForNonSecretConfig",

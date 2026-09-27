@@ -18,6 +18,19 @@ App signing. The **Upload key certificate** is this machine’s keystore:
 Do not request another reset. The old upload SHA-1 `E9:C5:DC:40:…:7E` is no
 longer the certificate Play will accept.
 
+### Android App Links (OneOps + MobiStack)
+
+Package names stay frozen: **`com.prabhix.operator`** (OneOps) and **`app.prabhix.fixflow`**
+(MobiStack). The same Digital Asset Links file is served at:
+
+- `https://oneops.prabhixtechnologies.com/.well-known/assetlinks.json`
+- `https://mobistack.prabhixtechnologies.com/.well-known/assetlinks.json`
+
+Source file: `Infra/deploy/static/well-known/assetlinks.json` (mounted into Caddy — see the
+`android_assetlinks` snippet in `Infra/deploy/Caddyfile`). Fingerprint is the **Play upload
+certificate** SHA-256 above, lowercase without colons, listed once per package. After changing the
+upload key, update that JSON and redeploy Caddy only.
+
 **MobiStack 1.2.1 (versionCode 5) is on Internal testing.** Published
 2026-09-24 20:46. Play accepted the upload key. Testers:
 https://play.google.com/apps/internaltest/4699612970327663424

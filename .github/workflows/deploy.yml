@@ -1,8 +1,9 @@
 # Deploy — manual. A push to main builds images and stops at ECR. This workflow is the approval
 # that puts those images on the production host. It does not run on push.
 #
-# The laptop equivalent is deploy/pull-restart.ps1. Both pull the tag (default latest) and restart
-# the containers. They do not git pull the host checkout. Flyway runs when the Java containers start.
+# The laptop equivalent is deploy/pull-restart.ps1. Both delegate to deploy/deploy.sh, which owns
+# pull ordering, Flyway-aware health gates and per-service rollback. Neither path git pulls the
+# host checkout.
 #
 # Turn on required reviewers: GitHub → Settings → Environments → production. Until that exists, the
 # environment name below is only a label.
@@ -138,20 +139,17 @@ jobs:
           echo "summary=$summary" >> "$GITHUB_OUTPUT"
 
           # Does not git pull. The host checkout cannot fetch GitHub, and the images are already in
-          # ECR. Flyway runs when backend and mobistack-backend start.
+          # ECR. deploy.sh is the sole production orchestrator: it snapshots running tags, deploys
+          # Identity before its consumers, serializes Flyway starters, checks mail and rolls images
+          # back on a failed health gate.
           cat > remote.sh <<EOF
           set -euo pipefail
           sudo -u ${REMOTE_USER} -H bash -c '
             set -euo pipefail
             cd ${REMOTE_ROOT}
             ${exports}
-            compose="docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file deploy/.env.prod --profile identity --profile mailroom --profile mobistack"
-            services="backend web admin marketing identity mailroom mobistack-backend mobistack-web app-store"
             echo "[remote] github run ${GITHUB_RUN_ID} (${summary})"
-            \$compose pull \$services
-            \$compose up -d --no-deps --pull always --no-build \$services
-            \$compose up -d --force-recreate --no-deps caddy
-            echo "[remote] restarted"
+            bash deploy/deploy.sh
           '
           EOF
           echo "Remote script:"
@@ -263,7 +261,25 @@ jobs:
           check "mailroom"          https://mail.prabhixtechnologies.com/
           check "mobistack web"     https://mobistack.prabhixtechnologies.com/
           check "mobistack api"     https://mobistack.prabhixtechnologies.com/actuator/health
+          check "mobistack admin edge" https://mobistack.prabhixtechnologies.com/api/v1/mobistack/admin/workspaces 404
+          check "mobistack api admin edge" https://api.mobistack.prabhixtechnologies.com/api/v1/mobistack/admin/workspaces 404
+          check "oneops assetlinks" https://oneops.prabhixtechnologies.com/.well-known/assetlinks.json
+          check "mobistack assetlinks" https://mobistack.prabhixtechnologies.com/.well-known/assetlinks.json
           check "store"             https://store.prabhixtechnologies.com/
+          for host in oneops mobistack; do
+            url="https://${host}.prabhixtechnologies.com/.well-known/assetlinks.json"
+            body=$(curl -sS -m 20 "$url" || true)
+            for pkg in app.prabhix.fixflow com.prabhix.operator; do
+              if ! echo "$body" | grep -q "$pkg"; then
+                echo "FAIL assetlinks content  missing $pkg on $url"
+                failed=1
+              fi
+            done
+            if ! echo "$body" | grep -q '3094aa00bc187a4e1a6ea2242953998dc078b164d464725e0b7c2c4c64a060f6'; then
+              echo "FAIL assetlinks content  missing Play upload SHA-256 on $url"
+              failed=1
+            fi
+          done
           if [ "$failed" -ne 0 ]; then
             echo "::error title=Smoke checks failed::A host is not answering as expected after the deploy. deploy.sh does not roll back on this — the containers are healthy — so look at Caddy: docker logs prabhix-caddy-1 --since 10m"
             exit 1

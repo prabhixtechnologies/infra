@@ -19,6 +19,9 @@ it.
 
 Each image is tagged with the 7-character commit and with `latest`. Account
 `029096972251`, registry `029096972251.dkr.ecr.ap-south-1.amazonaws.com`.
+Before coordinated builds, update the `webkit=` build context in oneOps, MobiStack, Platform, and
+Mailroom to the same approved full web-kit commit SHA. Never use a branch or floating tag; that
+could make two builds from the same application commit contain different OIDC clients.
 
 ## Put images on the server
 

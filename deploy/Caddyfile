@@ -71,6 +71,16 @@
 	}
 }
 
+# Shared Android App Links file for Play-verified deep links (OneOps + MobiStack packages).
+# Source: deploy/static/well-known/assetlinks.json — see Infra/docs/PLAY-STORE.md.
+(android_assetlinks) {
+	handle /.well-known/assetlinks.json {
+		root * /etc/caddy/static/well-known
+		header Content-Type application/json
+		file_server
+	}
+}
+
 # Marketing site — apex + www. Sends its own per-request nonce CSP from src/proxy.ts.
 prabhixtechnologies.com, www.prabhixtechnologies.com {
 	import security_headers
@@ -81,6 +91,7 @@ prabhixtechnologies.com, www.prabhixtechnologies.com {
 # generated security-headers.conf carrying the hash of the inline theme bootstrap).
 oneops.prabhixtechnologies.com {
 	import security_headers
+	import android_assetlinks
 	reverse_proxy prabhix-web:80
 }
 
@@ -148,18 +159,32 @@ mobistack.prabhixtechnologies.com {
 	handle /download/ios* {
 		reverse_proxy mobistack-backend:8080
 	}
-	handle /api/* {
-		reverse_proxy mobistack-backend:8080
+
+	import android_assetlinks
+
+	# Platform-admin and internal APIs must never be reachable on a public MobiStack hostname, even if
+	# the backend is misconfigured. 404 rather than 403 — a 403 confirms something exists.
+	handle /internal* {
+		respond 404
 	}
-	handle /actuator/health* {
-		reverse_proxy mobistack-backend:8080
+	handle /api/v1/mobistack/admin/* {
+		respond 404
 	}
-	# Routed here rather than left to fall through to the web container, whose nginx also proxies
-	# these two paths; one hop is better than two, and Swagger is off in production anyway.
 	handle /swagger-ui* {
-		reverse_proxy mobistack-backend:8080
+		respond 404
 	}
 	handle /v3/api-docs* {
+		respond 404
+	}
+	handle /actuator* {
+		@health path /actuator/health*
+		handle @health {
+			reverse_proxy mobistack-backend:8080
+		}
+		respond 404
+	}
+
+	handle /api/* {
 		reverse_proxy mobistack-backend:8080
 	}
 
@@ -190,7 +215,30 @@ MOBISTACK_BACKEND_TAG and MOBISTACK_WEB_TAG to the MobiStack commit you want.
 # NXDOMAIN.
 api.mobistack.prabhixtechnologies.com {
 	import no_document_headers
-	reverse_proxy mobistack-backend:8080
+
+	handle /internal* {
+		respond 404
+	}
+	handle /api/v1/mobistack/admin/* {
+		respond 404
+	}
+	handle /swagger-ui* {
+		respond 404
+	}
+	handle /v3/api-docs* {
+		respond 404
+	}
+	handle /actuator* {
+		@health path /actuator/health*
+		handle @health {
+			reverse_proxy mobistack-backend:8080
+		}
+		respond 404
+	}
+
+	handle {
+		reverse_proxy mobistack-backend:8080
+	}
 }
 
 # Spring Boot API — one origin for clients, whichever service is behind it.
@@ -222,6 +270,26 @@ api.prabhixtechnologies.com {
 	#
 	# 404 rather than 403, because a 403 confirms there is something there.
 	handle /internal* {
+		respond 404
+	}
+
+	# Inbound mail ingestion is authenticated with MAIL_LMTP_TOKEN and is called from Postfix on the
+	# compose network, not through this public host. Blocking it here leaves private Docker calls
+	# untouched while removing an unauthenticated push surface from the internet.
+	handle /api/v1/oneops/mail/inbound/* {
+		respond 404
+	}
+	handle /swagger-ui* {
+		respond 404
+	}
+	handle /v3/api-docs* {
+		respond 404
+	}
+	handle /actuator* {
+		@health path /actuator/health*
+		handle @health {
+			reverse_proxy prabhix-backend:8080
+		}
 		respond 404
 	}
 

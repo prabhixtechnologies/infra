@@ -34,6 +34,8 @@ UMBRELLA = REPO.parent
 
 DOCS = [
     "deploy/RUNBOOK.md",
+    "deploy/RUNBOOK-secrets-rotation.md",
+    "deploy/RUNBOOK-user-security-cutover.md",
     "deploy/RUNBOOK-rds.md",
     "deploy/RUNBOOK-mail.md",
     "deploy/RUNBOOK-consolidate.md",

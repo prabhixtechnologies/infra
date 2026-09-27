@@ -366,7 +366,37 @@ Opt-in per template, off by default for auth mail:
 | `GET` | `/api/v1/mail/domains/{id}/dns` | Required DNS records + verification status |
 | `POST` | `/api/v1/mail/templates/{key}/preview` | Render a template with sample variables |
 | `GET` | `/api/v1/mail/stream` | SSE — new mail, presence, assignment changes |
-| `POST` | `/api/v1/mail/inbound/lmtp` | Push ingestion from Postfix (internal, mTLS) |
+| `POST` | `/api/v1/oneops/mail/inbound/lmtp` | Push ingestion from self-hosted Postfix (private Docker network) |
+
+### LMTP HTTP authentication (self-hosted)
+
+Postfix (`Mailroom/mail-server`) calls the backend on `http://backend:8080/...`, **not** through the
+public `api.` host. Caddy returns 404 for `/api/v1/oneops/mail/inbound/*` on the internet.
+
+| Header | Purpose |
+| --- | --- |
+| `X-Mail-Token` | Shared secret (`MAIL_LMTP_TOKEN`) |
+| `X-Mail-Timestamp` | Unix epoch seconds (UTC) |
+| `X-Mail-Nonce` | Unpredictable single-use id (hex) |
+| `X-Mail-Signature` | HMAC-SHA256 hex of the canonical string below |
+
+Signing key: `MAIL_LMTP_SIGNING_SECRET` when set, otherwise `MAIL_LMTP_TOKEN`. The token header is
+always `MAIL_LMTP_TOKEN` even when a separate signing secret is configured.
+
+Canonical string (UTF-8, `\n` separated):
+
+```
+{timestamp}
+{nonce}
+{recipient}
+{rawMimeBase64}
+```
+
+JSON body fields match `LmtpRequest`: `recipient`, `rawMimeBase64` (standard Base64 of the raw MIME).
+
+In production the backend treats missing or stale signatures as forbidden (recommended skew window:
+five minutes, nonce replay cache sized to the same window). Scripts live under
+`Mailroom/mail-server/lmtp-push/`; run `python verify_sign.py` after changes.
 
 ---
 

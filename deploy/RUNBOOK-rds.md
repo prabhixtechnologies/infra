@@ -337,9 +337,10 @@ aws rds modify-db-instance --region ap-south-1 \
 
 `19:30` UTC is 01:00 IST. The window is in UTC however the console displays it.
 
-`deploy/backup.sh` still dumps to S3 and is worth keeping: an RDS snapshot restores to a new
-instance, which is the right tool for losing an instance and the wrong one for losing a table. Point
-it at the endpoint by setting `POSTGRES_HOST`, same as everything else.
+`deploy/backup.sh` is for the Compose `postgres` service and does not run against production RDS.
+For table-level recovery, run `pg_dump` from the EC2 host against the private endpoint and send the
+encrypted output to the backup bucket. Keep the password in the host environment and never print the
+connection URL. Rehearse both snapshot restore and logical restore before relying on either one.
 
 ## What this does not cover
 

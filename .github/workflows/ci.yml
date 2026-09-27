@@ -27,6 +27,9 @@ jobs:
             docker-compose.yml docker-compose.local.yml docker-compose.prod.yml \
             .github/workflows/ci.yml .github/workflows/deploy.yml
 
+      - name: Security hardening config
+        run: python deploy/check-security-config.py
+
       # deploy.sh knows every service by name — which variable pins its tag, which container to read
       # the previous tag from. A service added to compose and not to that list deploys at `latest`
       # and is left out of the rollback, with nothing in the output to say so.

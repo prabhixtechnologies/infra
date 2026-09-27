@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.prabhix.fixflow",
+      "sha256_cert_fingerprints": [
+        "3094aa00bc187a4e1a6ea2242953998dc078b164d464725e0b7c2c4c64a060f6"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.prabhix.operator",
+      "sha256_cert_fingerprints": [
+        "3094aa00bc187a4e1a6ea2242953998dc078b164d464725e0b7c2c4c64a060f6"
+      ]
+    }
+  }
+]

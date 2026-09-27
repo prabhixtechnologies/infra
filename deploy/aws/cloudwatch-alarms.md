@@ -227,3 +227,53 @@ CLOUDWATCH_METRICS=true
 ```
 
 Then deploy. Leave it unset or `false` locally — tests must not open a CloudWatch client.
+
+## 4. EventBridge — secret writes and SSM commands
+
+Attach these to the same `prabhix-ops-alarms` SNS topic. They catch break-glass activity that
+should be rare and always ticketed.
+
+### Secrets Manager `PutSecretValue` / `CreateSecret`
+
+```bash
+aws events put-rule --region ap-south-1 --name prabhix-secrets-write \
+  --event-pattern '{
+    "source": ["aws.secretsmanager"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "eventSource": ["secretsmanager.amazonaws.com"],
+      "eventName": ["PutSecretValue", "CreateSecret", "UpdateSecret"]
+    }
+  }'
+
+aws events put-targets --region ap-south-1 --rule prabhix-secrets-write \
+  --targets "Id"="1","Arn"="$TOPIC_ARN"
+```
+
+Ensure CloudTrail is enabled in `ap-south-1` and delivers management events. Filter in the
+EventBridge pattern further if noise is high (for example by `detail.requestParameters.secretId`
+prefix `prabhix/prod`).
+
+### SSM `SendCommand` on the production instance
+
+```bash
+aws events put-rule --region ap-south-1 --name prabhix-ssm-send-command \
+  --event-pattern '{
+    "source": ["aws.ssm"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "eventSource": ["ssm.amazonaws.com"],
+      "eventName": ["SendCommand"],
+      "requestParameters": {
+        "instanceIds": ["i-05496f940af0517ae"]
+      }
+    }
+  }'
+
+aws events put-targets --region ap-south-1 --rule prabhix-ssm-send-command \
+  --targets "Id"="1","Arn"="$TOPIC_ARN"
+```
+
+The deployer IAM user is denied `ssm:SendCommand` by design; any match is worth investigating.
+Pair with a metric alarm on `prabhix.identity.deny_list.redis_unavailable` so session revocation
+degradation is visible when Redis auth rotates.
