@@ -1,7 +1,6 @@
-# Pre-remediation source baseline plus immutable cutover slots.
-# Before approval, CI/release management fills each approvedCommit/imageTag from the same build.
+# Immutable source and image set approved for the security cutover.
 release: security-remediation
-state: awaiting-ci
+state: approved
 cutover:
   requiresMaintenanceMode: true
   requiresRdsRecoveryPoint: true
@@ -10,18 +9,18 @@ cutover:
 repositories:
   identity:
     baselineCommit: 3ddc17ffb8f8e649709ba07afb80bada71f164ca
-    approvedCommit: 0cf8613ee59e8308f96bacb1bacbf0b98156ab1e
+    approvedCommit: 5dccb6db9be82382433dac0bdc2c01f104d6c898
     image: prabhix/identity
-    imageTag: 0cf8613
+    imageTag: 5dccb6d
     flywayTarget: "3"
   oneOps:
     baselineCommit: c87661eac3f2cc478ea6e8e92a817be6fa31e54e
-    approvedCommit: 3e167b09a5a933897d6d858d394987717dde2bf5
+    approvedCommit: d5c978304a88637aaf02a18d09afb67732ad922c
     images:
       - prabhix/backend
       - prabhix/web
       - prabhix/admin
-    imageTag: 3e167b0
+    imageTag: d5c9783
     flywayTarget: "10"
   mobistack:
     baselineCommit: 3371c5198ed67b7df1263fb59e64ceb275416307
@@ -43,7 +42,7 @@ repositories:
     imageTag: 02d6ef2
   mobile:
     baselineCommit: 0488249763a88b9343dfd1fa076e91af5cc5da92
-    approvedCommit: 0f477804feac19ffa3fb4ea75de4fa082a456f85
+    approvedCommit: d70302dfc6225d024bed10150f788053083efe7c
     versionCodes:
       mobistack: 8
       oneops: 3
@@ -51,14 +50,14 @@ repositories:
       admin: 3
   infra:
     baselineCommit: 6a46d17aaa8c3bf80698caaee7f6d5688cdb4217
-    approvedCommit: pending
+    approvedCommit: 1d08cbb886b3d96167b6982114cdf887d07ceba9
     image: prabhix/app-store
-    imageTag: pending
+    imageTag: 1d08cbb
   webKit:
     baselineCommit: fe26e44bd5e53f7c5f4cda19034cd6ebf5cc976a
     approvedCommit: 6841e45aab52e52d4fb970ee08f4540e71c6c447
 packages:
-  identitySpringBootStarter: 0cf8613ee59e8308f96bacb1bacbf0b98156ab1e
+  identitySpringBootStarter: 5dccb6db9be82382433dac0bdc2c01f104d6c898
 gates:
   - all-repository-ci
   - dependency-audits
