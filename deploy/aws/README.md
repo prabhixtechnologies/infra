@@ -75,11 +75,49 @@ Three sources feed the stack, and each is there for a reason:
   CI over OIDC, pulled by the instance role.
 - **Official base images** — `public.ecr.aws/docker/library/*`. Caddy, nginx, Node, Postgres, Redis,
   Maven and Temurin are Docker Official Images, and AWS mirrors them into its public gallery, so the
-  Dockerfiles and compose files name the gallery rather than Docker Hub. Anonymous pulls work; the
-  instance role also carries `ecr-public:GetAuthorizationToken` for the higher authenticated limit.
+  Dockerfiles and compose files name the gallery rather than Docker Hub. The instance role carries
+  `ecr-public:GetAuthorizationToken` for the higher authenticated limit. **CI does not**, and this
+  is the open problem below.
 - **Third-party images we run** — mirrored into `prabhix/third-party/*` by
-  `mirror-third-party.ps1`. Only PgBouncer today. These have no gallery mirror, and leaving them on
-  Docker Hub would put an anonymous rate limit on the critical path of a production restart.
+  `mirror-third-party.ps1`. PgBouncer, which has no gallery mirror, and the six base images.
+  Leaving either on an anonymous pull puts a rate limit on the critical path.
+
+### The public-gallery pull quota
+
+Nine Dockerfiles across six repositories pull base layers from `public.ecr.aws`. Pushing the
+repositories together runs those builds concurrently and the gallery answers
+`429 toomanyrequests: Data limit exceeded`. It has failed a documentation-only commit. The cost is
+not the retry — it is that a quota failure and a real one are indistinguishable, so every red build
+has to be opened before it can be dismissed.
+
+Two measures, one cheap and one durable:
+
+1. **`Infra/scripts/push-waves.ps1`** pushes in dependency-ordered waves and waits for CI between
+   them, so at most two image builds run at once. In place, no permissions needed.
+2. **Mirroring** the base images into `prabhix/third-party/*`, which CI already authenticates to
+   in order to push. `mirror-third-party.ps1` lists them and will create the repositories.
+   **Not yet switched on**, and the order matters:
+
+   ```bash
+   # 1. IAM first, or every build breaks at once: CI can push its own images but cannot
+   #    pull a mirrored base layer until the third-party prefix is granted.
+   aws iam put-role-policy --role-name <ci-oidc-role> \
+     --policy-name ecr-push --policy-document file://deploy/aws/ecr-push-policy.json
+
+   # 2. Populate the mirror (needs Docker running; the gallery pull is sequential here,
+   #    one runner, so it does not trip the quota it is fixing).
+   pwsh deploy/aws/mirror-third-party.ps1
+
+   # 3. Only then repoint the nine Dockerfiles off public.ecr.aws.
+   ```
+
+   `ecr-push-policy.json` already carries the `PullMirroredBaseImagesOnly` statement for step 1 —
+   pull only, since CI never writes to the mirror. The instance role's `ecr-pull-policy.json`
+   grants the prefix already.
+
+An ECR **pull-through cache** would be tidier than an explicit mirror, but
+`ecr:DescribePullThroughCacheRules` is denied to the `prabhix` IAM user, so it cannot be set up
+without an administrator.
 
 What is deliberately still on Docker Hub: mailpit, Prometheus and Grafana in the dev compose, and
 Postfix, Dovecot and Rspamd behind the `mailserver` profile. None runs in production. Mirror the

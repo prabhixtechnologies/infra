@@ -32,6 +32,17 @@
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/mobistack-web",
         "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/app-store"
       ]
+    },
+    {
+      "Sid": "PullMirroredBaseImagesOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeRepositories"
+      ],
+      "Resource": "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/third-party/*"
     }
   ]
 }

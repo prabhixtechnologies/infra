@@ -1,11 +1,27 @@
-# Mirrors the third-party images we run in production into our own ECR registry.
+# Mirrors the third-party images we depend on into our own ECR registry.
 #
-# Everything else we deploy is either built by us or is a Docker Official Image, and AWS mirrors
-# the official ones into public.ecr.aws/docker/library, so the Dockerfiles and compose files point
-# straight at the gallery. The images here are neither: they have no gallery mirror, and pulling
-# them from Docker Hub at deploy time puts an anonymous rate limit on the critical path of a
-# production restart. Copying them into our registry removes that, and pins the exact digest we
-# tested against rather than whatever the upstream tag points at on the day.
+# Two kinds of image are here, for the same reason but arrived at differently.
+#
+# PgBouncer has no Docker Official Image and no gallery mirror, so pulling it from Docker Hub at
+# deploy time would put an anonymous rate limit on the critical path of a production restart.
+#
+# The base images were left on public.ecr.aws/docker/library on the reasoning that AWS mirrors the
+# official ones and anonymous pulls work. They do not, reliably. Nine Dockerfiles across six
+# repositories pull from the gallery, and when the repositories are pushed together those builds
+# run concurrently and the gallery answers `429 toomanyrequests: Data limit exceeded`. It has
+# failed a documentation-only commit, which is the real cost: a quota failure is indistinguishable
+# from a genuine one, so every red build has to be opened before it can be dismissed.
+# Infra/scripts/push-waves.ps1 reduces the collisions; mirroring removes them, because CI already
+# authenticates to this registry in order to push.
+#
+# Either way the mirror pins the exact digest we tested against rather than whatever the upstream
+# tag points at on the day.
+#
+# BEFORE MIRRORING THE BASE IMAGES: the CI role's ecr-push-policy.json enumerates the ten
+# prabhix/* repositories by name and does not cover the prabhix/third-party/* prefix, so CI can
+# push its own images but cannot pull a mirrored base layer. Repointing the Dockerfiles before
+# that policy grants the prefix breaks every build at once. The instance role's
+# ecr-pull-policy.json already grants it.
 #
 # Run this when adding an image or moving to a new upstream version, not on every deploy -- the
 # repositories are IMMUTABLE, so re-pushing an existing tag is refused rather than silently
@@ -23,8 +39,21 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Target tags keep the upstream version so a Dockerfile reads the same after repointing: only the
+# host and the prabhix/third-party/ prefix change. The sources are the gallery rather than Docker
+# Hub because that is where these are pulled from today, so what gets mirrored is byte-for-byte
+# what CI has been building against.
 $images = @(
-    @{ Source = "edoburu/pgbouncer:1.22.1-p0"; Target = "prabhix/third-party/pgbouncer:1.22.1-p0" }
+    @{ Source = "edoburu/pgbouncer:1.22.1-p0"; Target = "prabhix/third-party/pgbouncer:1.22.1-p0" },
+
+    # Base images. Every one of these appears in at least one Dockerfile; see the table in
+    # README.md under "Third-party images we run".
+    @{ Source = "public.ecr.aws/docker/library/node:22-alpine";                  Target = "prabhix/third-party/node:22-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/nginx:1.27-alpine";               Target = "prabhix/third-party/nginx:1.27-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/python:3.12-alpine";              Target = "prabhix/third-party/python:3.12-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/eclipse-temurin:25-jdk-alpine";   Target = "prabhix/third-party/eclipse-temurin:25-jdk-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/eclipse-temurin:25-jre-alpine";   Target = "prabhix/third-party/eclipse-temurin:25-jre-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/maven:3.9-eclipse-temurin-25";    Target = "prabhix/third-party/maven:3.9-eclipse-temurin-25" }
 )
 
 $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
