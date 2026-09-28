@@ -32,6 +32,16 @@ jobs:
         working-directory: ${{ github.workspace }}/../web-kit/packages/brand
         run: node scripts/build-tokens.mjs --check
 
+      # Both gates cover the app store under deploy/app-store/www: hand-written CSS and HTML
+      # served straight to the public at store.prabhixtechnologies.com, with no bundler and no
+      # type checker between it and a visitor.
+      - name: No hard-coded colours
+        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
+        run: node scripts/check-literals.mjs
+
+      - name: No double-encoded text
+        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
+        run: node scripts/check-mojibake.mjs
   compose:
     name: Compose
     runs-on: ubuntu-latest
