@@ -431,8 +431,15 @@ gap.
 **Identity.** Every customer of every product sees this page first.
 
 1. Phase 0 fixes the two unstyled pages; Phase 1 gives it the real fonts.
-2. Client-aware branding — a MobiStack user should see the MobiStack lockup, resolved from the
-   authorization request, not the generic house mark.
+2. ~~Client-aware branding — a MobiStack user should see the MobiStack lockup, resolved from the
+   authorization request, not the generic house mark.~~ **Done.** `SignInBrand` maps the pending
+   request's `client_id` to a theme through an allowlist, and login, signup and the magic-link
+   confirmation carry it as `data-brand`. The sign-in panel mixes its base and both glows from
+   that theme's accent pair, so Mailroom's sign-in is clay and MobiStack's is ochre. Logout and
+   the account page stay on the house brand deliberately — both are global rather than any one
+   product's, and logout has no pending request to read. Strengths are near the contrast ceiling
+   and `Identity/scripts/brand-panel-check.mjs` is what proves it; it also caught `.stage-foot`
+   sitting at 2.80:1, which predated this work.
 3. Submit loading state and double-submit protection on plain form POSTs.
 4. Show/hide password toggle, caps-lock hint, strength meter on signup.
 5. Host password reset on Identity instead of bouncing to a product console mid-auth.
