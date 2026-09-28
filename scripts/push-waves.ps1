@@ -81,12 +81,17 @@ function Wait-ForCi {
             Push-Location (Join-Path $root $repo)
             try {
                 $head = (& git -c core.pager=cat rev-parse HEAD).Trim()
-                $json = Invoke-Native { gh run list --limit 10 --json status,conclusion,headSha }
+                $json = Invoke-Native { gh run list --limit 15 --json status,conclusion,headSha,event }
                 $runs = $null
                 try { $runs = $json | ConvertFrom-Json } catch { }
+                # Only the push-triggered runs. Dependabot's own update checks are attributed to
+                # the same commit under the `dynamic` event, and two of those are permanently red
+                # for reasons that have nothing to do with the push -- counting them reported
+                # "2 failing" on a commit whose CI was entirely green.
+                #
                 # No run for this commit yet means CI has not picked it up; keep waiting rather
                 # than reading the previous commit's result as this one's.
-                $mine = @($runs | Where-Object { $_.headSha -eq $head })
+                $mine = @($runs | Where-Object { $_.headSha -eq $head -and $_.event -eq "push" })
                 if ($mine.Count -eq 0) { continue }
                 if (@($mine | Where-Object { $_.status -ne "completed" }).Count -gt 0) { continue }
 
