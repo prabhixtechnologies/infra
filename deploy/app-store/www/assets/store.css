@@ -1,33 +1,78 @@
+/*
+ * The company app store. Reads the generated tokens in prabhix-tokens.css and adds nothing of
+ * its own but layout.
+ *
+ * There used to be two aliasing blocks here — one per theme — each declaring `--bg: var(--px-bg,
+ * #071018)` and so on. Both the aliases and their fallbacks were a problem. The fallbacks were a
+ * frozen copy of the house palette from before the token system existed, so they were what the
+ * page actually rendered whenever a name drifted, silently and with no way to notice. And the
+ * per-theme block had to restate all seven names, which is why light mode still resolved
+ * `--accent` to a cyan long after the accent stopped being cyan.
+ *
+ * Now the roles are used directly. `--px-bg` is already light or dark by the time it gets here;
+ * nothing in this file needs to know which.
+ */
 :root {
-  --bg: var(--px-bg, #071018);
-  --surface: var(--px-surface, #0d1a24);
-  --ink: var(--px-ink, #e8eef4);
-  --muted: var(--px-muted, #8fa3b5);
-  --border: var(--px-border, #1c3342);
-  --accent: var(--px-accent, #22d3ee);
-  --accent-ink: var(--px-accent-ink, #042f2e);
-  --font-display: var(--px-font-display, "Fraunces", "Iowan Old Style", serif);
-  --font-body: var(--px-font-body, "Source Sans 3", "Segoe UI", sans-serif);
   --motion: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* This page is the parent identity, so the default accent pair is the house one. Each product
+     card overrides it below.
+     Two variables per hue, not one. `--accent` is a fill — a gradient, an orb, a button
+     background — and is only asserted at 3:1. `--accent-text` is the same hue at a step that
+     clears 4.5:1 on every surface, and is the only one of the two that may colour type. */
+  --accent: var(--px-accent);
+  --accent-2: var(--px-accent-2);
+  --accent-text: var(--px-accent-text);
+  --accent-ink: var(--px-accent-ink);
 }
 
-[data-theme="light"] {
-  --bg: var(--px-bg, #f3f6fb);
-  --surface: var(--px-surface, #ffffff);
-  --ink: var(--px-ink, #0c1524);
-  --muted: var(--px-muted, #5b6b7c);
-  --border: var(--px-border, #d5dee8);
-  --accent: var(--px-accent, #0e7490);
-  --accent-ink: var(--px-accent-ink, #f0fdfa);
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion: 0ms; }
+}
+
+/*
+ * One card per product, each in that product's own hues.
+ *
+ * `data-product`, deliberately not `data-brand`. `data-brand` is load-bearing in the generated
+ * stylesheet: it selects a whole theme, and its dark variant is
+ * `[data-brand="x"][data-theme="dark"]` — both attributes on one element. Setting it on a card
+ * therefore redeclares every semantic role on that subtree to the brand's *light* values, with
+ * no dark block able to match. The first version of this file did exactly that, and in dark mode
+ * the three cards rendered as pale panels: --px-surface inside a card resolved to MobiStack's
+ * light `#faf8f4` and the description text to a light-mode grey, while the page stayed dark.
+ * Only the accents had looked right, because those came from --px-brand-*.
+ *
+ * So: an attribute the token system knows nothing about, and only the three accent variables are
+ * remapped. Everything structural — surface, ink, border — keeps inheriting the page's theme.
+ *
+ * The --px-brand-* names exist for this case: one product's colours inside another's surface,
+ * mode-aware, asserted against every surface in the portfolio. An earlier attempt used the 600
+ * step of each ramp on the theory that a mid-tone reads on either background; measured, 21 of 24
+ * label placements failed AA, the worst at 2.19:1.
+ */
+.app[data-product="mobistack"] {
+  --accent: var(--px-brand-mobistack);
+  --accent-2: var(--px-brand-mobistack-2);
+  --accent-text: var(--px-brand-mobistack-text);
+}
+.app[data-product="oneops"] {
+  --accent: var(--px-brand-oneops);
+  --accent-2: var(--px-brand-oneops-2);
+  --accent-text: var(--px-brand-oneops-text);
+}
+.app[data-product="mailroom"] {
+  --accent: var(--px-brand-mailroom);
+  --accent-2: var(--px-brand-mailroom-2);
+  --accent-text: var(--px-brand-mailroom-text);
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body {
   position: relative;
-  font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--ink);
+  font-family: var(--px-font-body);
+  background: var(--px-bg);
+  color: var(--px-ink);
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -59,7 +104,7 @@ a { color: inherit; text-decoration: none; }
 .orb-b {
   width: 22rem; height: 22rem;
   right: -4rem; top: 20%;
-  background: color-mix(in srgb, #67e8f9 35%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 35%, transparent);
   animation-delay: -5s;
 }
 .orb-c {
@@ -72,9 +117,11 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--px-border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--px-border) 70%, transparent) 1px, transparent 1px);
   background-size: 56px 56px;
+  /* px-allow-literal: a mask, not a colour. Only the alpha channel is read, so the hue is
+     irrelevant and black is the conventional way to write "fully opaque here". */
   mask-image: radial-gradient(ellipse 65% 55% at 40% 30%, #000 10%, transparent 70%);
   opacity: 0.35;
 }
@@ -99,28 +146,28 @@ a { color: inherit; text-decoration: none; }
   width: 2.35rem;
   height: 2.35rem;
   border-radius: 0.7rem;
-  background: linear-gradient(145deg, var(--accent), #0891b2);
+  background: linear-gradient(145deg in oklab, var(--accent), var(--accent-2));
   color: var(--accent-ink);
-  font-family: var(--font-display);
+  font-family: var(--px-font-display);
   font-weight: 700;
   font-size: 1.1rem;
   box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .brand-text {
-  font-family: var(--font-display);
+  font-family: var(--px-font-display);
   font-weight: 650;
   letter-spacing: -0.03em;
   font-size: 1.2rem;
 }
 .brand-text em {
   font-style: normal;
-  color: var(--muted);
+  color: var(--px-ink-muted);
   font-weight: 500;
 }
 .theme-toggle {
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  border: 1px solid var(--border);
-  color: var(--ink);
+  background: color-mix(in srgb, var(--px-surface) 70%, transparent);
+  border: 1px solid var(--px-border);
+  color: var(--px-ink);
   border-radius: 999px;
   padding: 0.45rem 1rem;
   cursor: pointer;
@@ -142,22 +189,35 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.14em;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   margin: 0 0 0.85rem;
 }
 h1 {
-  font-family: var(--font-display);
+  font-family: var(--px-font-display);
   font-size: clamp(2.4rem, 7vw, 3.6rem);
   letter-spacing: -0.045em;
   line-height: 1.02;
   margin: 0 0 0.9rem;
-  background: linear-gradient(115deg, var(--ink) 20%, var(--accent) 95%);
+  /* --accent-text, not --accent: this gradient is clipped to the glyphs, so it is type and takes
+     the step that clears 4.5:1 rather than the fill step. `in oklab` keeps the midpoint from
+     desaturating, as everywhere else two brand hues are interpolated. */
+  background: linear-gradient(115deg in oklab, var(--px-ink) 20%, var(--accent-text) 95%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+
+/* background-clip: text needs `color: transparent` to show, and a forced-colours mode replaces
+   the background with the user's own, leaving invisible text. Opting out restores a plain ink
+   headline, which is what someone who has asked for their own colours wants anyway. */
+@media (forced-colors: active) {
+  h1 {
+    background: none;
+    color: CanvasText;
+  }
+}
 .lede {
-  color: var(--muted);
+  color: var(--px-ink-muted);
   line-height: 1.6;
   margin: 0 0 2.25rem;
   max-width: 34rem;
@@ -181,17 +241,18 @@ h1 {
   row-gap: 0.2rem;
   padding: 1.25rem 1.35rem;
   border-radius: 1.15rem;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--px-border) 85%, transparent);
+  background: color-mix(in srgb, var(--px-surface) 78%, transparent);
   backdrop-filter: blur(16px);
-  box-shadow: 0 18px 50px color-mix(in srgb, #000 18%, transparent);
+  box-shadow: var(--px-elevation-3);
   transition: transform var(--motion), border-color var(--motion), box-shadow var(--motion);
 }
 .app:hover {
   transform: translateY(-3px) scale(1.01);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--px-border));
+  /* The ring is the card's own product colour, so hovering says which one you are on. */
   box-shadow:
-    0 22px 55px color-mix(in srgb, #000 22%, transparent),
+    var(--px-elevation-4),
     0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .app-kicker {
@@ -199,39 +260,41 @@ h1 {
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
 }
 .app strong {
   grid-column: 1;
-  font-family: var(--font-display);
+  font-family: var(--px-font-display);
   font-size: 1.35rem;
   letter-spacing: -0.03em;
   font-weight: 650;
 }
 .app > span:not(.app-kicker):not(.app-cta) {
   grid-column: 1;
-  color: var(--muted);
+  color: var(--px-ink-muted);
   font-size: 0.95rem;
 }
 .app-cta {
   grid-column: 2;
   grid-row: 1 / span 3;
   align-self: center;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
   font-size: 0.95rem;
-  opacity: 0.85;
-  transition: transform var(--motion), opacity var(--motion);
+  /* No resting opacity. It used to sit at 0.85 and rise to 1 on hover, which quietly multiplied
+     every measured ratio by a number no contrast checker reads off the stylesheet: the arrow
+     measured 4.39:1 where the colour itself was 5.84:1. The nudge on hover is enough of an
+     affordance, and the card already lifts and gains a ring. */
+  transition: transform var(--motion);
 }
 .app:hover .app-cta {
   transform: translateX(4px);
-  opacity: 1;
 }
 
 .panel {
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--px-surface) 80%, transparent);
+  border: 1px solid var(--px-border);
   border-radius: 1.15rem;
   padding: 1.5rem;
   backdrop-filter: blur(14px);
@@ -243,7 +306,7 @@ h1 {
   margin-top: 1rem;
   padding: 0.9rem 1.3rem;
   border-radius: 0.95rem;
-  background: linear-gradient(135deg, var(--accent), #0891b2);
+  background: linear-gradient(135deg in oklab, var(--accent), var(--accent-2));
   color: var(--accent-ink);
   font-weight: 700;
   transition: transform var(--motion), filter var(--motion);
@@ -251,16 +314,16 @@ h1 {
 .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
 .btn.secondary {
   background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--border);
+  color: var(--px-ink);
+  border: 1px solid var(--px-border);
   margin-left: 0.5rem;
 }
-.pending { color: var(--muted); margin-top: 1rem; }
+.pending { color: var(--px-ink-muted); margin-top: 1rem; }
 .foot {
   margin-top: auto;
   padding: 1.5rem;
   text-align: center;
-  color: var(--muted);
+  color: var(--px-ink-muted);
   font-size: 0.8rem;
 }
 

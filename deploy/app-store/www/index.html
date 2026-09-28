@@ -1,5 +1,14 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<!--
+  No data-theme here. It used to say "dark", which meant a visitor whose system asks for light
+  got a dark page until store.js ran and changed it. With the attribute absent the generated
+  tokens' own `@media (prefers-color-scheme: dark)` block decides, correctly, before any script
+  loads; store.js then only applies a choice the visitor made on a previous visit.
+
+  No data-brand either: this page is the parent identity, which is what :root already carries.
+  The product pages each set their own.
+-->
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32,8 +41,13 @@
     <h1>Install the lineup</h1>
     <p class="lede">Android builds for OneOps, MobiStack, and Mailroom. Signed in with the same Prabhix Identity. Admin is never listed here.</p>
     <ul class="apps">
+      <!--
+        data-product, not data-brand: this page is the parent identity and the three products are
+        three different colours on it at once, but data-brand switches a whole theme — including
+        its light surfaces — on whatever element carries it. store.css remaps the accents only.
+      -->
       <li style="--i:0">
-        <a class="app" href="/mobistack/">
+        <a class="app" href="/mobistack/" data-product="mobistack">
           <span class="app-kicker">Primary</span>
           <strong>MobiStack</strong>
           <span>Counter app — stock, sales, repairs</span>
@@ -41,7 +55,7 @@
         </a>
       </li>
       <li style="--i:1">
-        <a class="app" href="/oneops/">
+        <a class="app" href="/oneops/" data-product="oneops">
           <span class="app-kicker">Ops</span>
           <strong>OneOps</strong>
           <span>Operations console for teams</span>
@@ -49,7 +63,7 @@
         </a>
       </li>
       <li style="--i:2">
-        <a class="app" href="/mailroom/">
+        <a class="app" href="/mailroom/" data-product="mailroom">
           <span class="app-kicker">Mail</span>
           <strong>Mailroom</strong>
           <span>Personal mail for hosted addresses</span>
