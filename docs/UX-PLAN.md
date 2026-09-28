@@ -4,7 +4,60 @@ Companion to [UX-STANDARD.md](UX-STANDARD.md), which is the contract this plan d
 verdict and § "Why it looks unfinished" first; the phases only make sense once the four structural
 causes are clear.
 
+---
+
+## Status — phases 0 to 6 delivered, 2026-09-29
+
+Everything below this section was written as a pre-work audit. It is kept because the analysis of
+*why* the front end looked unfinished is still the best record of it, but it is no longer a
+description of the product. Read it as the baseline, not the present.
+
+| Phase | State |
+|---|---|
+| 0 — Broken things | Done. All 14 verified defects fixed. |
+| 1 — Token system | Done. One `tokens.json` generates the CSS, the Tailwind preset, the Dart theme and the docs. Five brands x two modes, 310 contrast assertions in CI. |
+| 2 — Primitive library | Done. 45 primitives with a preset and seven test suites, up from the 20 in the scorecard. Five of the planned remainder (date picker, time picker, menubar, sidebar, chart) were dropped after checking for consumers: the whole workspace holds two date inputs, `charts.tsx` already exists, the three app shells are genuinely app-specific, and nothing resembles a menubar. |
+| 3 — Interaction layer | Done. Context menus with right-click and 700 ms touch long-press, list engine, URL state, command palette, hotkeys, unsaved-changes guards. |
+| 4 — Flutter | Done. Gestures, semantics, tooltips, autofill, all four apps on the generated theme. |
+| 5 — Marketing + Identity | Done except product screenshots, which need a seeded stack to capture. |
+| 6 — Guardrails | Done. Seven gates across eight repos: token sync and contrast, colour literals (including Flutter's named palette), mojibake, peer dependencies, one `h1` per page, the sign-in brand panel, and axe in seven suites across five repos. |
+
+Released to Play Internal testing on 2026-09-29: Admin, Mailroom and OneOps at `1.1.0+4`,
+MobiStack at `1.3.0+9`.
+
+### The one thing the phases did not anticipate
+
+Every brand was defined, every theme block generated, every pair contrast-asserted — and the
+marketing site still drew all three products in the same teal. `@theme` emits
+`:root { --color-accent: var(--px-accent) }`, and a custom property is substituted on the element
+that *declares* it, so the accent resolved once at the root and descendants inherited a finished
+colour. `data-brand` on a card did nothing. It survived this long because `[data-theme="dark"]`
+sits on `<html>`, which *is* `:root`, so dark mode always worked, and each single-brand app sets
+its brand at the root too. Only a page showing two products at once could expose it.
+
+The fix was `@theme inline` for the colour aliases, plus a descendant form of the dark selector so
+a brand declared below the root resolves in either mode.
+
+It is worth recording how it was found, because it is the gap in Phase 6: it passed typecheck, 73
+tests and all six gates that existed at the time, and was caught by looking at the rendered page.
+The gates assert that a colour is *legible*. None of them asserts that two things which should
+differ do. Visual regression is the honest answer and was deliberately not bolted on — there is no
+Playwright in the portfolio, and screenshot baselines across Linux CI and Windows would flake on
+font rendering before catching anything real.
+
+### Still open
+
+- **Marketing product screenshots.** Needs a seeded stack; locally the apps only reach sign-in.
+- **Public-ECR pull quota.** `429 Data limit exceeded` blocks container image pushes for MobiStack,
+  and intermittently Platform, Mailroom and Infra. Every code job passes. Needs two IAM permissions
+  on `PrabhixPlatformDeployer` or the base images mirrored into private ECR.
+- **Visual regression**, per above.
+
+---
+
 ## Verdict
+
+*As audited, before the work below was done. Superseded by § Status.*
 
 The backend and the security work are ahead of the front end by a wide margin, and the gap is not a
 matter of taste. Measured against the tools these products compete with, the front end is missing
@@ -124,6 +177,11 @@ assigning a ticket or saving a routing rule succeeds silently. None of the three
 ---
 
 ## Scorecard
+
+*Scored at audit time. Every row's "Notes" column describes a state that the phases below have
+since changed — the primitive library has a preset and tests, MobiStack has a scanner path,
+Mailroom has a mail keyboard, Identity's pages render and its fonts load, and all four Flutter
+apps have a dark theme. Kept as the baseline these were measured against.*
 
 Ten is the standard in [UX-STANDARD.md](UX-STANDARD.md). These are honest, not kind.
 

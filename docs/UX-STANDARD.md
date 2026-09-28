@@ -55,6 +55,26 @@ of its shell. What no product may vary: the spacing scale, the type roles, the r
 elevation scale, the motion tokens, and the semantic alias names. Divergence is a declared theme in
 `tokens.json`, or it is drift.
 
+**`data-brand` is not limited to `<html>`.** Put it on any element and everything inside takes that
+product's palette in whichever mode the page is in — which is how one page shows several products,
+each in its own colour. It re-themes **surfaces too**, so every pairing inside the scope stays
+within one theme and is already covered by the per-theme contrast gate. That makes it right for a
+card that stands on its own, and too much for a row in a list or a single label that should keep
+the host's surfaces and borrow only a hue. For those, use `--px-brand-<name>` with its `-text` and
+`-ink` companions: a bare hue, mode-aware, and asserted against every surface in the portfolio
+rather than only against its own product's.
+
+**A `--color-*` alias goes in `@theme inline`, never a plain `@theme`.** This is the one rule here
+whose breach is invisible. A plain `@theme` emits `:root { --color-accent: var(--px-accent) }`, and
+a custom property is substituted at computed-value time on the element that *declares* it — so the
+alias resolves once at the root and descendants inherit a finished colour. `bg-accent` inside a
+`data-brand` scope then paints the root's accent. Nothing errors, every test passes, and the whole
+portfolio renders in one hue. It hid for months because `[data-theme="dark"]` sits on `<html>`,
+which *is* `:root`, so dark mode kept working. `@theme inline` omits the root declaration and
+inlines the value into the utility, so it resolves against the element's own cascade. Colours only:
+spacing, radius and type do not vary by brand, `--font-display` is read directly as a `var()`, and
+Tailwind expands the layout namespaces inside `@media` preludes where a `var()` is invalid.
+
 **Swatches are derived from a seed, never stored and never picked.** `toneFor(seed)` (and `pxTagFor`
 in Dart — the same list and the same hash, both generated) maps a string to one of the 15 tag
 swatches. Three rules govern its use:
