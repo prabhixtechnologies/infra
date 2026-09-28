@@ -19,9 +19,36 @@ it.
 
 Each image is tagged with the 7-character commit and with `latest`. Account
 `029096972251`, registry `029096972251.dkr.ecr.ap-south-1.amazonaws.com`.
-Before coordinated builds, update the `webkit=` build context in oneOps, MobiStack, Platform, and
-Mailroom to the same approved full web-kit commit SHA. Never use a branch or floating tag; that
-could make two builds from the same application commit contain different OIDC clients.
+Before coordinated builds, set `WEBKIT_REF` at the top of the workflow in oneOps, MobiStack,
+Platform, and Mailroom to the same approved full web-kit commit SHA. Never use a branch or
+floating tag; that could make two builds from the same application commit contain different OIDC
+clients.
+
+`WEBKIT_REF` is one value per workflow and both consumers read it: the job that runs the token
+and literal gates checks out that commit, and the image build vendors the same commit as its
+`webkit` build context. Those used to be separate — the gate cloned the default branch, the build
+context named a SHA — and a stale pin then meant the gates were passing against a web-kit that
+was not the one being shipped. Keeping them equal makes a stale pin fail at the gate, which says
+which token is missing, instead of at the image build, which says only that `npm run build` exited
+1. Anything that adds a second reference to web-kit should read this variable too.
+
+A stale pin is the first thing to check when an image build fails on an import or a colour that
+is plainly present in web-kit.
+
+### `toomanyrequests: Data limit exceeded`
+
+Not Docker Hub: every base image already comes from `public.ecr.aws`, and that mirror has its own
+anonymous pull quota. It is a quota, not a defect — the same Dockerfile builds when the quota is
+clear, so a re-run usually passes. Pushing several repositories at once is what exhausts it,
+because each build pulls the same node, nginx and temurin bases anonymously.
+
+The durable fix is to authenticate before building, which raises the limit:
+
+    aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+That needs `ecr-public:GetAuthorizationToken` and `sts:GetServiceBearerToken`, which the `prabhix`
+user does not currently have — the call fails with `AccessDeniedException`. Until those are added
+to `PrabhixPlatformDeployer`, re-running the job is the only remedy.
 
 ## Put images on the server
 
