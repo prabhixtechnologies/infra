@@ -847,7 +847,8 @@
 
 /* Prabhix Technologies — dark — accent cyan + indigo */
 [data-theme="dark"],
-[data-brand="technologies"][data-theme="dark"] {
+[data-brand="technologies"][data-theme="dark"],
+[data-theme="dark"] [data-brand="technologies"] {
   --px-bg: #0c1524;
   --px-bg-accent: #083344;
   --px-surface: #1a2532;
@@ -918,7 +919,8 @@
 }
 
 /* OneOps — dark — accent indigo + fuchsia */
-[data-brand="oneops"][data-theme="dark"] {
+[data-brand="oneops"][data-theme="dark"],
+[data-theme="dark"] [data-brand="oneops"] {
   --px-bg: #0c1524;
   --px-bg-accent: #1e1b4b;
   --px-surface: #1a2532;
@@ -989,7 +991,8 @@
 }
 
 /* Admin console — dark — accent violet + cyan */
-[data-brand="admin"][data-theme="dark"] {
+[data-brand="admin"][data-theme="dark"],
+[data-theme="dark"] [data-brand="admin"] {
   --px-bg: #0c1524;
   --px-bg-accent: #2e1065;
   --px-surface: #1a2532;
@@ -1060,7 +1063,8 @@
 }
 
 /* MobiStack — dark — accent ochre + teal */
-[data-brand="mobistack"][data-theme="dark"] {
+[data-brand="mobistack"][data-theme="dark"],
+[data-theme="dark"] [data-brand="mobistack"] {
   --px-bg: #12100e;
   --px-bg-accent: #451a03;
   --px-surface: #221f1a;
@@ -1131,7 +1135,8 @@
 }
 
 /* Mailroom — dark — accent clay + teal */
-[data-brand="mailroom"][data-theme="dark"] {
+[data-brand="mailroom"][data-theme="dark"],
+[data-theme="dark"] [data-brand="mailroom"] {
   --px-bg: #12100e;
   --px-bg-accent: #331512;
   --px-surface: #221f1a;
@@ -1203,7 +1208,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]),
-  [data-brand="technologies"]:not([data-theme]) {
+  :root:not([data-theme]) [data-brand="technologies"]:not([data-theme]) {
     --px-bg: #0c1524;
     --px-bg-accent: #083344;
     --px-surface: #1a2532;
@@ -1272,7 +1277,8 @@
     --px-gradient-brand-fade: linear-gradient(180deg in oklab, #083344 0%, #1a2532 100%);
     --px-gradient-mesh: radial-gradient(60% 60% at 15% 15%, #083344 0%, transparent 62%), radial-gradient(52% 52% at 85% 25%, #1e1b4b 0%, transparent 60%), radial-gradient(60% 60% at 50% 100%, #083344 0%, transparent 65%);
   }
-  [data-brand="oneops"]:not([data-theme]) {
+  :root:not([data-theme])[data-brand="oneops"],
+  :root:not([data-theme]) [data-brand="oneops"]:not([data-theme]) {
     --px-bg: #0c1524;
     --px-bg-accent: #1e1b4b;
     --px-surface: #1a2532;
@@ -1341,7 +1347,8 @@
     --px-gradient-brand-fade: linear-gradient(180deg in oklab, #1e1b4b 0%, #1a2532 100%);
     --px-gradient-mesh: radial-gradient(60% 60% at 15% 15%, #1e1b4b 0%, transparent 62%), radial-gradient(52% 52% at 85% 25%, #4a044e 0%, transparent 60%), radial-gradient(60% 60% at 50% 100%, #1e1b4b 0%, transparent 65%);
   }
-  [data-brand="admin"]:not([data-theme]) {
+  :root:not([data-theme])[data-brand="admin"],
+  :root:not([data-theme]) [data-brand="admin"]:not([data-theme]) {
     --px-bg: #0c1524;
     --px-bg-accent: #2e1065;
     --px-surface: #1a2532;
@@ -1410,7 +1417,8 @@
     --px-gradient-brand-fade: linear-gradient(180deg in oklab, #2e1065 0%, #1a2532 100%);
     --px-gradient-mesh: radial-gradient(60% 60% at 15% 15%, #2e1065 0%, transparent 62%), radial-gradient(52% 52% at 85% 25%, #083344 0%, transparent 60%), radial-gradient(60% 60% at 50% 100%, #2e1065 0%, transparent 65%);
   }
-  [data-brand="mobistack"]:not([data-theme]) {
+  :root:not([data-theme])[data-brand="mobistack"],
+  :root:not([data-theme]) [data-brand="mobistack"]:not([data-theme]) {
     --px-bg: #12100e;
     --px-bg-accent: #451a03;
     --px-surface: #221f1a;
@@ -1479,7 +1487,8 @@
     --px-gradient-brand-fade: linear-gradient(180deg in oklab, #451a03 0%, #221f1a 100%);
     --px-gradient-mesh: radial-gradient(60% 60% at 15% 15%, #451a03 0%, transparent 62%), radial-gradient(52% 52% at 85% 25%, #042f2e 0%, transparent 60%), radial-gradient(60% 60% at 50% 100%, #451a03 0%, transparent 65%);
   }
-  [data-brand="mailroom"]:not([data-theme]) {
+  :root:not([data-theme])[data-brand="mailroom"],
+  :root:not([data-theme]) [data-brand="mailroom"]:not([data-theme]) {
     --px-bg: #12100e;
     --px-bg-accent: #331512;
     --px-surface: #221f1a;
