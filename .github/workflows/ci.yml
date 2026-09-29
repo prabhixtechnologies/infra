@@ -43,11 +43,11 @@ jobs:
         working-directory: ${{ github.workspace }}/../web-kit/packages/brand
         run: node scripts/check-mojibake.mjs
 
-      # Apps link @prabhix/ui with `file:`, and npm does not install a linked package's own
+      # Apps link @prabhixtechnologies/ui with `file:`, and npm does not install a linked package's own
       # dependencies into the consumer. A missing one resolves at build time through the symlink
       # and fails under Vitest in whichever unrelated file imports the barrel first, so it is
       # worth catching here rather than there.
-      - name: "@prabhix/ui peers declared by every app"
+      - name: "@prabhixtechnologies/ui peers declared by every app"
         working-directory: ${{ github.workspace }}/../web-kit/packages/brand
         run: node scripts/check-peers.mjs
   compose:

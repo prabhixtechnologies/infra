@@ -98,7 +98,7 @@ belongs in the contrast gate rather than in a reviewer's judgement.
 
 ## 2. Components
 
-Use `@prabhix/ui`. If the primitive does not exist, add it to `@prabhix/ui` — do not build it locally.
+Use `@prabhixtechnologies/ui`. If the primitive does not exist, add it to `@prabhixtechnologies/ui` — do not build it locally.
 A component that exists in three apps in three versions is worse than a missing one.
 
 - Every primitive forwards refs, supports `asChild`, spreads `aria-*` and `data-*`, and styles its
@@ -135,7 +135,7 @@ Five affordances, on every one of them:
 2. **Context menu** — right-click on pointer, long-press on touch, and `Shift+F10`/`ContextMenu` key
    from the keyboard. All three open the *same* menu with the *same* items.
 
-   On web this is `RowActions` + `RowActionsTrigger` from `@prabhix/ui`: one `RowAction[]` feeds the
+   On web this is `RowActions` + `RowActionsTrigger` from `@prabhixtechnologies/ui`: one `RowAction[]` feeds the
    right-click menu, the always-visible button, and the confirmation step, so the three cannot
    disagree. Two things about it are not obvious and were both found the hard way:
 
@@ -281,7 +281,7 @@ WCAG 2.2 AA is the floor, not the goal. Non-negotiable:
 A UI pull request is not reviewable until each line is true or explicitly waived in the description.
 
 - [ ] No colour, spacing, radius, shadow, duration or z-index literal
-- [ ] No component re-implemented that exists in `@prabhix/ui`
+- [ ] No component re-implemented that exists in `@prabhixtechnologies/ui`
 - [ ] Every row has primary action, context menu, hover actions, and participates in selection
 - [ ] Every list has keyboard navigation, selection, bulk actions, and URL-serialized state
 - [ ] Every destructive action confirms or offers undo — exactly one

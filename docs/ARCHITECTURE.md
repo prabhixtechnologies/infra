@@ -57,10 +57,10 @@ Databases are on one RDS instance (`oneops`, `identity`, `mobistack`), caches on
 | Repository | Deploys | Publishes for others |
 |---|---|---|
 | `Identity` | `prabhix/identity` image | `com.prabhix:identity-spring-boot-starter` — JWKS verification, the authentication filter, the user mirror, the `/internal` service-token client |
-| `oneOps` | `prabhix/backend`, `prabhix/web`, `prabhix/admin` images | `@prabhix/oneops-api` (TypeScript) and the Dart client, generated from springdoc on every build |
-| `MobiStack` | `mobistack-backend`, `mobistack-web` images | `@prabhix/mobistack-api` and its Dart client, likewise |
+| `oneOps` | `prabhix/backend`, `prabhix/web`, `prabhix/admin` images | `@prabhixtechnologies/oneops-api` (TypeScript) and the Dart client, generated from springdoc on every build |
+| `MobiStack` | `mobistack-backend`, `mobistack-web` images | `@prabhixtechnologies/mobistack-api` and its Dart client, likewise |
 | `Mailroom` | `prabhix/mailroom` image; the mail transport compose | — |
-| `web-kit` | — | `@prabhix/brand` (tokens, marks), `@prabhix/ui` (primitives), `@prabhix/oidc-client` (PKCE flow) |
+| `web-kit` | — | `@prabhixtechnologies/brand` (tokens, marks), `@prabhixtechnologies/ui` (primitives), `@prabhixtechnologies/oidc-client` (PKCE flow) |
 | `Mobile` | APKs to `s3://prabhix-apk-downloads/` | — |
 | `Platform` | `prabhix/marketing` image | — |
 | `Infra` | the Compose project, Caddy, `deploy.yml` | these documents |
@@ -276,10 +276,10 @@ Plan ──< Subscription >── Organization
 
 ### TypeScript
 - `strict: true`, `noUnusedLocals`, `noUnusedParameters`; path alias `@/*` → `src/*`.
-- API types come from `@prabhix/oneops-api` / `@prabhix/mobistack-api`; hand-written response
+- API types come from `@prabhixtechnologies/oneops-api` / `@prabhixtechnologies/mobistack-api`; hand-written response
   schemas use `.nullish()`, never `.nullable()`, because the API omits null fields.
 - Server state via TanStack Query. No Redux.
-- Brand tokens from `@prabhix/brand`, primitives from `@prabhix/ui`, sign-in from `@prabhix/oidc-client`.
+- Brand tokens from `@prabhixtechnologies/brand`, primitives from `@prabhixtechnologies/ui`, sign-in from `@prabhixtechnologies/oidc-client`.
 
 ### Dart
 - API models come from the generated client in `prabhix_api_core`; screens never hand-roll JSON.

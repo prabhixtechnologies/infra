@@ -125,7 +125,7 @@ portfolio is therefore drawn with a line six times fainter than the floor, which
 accessibility failure and why forms read as smudges rather than edges. The fix is a second token:
 `border` stays subtle for dividers, `border-strong` clears 3:1 and draws every control.
 
-### `@prabhix/ui` is a source folder, and only one app uses it
+### `@prabhixtechnologies/ui` is a source folder, and only one app uses it
 
 Twenty primitives present out of a 55-item production checklist. Missing: **context-menu**,
 data-table, form/field wiring, sheet/drawer, card, alert, empty-state, pagination, breadcrumb,
@@ -353,7 +353,7 @@ a screenshot of a single screen with the logo cropped out.
 
 Three weeks, overlapping Phase 1.
 
-1. **Make `@prabhix/ui` a package.** `tsup` build to `dist`, proper exports map, `sideEffects`,
+1. **Make `@prabhixtechnologies/ui` a package.** `tsup` build to `dist`, proper exports map, `sideEffects`,
    versioning, and publish. Remove the `file:` + raw-`src` arrangement.
 2. **Storybook + tests as the gate.** Every primitive: all variants, both themes, both densities,
    200% text scale, `axe` clean, visual-regression snapshot. This is what stops the drift returning.
@@ -548,7 +548,7 @@ would do first:
 1. All of Phase 0 (one week, mostly defects, several of them embarrassing).
 2. Token expansion plus the border-contrast fix and self-hosted fonts (Phase 1, items 1–3 and 7).
    Every surface gets visibly crisper for a change in one file.
-3. `context-menu` and `data-table` in `@prabhix/ui`, then context menus on every row in all four web
+3. `context-menu` and `data-table` in `@prabhixtechnologies/ui`, then context menus on every row in all four web
    builds (Phase 2 priority 1, Phase 3 item 1). Nothing else available raises the perceived tier as
    much per hour spent.
 4. The shared list engine and URL state on the ten highest-traffic list pages (Phase 3 items 2–3).
