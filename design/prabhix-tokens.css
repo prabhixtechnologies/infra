@@ -308,18 +308,20 @@
 
   /* density — comfortable is the default; see [data-density] below */
   --px-density-row: 44px;
-  --px-density-control: 40px;
+  --px-density-control: 44px;
   --px-density-pad-x: 16px;
   --px-density-pad-y: 10px;
-  --px-density-body-role: body-md;
+  --px-density-body-size: 0.9375rem;
+  --px-density-body-line-height: 1.55;
 }
 
 [data-density="compact"] {
   --px-density-row: 34px;
-  --px-density-control: 32px;
+  --px-density-control: 36px;
   --px-density-pad-x: 10px;
   --px-density-pad-y: 6px;
-  --px-density-body-role: body-sm;
+  --px-density-body-size: 0.875rem;
+  --px-density-body-line-height: 1.5;
 }
 
 /* categorical series, tag swatches and cross-brand accents */

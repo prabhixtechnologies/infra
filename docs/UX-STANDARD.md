@@ -80,12 +80,22 @@ nested `data-brand` scope and asserts that each scoped panel paints the accent i
 the root. Reintroducing the bug fails that test with all four panels showing the host's hue.
 
 **A gate that only checks values cannot see a value that never arrives.** Two defects of this exact
-shape have now shipped: the colour aliases above, and `data-density`, which is set on `<html>` in
-all four apps and generates five custom properties that nothing reads. In both cases the generator
-was correct, the contrast gate was satisfied, and the rendered page was wrong. So when adding a
-token, add the assertion that something *differs* because of it — not only that its value is
-legible. The cheapest form is two renders from the same run compared against each other, which
-needs no baseline and no cross-platform tolerance; `web-kit/gallery/README.md` has the mechanics.
+shape shipped: the colour aliases above, and `data-density`, which was set on `<html>` and
+generated five custom properties that nothing read. Both are fixed. In both cases the generator was
+correct, the contrast gate was satisfied, and the rendered page was wrong. So when adding a token,
+add the assertion that something *differs* because of it — not only that its value is legible. The
+cheapest form is two renders from the same run compared against each other, which needs no baseline
+and no cross-platform tolerance; `web-kit/gallery/README.md` has the mechanics.
+
+The density fix left two corollaries worth stating as rules in their own right:
+
+- **A token nothing reads will drift, and the drift is silent.** Comfortable claimed a 40px control
+  while every control shipped at 44px. No one reconciled them because the number had no
+  consequence. When wiring an inert token up, check the value against what is actually on screen
+  before assuming the token is the truth — here the shipped size was right and the token was wrong.
+- **A custom property must hold a value, not the name of one.** `--px-density-body-role: body-md`
+  could never work: there is no `var(--px-text-var(--px-density-body-role))`. Resolve names to
+  values in the generator, where the whole token file is in scope.
 
 **Swatches are derived from a seed, never stored and never picked.** `toneFor(seed)` (and `pxTagFor`
 in Dart — the same list and the same hash, both generated) maps a string to one of the 15 tag

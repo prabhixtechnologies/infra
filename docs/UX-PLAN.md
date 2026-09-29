@@ -57,21 +57,34 @@ anything drifted since last time, and are opt-in and generated on Linux. See § 
   and intermittently Platform, Mailroom and Infra. Every code job passes. Pushing in waves with
   `Infra/scripts/push-waves.ps1` avoids it in practice; the durable fix is two IAM permissions on
   `PrabhixPlatformDeployer`, and the base images are already mirrored into `prabhix/third-party/*`.
-- **`data-density` does nothing.** Found by the visual suite on its first run. The attribute is set
-  on `<html>` in all four apps — MobiStack ships `compact` — documented in `TOKENS.md`, and generates
-  five custom properties. Nothing reads them: searching all eight repositories for `--px-density-`
-  finds only the lines in `build-tokens.mjs` that write it. The primitives size themselves with fixed
-  Tailwind spacing, so `Button` is `min-h-11` (44px) where the token says comfortable is 40px and
-  compact 32px. MobiStack has been asking for compact and rendering comfortable since the tokens
-  landed. Wiring it through changes the control metrics of four shipped apps, so it is a decision
-  rather than a repair; the test asserting it is marked `test.fail` in
-  `web-kit/gallery/tests/invariants.spec.ts`, so Playwright reports an unexpected pass when it is
-  fixed.
-
 ### Closed since
 
+- **`data-density` did nothing.** Found by the visual suite on its first run, fixed now. The
+  attribute was set on `<html>`, documented in `TOKENS.md`, and generated five custom properties
+  that nothing read — searching all eight repositories for `--px-density-` found only the lines in
+  `build-tokens.mjs` that wrote it. The primitives sized themselves with fixed Tailwind spacing, so
+  an app could ask for compact and render comfortable, and had done since the tokens landed.
+
+  `Button`, `Input`, `Select`, `ToggleGroup`, `Tabs`, `Accordion` and the table rows now read
+  `--px-density-control`, `-pad-x`, `-pad-y` and `-row`. Two things had to be settled first. The
+  token said a comfortable control was 40px while every control shipped at 44px, which nobody had
+  reconciled because the number had no consequence; the shipped sizes won, so comfortable is 44px
+  (the WCAG 2.5.5 AAA pointer target `button.tsx` chose deliberately for tablet use) and compact is
+  36px rather than 32px — a real reduction, still well clear of the 24px AA floor in 2.5.8. And
+  `bodyRole` emitted a role *name*, which CSS cannot dereference, so `build-tokens.mjs` now resolves
+  it against `scale.type` into a size and a line height that a utility can consume.
+
+  In practice this changes one shipped surface: the **Admin console**, which is `oneOps/web` with
+  `APP=admin` and the only compact app that uses the UI package. MobiStack sets `compact` but has no
+  Tailwind and no `@prabhixtechnologies/ui`, and Mailroom and Platform are comfortable. The OneOps
+  app keeps its 44px controls and sees only table metrics move.
+
+  Validated by planting the regression: reverting `Button` to a hardcoded `min-h-11` fails with
+  `default button under compact — Expected: 36, Received: 44`.
+
+
 - **Visual regression.** Done. `web-kit/gallery` is a private Vite workspace holding every primitive
-  on one page, with brand, mode and density in the query string. 19 Playwright tests run in CI on
+  on one page, with brand, mode and density in the query string. 20 Playwright tests run in CI on
   every push. The load-bearing ones compare renders from the same run against each other rather than
   against stored bytes — five brands must not render alike, dark must not render like light, and a
   `data-brand` below the root must take its own accent — so they need no committed baselines and give
