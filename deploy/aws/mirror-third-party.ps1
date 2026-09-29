@@ -37,7 +37,15 @@ param(
     [string]$Platform = "linux/amd64"
 )
 
-$ErrorActionPreference = "Stop"
+# Native calls here are judged by their exit codes, which every call site below already does, and
+# not by whether they wrote to stderr. docker and aws both report ordinary progress there, and
+# under "Stop" the first line of it becomes a terminating error on a command that succeeded.
+#
+# This script only ever ran against pgbouncer, whose repository already existed, so it never hit
+# the case that matters: `describe-repositories` on a repository that is absent writes to stderr
+# by design -- that is how the script asks whether it needs to create one -- and killed the run
+# on the first new image. build-push.ps1 carries the same note for the same reason.
+$ErrorActionPreference = "Continue"
 
 # Target tags keep the upstream version so a Dockerfile reads the same after repointing: only the
 # host and the prabhix/third-party/ prefix change. The sources are the gallery rather than Docker
@@ -46,9 +54,15 @@ $ErrorActionPreference = "Stop"
 $images = @(
     @{ Source = "edoburu/pgbouncer:1.22.1-p0"; Target = "prabhix/third-party/pgbouncer:1.22.1-p0" },
 
-    # Base images. Every one of these appears in at least one Dockerfile; see the table in
-    # README.md under "Third-party images we run".
+    # Base images. Every one of these appears in at least one Dockerfile, and both tags of a
+    # duplicated image are listed rather than consolidated: Dependabot moves the repositories
+    # independently, so Node sits on 22 in MobiStack and Mailroom and on 26 in oneOps and
+    # marketing. Mirroring only the newest would silently leave two builds pulling from the
+    # gallery, which is the failure this is meant to end. Cross-check with:
+    #   rg '^FROM public\.ecr\.aws' --glob '**/Dockerfile*'
     @{ Source = "public.ecr.aws/docker/library/node:22-alpine";                  Target = "prabhix/third-party/node:22-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/node:26-alpine";                  Target = "prabhix/third-party/node:26-alpine" },
+    @{ Source = "public.ecr.aws/docker/library/maven:3-eclipse-temurin-26";      Target = "prabhix/third-party/maven:3-eclipse-temurin-26" },
     @{ Source = "public.ecr.aws/docker/library/nginx:1.27-alpine";               Target = "prabhix/third-party/nginx:1.27-alpine" },
     @{ Source = "public.ecr.aws/docker/library/python:3.12-alpine";              Target = "prabhix/third-party/python:3.12-alpine" },
     @{ Source = "public.ecr.aws/docker/library/eclipse-temurin:25-jdk-alpine";   Target = "prabhix/third-party/eclipse-temurin:25-jdk-alpine" },
@@ -78,6 +92,18 @@ foreach ($image in $images) {
         aws ecr create-repository --repository-name $repository --region $Region `
             --image-tag-mutability IMMUTABLE --image-scanning-configuration scanOnPush=true | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "could not create $repository" }
+    }
+
+    # The repositories are IMMUTABLE, so a tag that is already there cannot be replaced and does
+    # not need to be. Skipping rather than failing is what makes this script re-runnable: before
+    # this check, the first already-mirrored entry threw and nothing after it was reached, so
+    # adding an image meant the existing ones blocked it.
+    $tag = ($image.Target -split ":")[-1]
+    aws ecr describe-images --repository-name $repository --image-ids "imageTag=$tag" `
+        --region $Region 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "    already mirrored, skipping"
+        continue
     }
 
     docker pull --platform $Platform $source
