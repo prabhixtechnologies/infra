@@ -75,6 +75,18 @@ inlines the value into the utility, so it resolves against the element's own cas
 spacing, radius and type do not vary by brand, `--font-display` is read directly as a `var()`, and
 Tailwind expands the layout namespaces inside `@media` preludes where a `var()` is invalid.
 
+The rule is now enforced rather than remembered: `web-kit/gallery` renders every primitive under a
+nested `data-brand` scope and asserts that each scoped panel paints the accent its brand paints at
+the root. Reintroducing the bug fails that test with all four panels showing the host's hue.
+
+**A gate that only checks values cannot see a value that never arrives.** Two defects of this exact
+shape have now shipped: the colour aliases above, and `data-density`, which is set on `<html>` in
+all four apps and generates five custom properties that nothing reads. In both cases the generator
+was correct, the contrast gate was satisfied, and the rendered page was wrong. So when adding a
+token, add the assertion that something *differs* because of it — not only that its value is
+legible. The cheapest form is two renders from the same run compared against each other, which
+needs no baseline and no cross-platform tolerance; `web-kit/gallery/README.md` has the mechanics.
+
 **Swatches are derived from a seed, never stored and never picked.** `toneFor(seed)` (and `pxTagFor`
 in Dart — the same list and the same hash, both generated) maps a string to one of the 15 tag
 swatches. Three rules govern its use:

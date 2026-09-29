@@ -41,17 +41,47 @@ a brand declared below the root resolves in either mode.
 It is worth recording how it was found, because it is the gap in Phase 6: it passed typecheck, 73
 tests and all six gates that existed at the time, and was caught by looking at the rendered page.
 The gates assert that a colour is *legible*. None of them asserts that two things which should
-differ do. Visual regression is the honest answer and was deliberately not bolted on — there is no
-Playwright in the portfolio, and screenshot baselines across Linux CI and Windows would flake on
-font rendering before catching anything real.
+differ do.
+
+That gap is now closed, and the reservation recorded here was right about the hard part. Committed
+screenshot baselines shared between Linux CI and a Windows desktop *would* have flaked on font
+rendering before catching anything, so the suite does not use any: the load-bearing tests compare
+two renders from the same run against each other, which cancels out fonts, platform and rasteriser
+and leaves only what the brand changed. Baselines exist for the different question of whether
+anything drifted since last time, and are opt-in and generated on Linux. See § Closed since.
 
 ### Still open
 
 - **Marketing product screenshots.** Needs a seeded stack; locally the apps only reach sign-in.
 - **Public-ECR pull quota.** `429 Data limit exceeded` blocks container image pushes for MobiStack,
-  and intermittently Platform, Mailroom and Infra. Every code job passes. Needs two IAM permissions
-  on `PrabhixPlatformDeployer` or the base images mirrored into private ECR.
-- **Visual regression**, per above.
+  and intermittently Platform, Mailroom and Infra. Every code job passes. Pushing in waves with
+  `Infra/scripts/push-waves.ps1` avoids it in practice; the durable fix is two IAM permissions on
+  `PrabhixPlatformDeployer`, and the base images are already mirrored into `prabhix/third-party/*`.
+- **`data-density` does nothing.** Found by the visual suite on its first run. The attribute is set
+  on `<html>` in all four apps — MobiStack ships `compact` — documented in `TOKENS.md`, and generates
+  five custom properties. Nothing reads them: searching all eight repositories for `--px-density-`
+  finds only the lines in `build-tokens.mjs` that write it. The primitives size themselves with fixed
+  Tailwind spacing, so `Button` is `min-h-11` (44px) where the token says comfortable is 40px and
+  compact 32px. MobiStack has been asking for compact and rendering comfortable since the tokens
+  landed. Wiring it through changes the control metrics of four shipped apps, so it is a decision
+  rather than a repair; the test asserting it is marked `test.fail` in
+  `web-kit/gallery/tests/invariants.spec.ts`, so Playwright reports an unexpected pass when it is
+  fixed.
+
+### Closed since
+
+- **Visual regression.** Done. `web-kit/gallery` is a private Vite workspace holding every primitive
+  on one page, with brand, mode and density in the query string. 19 Playwright tests run in CI on
+  every push. The load-bearing ones compare renders from the same run against each other rather than
+  against stored bytes — five brands must not render alike, dark must not render like light, and a
+  `data-brand` below the root must take its own accent — so they need no committed baselines and give
+  the same answer on any platform. Pixel baselines exist behind `VR_BASELINE=1` for the separate
+  question of whether anything changed since last time.
+
+  Validated by reintroducing the original bug, and the first attempt is the part worth keeping:
+  eleven tests passed with the defect present. A brand on `<html>` cannot reproduce it, because the
+  root is exactly where the broken alias resolved correctly — what failed was a brand scope *below*
+  the root. Details and the rest of the traps in `web-kit/gallery/README.md`.
 
 ---
 
