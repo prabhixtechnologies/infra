@@ -24,8 +24,10 @@ Each image is tagged with the 7-character commit and with `latest`. Account
 
 There is nothing to coordinate before a build any more. `@prabhixtechnologies/brand`, `/ui` and
 `/oidc-client` are published to GitHub Packages, and each app depends on a version range with the
-exact tarball pinned in its own `web/package-lock.json`. One lockfile serves the gates, the tests
-and the image, so there is no second reference to keep in step and Dependabot can move it.
+exact tarball pinned in its own lockfile — `oneOps/web/package-lock.json`,
+`MobiStack/web/package-lock.json`, `Mailroom/web/package-lock.json` and
+`Platform/marketing/package-lock.json`. One lockfile serves that app's gates, tests and image, so
+there is no second reference to keep in step and Dependabot can move it.
 
 This replaced a `WEBKIT_REF` commit SHA set by hand at the top of four workflow files. It had to be
 kept equal in two places per repository — the gate job cloned that commit, the image build vendored
@@ -33,9 +35,9 @@ it as a `webkit` build context — because when they were allowed to differ, the
 a newer web-kit than the one being shipped and the image build then failed on an import the job
 above it had just verified. The lockfile removes the class of problem rather than the instance.
 
-Upgrading is still deliberate: bump the range in `package.json`, run `npm install`, commit the
-lockfile. Use npm 10 or newer — npm 8 writes lockfile entries with no `resolved` URL and no
-`integrity` hash, which leaves `npm ci` nothing to verify.
+Upgrading is still deliberate: bump the range in that app's package.json, run `npm install`, and
+commit the lockfile. Use npm 10 or newer — npm 8 writes lockfile entries with no `resolved` URL
+and no `integrity` hash, which leaves `npm ci` nothing to verify.
 
 GitHub Packages requires a token even though all three packages are public, which is the
 registry's behaviour and not a permission left unset. In CI that is the built-in `GITHUB_TOKEN`
