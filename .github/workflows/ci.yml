@@ -43,13 +43,17 @@ jobs:
         working-directory: ${{ github.workspace }}/../web-kit/packages/brand
         run: node scripts/check-mojibake.mjs
 
-      # Apps link @prabhixtechnologies/ui with `file:`, and npm does not install a linked package's own
-      # dependencies into the consumer. A missing one resolves at build time through the symlink
-      # and fails under Vitest in whichever unrelated file imports the barrel first, so it is
-      # worth catching here rather than there.
-      - name: "@prabhixtechnologies/ui peers declared by every app"
-        working-directory: ${{ github.workspace }}/../web-kit/packages/brand
-        run: node scripts/check-peers.mjs
+      # A "@prabhixtechnologies/ui peers declared by every app" step ran here and has been removed
+      # along with the script it called. It existed because the four web apps linked that package
+      # with `file:`, and npm does not install a linked package's own dependencies into the
+      # consumer, so each app had to redeclare all 27 peers by hand or watch Vitest fail in
+      # whichever unrelated file imported the barrel first. They install from GitHub Packages now
+      # and npm resolves peers normally.
+      #
+      # This repository has no web app at all — the two gates above run here for the app store
+      # under deploy/app-store/www. The peer step ran here only because the gate was cheap to add
+      # wherever web-kit was already cloned, which is also how deleting the script broke a build
+      # in a repository with no opinion about peers.
   compose:
     name: Compose
     runs-on: ubuntu-latest
