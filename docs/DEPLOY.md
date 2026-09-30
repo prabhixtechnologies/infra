@@ -15,25 +15,34 @@ it.
 | `Mailroom` | `prabhix/mailroom` |
 | `Infra` | `prabhix/app-store` |
 | `Mobile` | no container. Store APKs are a separate job. Play upload is manual. |
-| `web-kit` | no image. The other builds copy it in. |
+| `web-kit` | no image. It publishes three npm packages; a tag starting `v` triggers that. |
 
 Each image is tagged with the 7-character commit and with `latest`. Account
 `029096972251`, registry `029096972251.dkr.ecr.ap-south-1.amazonaws.com`.
-Before coordinated builds, set `WEBKIT_REF` at the top of the workflow in oneOps, MobiStack,
-Platform, and Mailroom to the same approved full web-kit commit SHA. Never use a branch or
-floating tag; that could make two builds from the same application commit contain different OIDC
-clients.
 
-`WEBKIT_REF` is one value per workflow and both consumers read it: the job that runs the token
-and literal gates checks out that commit, and the image build vendors the same commit as its
-`webkit` build context. Those used to be separate — the gate cloned the default branch, the build
-context named a SHA — and a stale pin then meant the gates were passing against a web-kit that
-was not the one being shipped. Keeping them equal makes a stale pin fail at the gate, which says
-which token is missing, instead of at the image build, which says only that `npm run build` exited
-1. Anything that adds a second reference to web-kit should read this variable too.
+### web-kit is a dependency, not a build context
 
-A stale pin is the first thing to check when an image build fails on an import or a colour that
-is plainly present in web-kit.
+There is nothing to coordinate before a build any more. `@prabhixtechnologies/brand`, `/ui` and
+`/oidc-client` are published to GitHub Packages, and each app depends on a version range with the
+exact tarball pinned in its own `web/package-lock.json`. One lockfile serves the gates, the tests
+and the image, so there is no second reference to keep in step and Dependabot can move it.
+
+This replaced a `WEBKIT_REF` commit SHA set by hand at the top of four workflow files. It had to be
+kept equal in two places per repository — the gate job cloned that commit, the image build vendored
+it as a `webkit` build context — because when they were allowed to differ, the gates passed against
+a newer web-kit than the one being shipped and the image build then failed on an import the job
+above it had just verified. The lockfile removes the class of problem rather than the instance.
+
+Upgrading is still deliberate: bump the range in `package.json`, run `npm install`, commit the
+lockfile. Use npm 10 or newer — npm 8 writes lockfile entries with no `resolved` URL and no
+`integrity` hash, which leaves `npm ci` nothing to verify.
+
+GitHub Packages requires a token even though all three packages are public, which is the
+registry's behaviour and not a permission left unset. In CI that is the built-in `GITHUB_TOKEN`
+with `packages: read`, so no PAT is stored in any repository. Image builds receive it as a
+BuildKit secret (`secrets: gh_token=…`) rather than a build arg, because a build arg is recorded
+in the image history and these images are pushed to ECR. Building locally needs `GH_TOKEN` in the
+environment; see LOCAL-STACK.md.
 
 ### `toomanyrequests: Data limit exceeded`
 

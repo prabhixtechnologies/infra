@@ -4,6 +4,13 @@
 # This repository holds the stack, not the code. The per-project targets below reach into sibling
 # checkouts, so they only work from an umbrella directory that has them all — see the layout comment
 # at the top of docker-compose.yml. `up` needs no siblings if you are content to pull images.
+#
+# `up` and `fresh` pass --build, and the five web images install @prabhixtechnologies/* from GitHub
+# Packages, which wants a token even though the packages are public. Export one first:
+#
+#   export GH_TOKEN="$(gh auth token)"
+#
+# Without it the build stops at `npm ci` with a 401. See docs/LOCAL-STACK.md.
 
 ONEOPS    := ../oneOps
 MARKETING := ../Platform/marketing

@@ -32,8 +32,18 @@ Marketing: `Platform/marketing/.env.local` for `npm run dev`; Infra compose pass
 
 ```powershell
 cd Infra
+$env:GH_TOKEN = (gh auth token)
 docker compose -f docker-compose.yml -f docker-compose.local.yml --profile identity --profile mailroom --profile mobistack up -d --build
 ```
+
+`GH_TOKEN` is only needed for `--build`, and only for the five web images. They install
+`@prabhixtechnologies/brand`, `/ui` and `/oidc-client` from GitHub Packages, and that registry
+demands a token even though all three packages are public — so this is the registry's behaviour,
+not a permission to fix. Any token with `read:packages` works. Compose passes it as a BuildKit
+secret, declared once at the top of `docker-compose.yml`, so it is never written to disk or into
+an image layer. Without it the build fails at `npm ci` with a 401 from `npm.pkg.github.com`.
+
+Running prebuilt images needs nothing: drop `--build` and no token is read.
 
 Core: postgres, redis, mailpit, identity (:8081), app-store (:8090), platform backend/web/admin/marketing, mailroom web (:5175), MobiStack API (:8082) and web (:5176).
 

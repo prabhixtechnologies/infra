@@ -173,8 +173,12 @@ To ship without CI, build and push the image yourself, then deploy as above:
 ```powershell
 $registry = "029096972251.dkr.ecr.ap-south-1.amazonaws.com"
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $registry
+# @prabhixtechnologies/brand comes from GitHub Packages, which wants a token even though the
+# package is public. A secret rather than a build arg, so it stays out of the image history.
+$env:GH_TOKEN = (gh auth token)
 docker build --provenance=false --sbom=false --platform linux/amd64 `
   -t "$registry/prabhix/prabhix-marketing:latest" `
+  --secret id=gh_token,env=GH_TOKEN `
   --build-arg NEXT_PUBLIC_API_URL=https://api.prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_SITE_URL=https://prabhixtechnologies.com `
   --build-arg NEXT_PUBLIC_CONSOLE_URL=https://oneops.prabhixtechnologies.com `

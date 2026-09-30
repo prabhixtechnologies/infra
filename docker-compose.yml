@@ -33,6 +33,23 @@ volumes:
   caddy_data:
   caddy_config:
 
+secrets:
+  # The five web images install @prabhixtechnologies/brand, /ui and /oidc-client from GitHub
+  # Packages, which demands a token even though all three packages are public. So a local
+  # `docker compose build` of any of them needs one in the environment:
+  #
+  #   $env:GH_TOKEN = (gh auth token)     # PowerShell
+  #   export GH_TOKEN="$(gh auth token)"  # bash
+  #
+  # `environment:` rather than `file:` so nothing has to be written to disk beside this file, and a
+  # BuildKit secret rather than a build arg because a build arg is recorded in the image history.
+  #
+  # This declaration is only for building here. Production pulls finished images from ECR and never
+  # reads it, and each repository's own CI passes the same secret from its built-in GITHUB_TOKEN.
+  # An unset GH_TOKEN fails the build at `npm ci` with a 401 from npm.pkg.github.com.
+  gh_token:
+    environment: GH_TOKEN
+
 services:
   postgres:
     image: public.ecr.aws/docker/library/postgres:16-alpine
@@ -334,8 +351,8 @@ services:
     build:
       context: ../oneOps
       dockerfile: web/Dockerfile
-      additional_contexts:
-        webkit: ../web-kit
+      secrets:
+        - gh_token
       # Vite also inlines at build time. Unlike marketing, the console is a static SPA served by
       # nginx with no proxy, so the browser calls this URL directly — it must be host-reachable.
       args:
@@ -372,8 +389,8 @@ services:
     build:
       context: ../oneOps
       dockerfile: web/Dockerfile
-      additional_contexts:
-        webkit: ../web-kit
+      secrets:
+        - gh_token
       args:
         APP: admin
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
@@ -420,8 +437,8 @@ services:
     build:
       context: ../Mailroom/web
       dockerfile: Dockerfile
-      additional_contexts:
-        webkit: ../web-kit
+      secrets:
+        - gh_token
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         # Mailroom has no password form. Blank here means the app tells the visitor it is
@@ -522,8 +539,8 @@ services:
     build:
       context: ../MobiStack/web
       dockerfile: Dockerfile
-      additional_contexts:
-        webkit: ../web-kit
+      secrets:
+        - gh_token
       args:
         VITE_RAZORPAY_KEY_ID: ${MOBISTACK_RAZORPAY_KEY_ID:-${RAZORPAY_KEY_ID:-}}
         VITE_IDENTITY_ISSUER: ${VITE_IDENTITY_ISSUER:-}
@@ -544,8 +561,8 @@ services:
     build:
       context: ../Platform/marketing
       dockerfile: Dockerfile
-      additional_contexts:
-        webkit: ../web-kit
+      secrets:
+        - gh_token
       # Next inlines NEXT_PUBLIC_* into the bundle at build time, so these must be build args.
       # Passing them under `environment` instead does nothing, and an unset NEXT_PUBLIC_ORG_SLUG
       # does not fail the build — it silently ships a site with no storefront, chat widget or

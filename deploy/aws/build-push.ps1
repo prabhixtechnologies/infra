@@ -51,9 +51,18 @@ $registry = "$RegistryId.dkr.ecr.$Region.amazonaws.com"
 # Repo is relative to the umbrella; Context is relative to the repo. Image is the ECR repository
 # under prabhix/, which must contain a slash: the deployer policy scopes ECR to
 # repository/prabhix/*, and that pattern does not match a name without one.
-# ExtraContexts are Bake-style named contexts (docker build --build-context name=path). Several
-# Dockerfiles COPY --from=webkit / --from=identity-client; without these the build fails at the
-# first such COPY rather than at a missing package later.
+# ExtraContexts are Bake-style named contexts (docker build --build-context name=path). The two
+# backend Dockerfiles COPY --from=identity-client; without it the build fails at that COPY rather
+# than at a missing package later.
+#
+# NeedsGhToken marks the five web images, whose Dockerfiles install @prabhixtechnologies/brand,
+# /ui and /oidc-client from GitHub Packages. That registry demands a token even though all three
+# packages are public. It is passed as a BuildKit secret rather than a build arg, because a build
+# arg is recorded in the image history and these images are pushed to ECR.
+#
+# All five carried `ExtraContexts = @{ webkit = "web-kit" }` until the packages were published:
+# their Dockerfiles vendored the sources out of a sibling checkout and rewrote package.json to
+# point file: links at the copy. A version range and a lockfile replaced all of it.
 $images = @(
     @{ Name = "backend"; Repo = "oneOps"; Image = "prabhix/backend"; Context = "backend"; Args = @{};
        ExtraContexts = [ordered]@{ "identity-client" = "Identity/client" } }
@@ -68,7 +77,7 @@ $images = @(
     # until id. has an A record. Products compare the issuer by string equality, so moving it later
     # invalidates every token in flight and both consoles have to be rebuilt together again.
     @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "."; Dockerfile = "web/Dockerfile";
-       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       NeedsGhToken = $true
        Args = [ordered]@{
         APP                     = "oneops"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
@@ -83,7 +92,7 @@ $images = @(
     # Same context and Dockerfile as web; APP picks the entry point, so the two images differ only in
     # which routes they contain. No Razorpay key -- the admin app has no checkout.
     @{ Name = "admin"; Repo = "oneOps"; Image = "prabhix/admin"; Context = "."; Dockerfile = "web/Dockerfile";
-       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       NeedsGhToken = $true
        Args = [ordered]@{
         APP                     = "admin"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
@@ -94,7 +103,7 @@ $images = @(
     } }
 
     @{ Name = "marketing"; Repo = "Platform"; Image = "prabhix/marketing"; Context = "marketing";
-       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       NeedsGhToken = $true
        Args = [ordered]@{
         NEXT_PUBLIC_API_URL            = "https://api.prabhixtechnologies.com"
         NEXT_PUBLIC_SITE_URL           = "https://prabhixtechnologies.com"
@@ -113,7 +122,7 @@ $images = @(
     @{ Name = "identity"; Repo = "Identity"; Image = "prabhix/identity"; Context = "."; Args = @{} }
 
     @{ Name = "mailroom"; Repo = "Mailroom"; Image = "prabhix/mailroom"; Context = "web";
-       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       NeedsGhToken = $true
        Args = [ordered]@{
         VITE_API_URL         = "https://api.prabhixtechnologies.com"
         # Required here, unlike in the two consoles: Mailroom has no password form of its own and
@@ -127,7 +136,7 @@ $images = @(
     @{ Name = "mobistack-backend"; Repo = "MobiStack"; Image = "prabhix/mobistack-backend"; Context = "backend"; Args = @{};
        ExtraContexts = [ordered]@{ "identity-client" = "Identity/client" } }
     @{ Name = "mobistack-web"; Repo = "MobiStack"; Image = "prabhix/mobistack-web"; Context = "web";
-       ExtraContexts = [ordered]@{ webkit = "web-kit" }
+       NeedsGhToken = $true
        Args = [ordered]@{
         # Same issuer as the other products: one hosted login, one session cookie.
         VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
@@ -150,6 +159,21 @@ $selected = if ($wanted.Count -gt 0) {
     # Ordered by the table, not by the argument, so a full run always builds in the same order.
     $images | Where-Object { $_.Name -in $wanted }
 } else { $images }
+
+# Checked before the first build rather than discovered inside one. Without it npm fails with a
+# 401 from npm.pkg.github.com partway through a layer, several minutes in and with nothing in the
+# message about where the token was supposed to come from.
+$needToken = @($selected | Where-Object { $_.NeedsGhToken } | ForEach-Object { $_.Name })
+if ($needToken.Count -gt 0 -and -not $env:GH_TOKEN) {
+    throw @"
+GH_TOKEN is not set. These images install @prabhixtechnologies/* from GitHub Packages: $($needToken -join ', ').
+That registry requires a token even though the packages are public. Any token with read:packages will do:
+
+    `$env:GH_TOKEN = (gh auth token)
+
+It is passed to the build as a BuildKit secret and is not written into the image.
+"@
+}
 
 # One login for the whole run. The credentials last twelve hours, so a long multi-image build does
 # not lose them halfway through.
@@ -198,6 +222,11 @@ foreach ($image in $selected) {
             if (-not (Test-Path $ctxPath)) { throw "missing build context '$ctxName' at $ctxPath" }
             $argv += @("--build-context", "${ctxName}=$ctxPath")
         }
+    }
+    # env= rather than src=, so the token is never written to a file. Requires BuildKit, which is
+    # the default builder in every Docker version that supports `--secret` at all.
+    if ($image.NeedsGhToken) {
+        $argv += @("--secret", "id=gh_token,env=GH_TOKEN")
     }
     $argv += $context
 
