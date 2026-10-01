@@ -75,9 +75,33 @@ powershell -File deploy/pull-restart.ps1 -Service backend,mobistack-backend -Con
 powershell -File deploy/pull-restart.ps1 -Service backend -Tag 771ecf0 -Confirm
 ```
 
-`-Confirm` is the approval. The script SSHs in, pulls that tag, and restarts only those containers.
-It does not `git pull` the host. A tag of `latest` is the images CI just published. An older sha
-rolls that service back.
+`-Confirm` is the approval. The script SSHs in and runs `deploy/deploy.sh`, which pulls and
+restarts the whole stack in order behind health gates: Identity, the oneOps backend, the MobiStack
+backend, then the frontends. A service the command does not name runs the tag pinned for it in
+`/opt/prabhix/deploy/.env.prod` (`BACKEND_TAG=07ef483` and so on), so naming one service moves only
+that one. It does not `git pull` the host. An older sha rolls that service back.
+
+The pins are the record of what production runs, and the script does not write them. Move them with
+the deploy, or the next deploy undoes it:
+
+- `-Tag latest`, the default, starts the named services on `:latest` and leaves their pins where
+  they were. The next deploy that does not name them puts them back on the pinned commit, which for
+  a backend means older code on a schema Flyway has already moved. Rollback also stops working,
+  because it restores the tag a container was started with, and `latest` by then is the new image.
+- To move several repositories at once, move the pins first and let the file drive the deploy.
+  `aws ecr describe-images --repository-name prabhix/backend --image-ids imageTag=latest` lists the
+  commit tag CI pushed beside `latest`. On the host:
+
+  ```bash
+  cd /opt/prabhix
+  cp -p deploy/.env.prod "deploy/.env.prod.pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)"
+  sed -i -E -e 's/^BACKEND_TAG=.*/BACKEND_TAG=<sha>/' deploy/.env.prod   # one -e per service that moved
+  grep -E '^[A-Z_]*TAG=' deploy/.env.prod
+  ```
+
+  Then run the script naming any one service at its new pin; every other service follows the file.
+  The 2026-10-01 deploy of all nine ran as `-Service identity -Tag 9dba39d` this way. If a gate
+  fails, `deploy.sh` puts the containers back but not the file, so copy the backup over it.
 
 The same action is GitHub → Infra → Actions → **Deploy** → Run workflow. Leave the tag boxes blank
 to use `latest`. That workflow does not run on push. Before relying on it, create a GitHub

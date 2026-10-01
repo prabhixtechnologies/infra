@@ -7,7 +7,7 @@ touching Play Console, signing, or package names.
 `D:\Projects\KEYS\prabhix-play-upload.jks`. Passwords are in
 `D:\Projects\KEYS\prabhix-play-upload.credentials.txt`.
 
-## Continue here (2026-09-24) — next session
+## Continue here (2026-10-01) — next session
 
 **Upload key reset is approved.** Checked live in Play Console → MobiStack →
 App signing. The **Upload key certificate** is this machine’s keystore:
@@ -31,19 +31,29 @@ Source file: `Infra/deploy/static/well-known/assetlinks.json` (mounted into Cadd
 certificate** SHA-256 above, lowercase without colons, listed once per package. After changing the
 upload key, update that JSON and redeploy Caddy only.
 
-**MobiStack 1.2.1 (versionCode 5) is on Internal testing.** Published
-2026-09-24 20:46. Play accepted the upload key. Testers:
+**All four apps are on Internal testing at these versions (2026-10-01).**
+Uploaded by the **Play upload** workflow, run
+[36893103686](https://github.com/prabhixtechnologies/Mobile/actions/runs/36893103686),
+from Mobile `4c049a6`:
+
+| App | Version | versionCode |
+|---|---|---|
+| MobiStack `app.prabhix.fixflow` | 1.3.1 | 10 |
+| OneOps `com.prabhix.operator` | 1.1.1 | 5 |
+| Mailroom `com.prabhix.mailroom` | 1.1.1 | 5 |
+| Admin `com.prabhix.admin` | 1.1.1 | 5 |
+
+Play refuses a versionCode it has seen on any track, so the next upload of each
+app needs a higher one. The previous upload (run of 2026-09-28 on `33d2a0e`)
+used 9 and 4; MobiStack 1.2.1 (versionCode 5) was the 2026-09-24 release.
+MobiStack testers:
 https://play.google.com/apps/internaltest/4699612970327663424
 (uninstall any USB/sideload copy first or Play download conflicts).
-
-The catalog-payment phone build is the same versionCode 5, so it cannot replace
-this release. Bump versionCode before the next MobiStack upload.
 
 ### Do this next
 
 1. Closed Alpha (track `4698130848654705919`): target **India**, send for
    review. Closed opt-in stays disabled until that track is live.
-2. After a versionCode bump, upload the catalog-gate build.
 
 ### What is already true
 
@@ -56,8 +66,8 @@ this release. Bump versionCode before the next MobiStack upload.
 | Old Play upload SHA-1 | `E9:C5:DC:40:…:7E` — **private key not on this PC** |
 | Search (2026-09-22) | `prabhix-play-upload.jks`, leftover `prabhix-release.jks`, debug keystore, `ageinminutes.jks`, Recycle Bin, git — none match `E9:C5` |
 | Leftover sideload jks | `C:\Users\abhis\.prabhix-secrets\platform-leftovers\prabhix-release.jks` SHA-1 `52:66:18:5B:…` — **not** the Play upload key |
-| MobiStack Play Internal | **1.2.0 (versionCode 4)** 28 Aug, still downloadable |
-| OneOps / Mailroom / Admin Internal | `1.0.0` live; email list **Internal Testing** (3) attached 2026-09-21 |
+| MobiStack Play Internal | **1.3.1 (versionCode 10)** 2026-10-01 |
+| OneOps / Mailroom / Admin Internal | **1.1.1 (versionCode 5)** 2026-10-01; email list **Internal Testing** (3) attached 2026-09-21 |
 | Closed testers opted in | **0** (Internal joins do not count) |
 | MobiStack installer check | Turned **off** 2026-09-22 (Flutter) |
 | Phone used for USB | Samsung SM-F415F (`RZ8NA0SCSSE`) |
