@@ -38,7 +38,7 @@ from Mobile `4c049a6`:
 
 | App | Version | versionCode |
 |---|---|---|
-| MobiStack `app.prabhix.fixflow` | 1.3.1 | 10 |
+| MobiStack `app.prabhix.fixflow` | 1.3.2 | 12 |
 | OneOps `com.prabhix.operator` | 1.1.1 | 5 |
 | Mailroom `com.prabhix.mailroom` | 1.1.1 | 5 |
 | Admin `com.prabhix.admin` | 1.1.1 | 5 |
