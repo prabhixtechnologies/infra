@@ -38,7 +38,7 @@ from Mobile `4c049a6`:
 
 | App | Version | versionCode |
 |---|---|---|
-| MobiStack `app.prabhix.fixflow` | 1.3.3 | 13 |
+| MobiStack `app.prabhix.fixflow` | 1.3.4 | 14 |
 | OneOps `com.prabhix.operator` | 1.1.1 | 5 |
 | Mailroom `com.prabhix.mailroom` | 1.1.1 | 5 |
 | Admin `com.prabhix.admin` | 1.1.1 | 5 |
@@ -66,7 +66,7 @@ https://play.google.com/apps/internaltest/4699612970327663424
 | Old Play upload SHA-1 | `E9:C5:DC:40:…:7E` — **private key not on this PC** |
 | Search (2026-09-22) | `prabhix-play-upload.jks`, leftover `prabhix-release.jks`, debug keystore, `ageinminutes.jks`, Recycle Bin, git — none match `E9:C5` |
 | Leftover sideload jks | `C:\Users\abhis\.prabhix-secrets\platform-leftovers\prabhix-release.jks` SHA-1 `52:66:18:5B:…` — **not** the Play upload key |
-| MobiStack Play Internal | **1.3.3 (versionCode 13)** 2026-10-02 — device-test fixes plus `?id=` calls, see `Mobile/docs/mobistack-device-test-2026-10-01.md` |
+| MobiStack Play Internal | **1.3.4 (versionCode 14)** 2026-10-02 — readable opening screens with Powered by Prabhix Technologies, after 1.3.3's `?id=` calls, see `Mobile/docs/mobistack-device-test-2026-10-01.md` |
 | OneOps / Mailroom / Admin Internal | **1.1.1 (versionCode 5)** 2026-10-01; email list **Internal Testing** (3) attached 2026-09-21 |
 | Closed testers opted in | **0** (Internal joins do not count) |
 | MobiStack installer check | Turned **off** 2026-09-22 (Flutter) |
