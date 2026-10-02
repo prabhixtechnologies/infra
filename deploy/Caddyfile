@@ -351,8 +351,8 @@ api.prabhixtechnologies.com {
 	#
 	# Its own handle rather than an extension of /login*, because it is not under that prefix and
 	# without this the catch-all below sends it to the backend — which has no such path and answers
-	# with a JSON 401, so the page looks like it needs an account to create an account.
-	handle /signup {
+	# with a JSON 401. The wildcard also covers the compulsory OTP verification and resend posts.
+	handle /signup* {
 		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
 	}
 
