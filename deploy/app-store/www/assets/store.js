@@ -1,19 +1,15 @@
 // Theme toggle for the app-store pages.
 //
-// The pages carry no data-theme attribute. That is deliberate: the generated tokens already have
-// a `@media (prefers-color-scheme: dark)` layer, so the correct theme is painted on the first
-// frame and this script only has to honour a choice made on an earlier visit. Setting the
-// attribute from script on every load, as this used to, is what produces the flash of the wrong
-// theme that the media query exists to avoid.
+// The pages start on data-theme="light". This script replaces that only when a previous visit
+// saved a choice, so the first paint is already the default and a dark operating system does
+// not flip it.
 (function () {
   var root = document.documentElement;
   var key = "prabhix-store-theme";
 
-  /** What the page is actually showing, whether that came from a saved choice or the system. */
+  /** What the page is actually showing. Light unless a saved choice or this script set dark. */
   function current() {
-    var set = root.getAttribute("data-theme");
-    if (set === "light" || set === "dark") return set;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return root.getAttribute("data-theme") === "dark" ? "dark" : "light";
   }
 
   var saved = localStorage.getItem(key);
@@ -34,11 +30,5 @@
     root.setAttribute("data-theme", next);
     localStorage.setItem(key, next);
     label();
-  });
-
-  // Following the system while no explicit choice has been made keeps the button's name honest
-  // when the OS flips at sunset with the tab open.
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
-    if (!localStorage.getItem(key)) label();
   });
 })();

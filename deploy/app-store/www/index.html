@@ -1,14 +1,10 @@
 <!DOCTYPE html>
 <!--
-  No data-theme here. It used to say "dark", which meant a visitor whose system asks for light
-  got a dark page until store.js ran and changed it. With the attribute absent the generated
-  tokens' own `@media (prefers-color-scheme: dark)` block decides, correctly, before any script
-  loads; store.js then only applies a choice the visitor made on a previous visit.
-
-  No data-brand either: this page is the parent identity, which is what :root already carries.
-  The product pages each set their own.
+  data-theme="light" is the default, so a dark operating system does not repaint the page.
+  store.js replaces it only when a visitor already chose dark. No data-brand: this page is
+  the parent identity, which is what :root already carries. The product pages each set their own.
 -->
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
