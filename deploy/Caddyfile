@@ -83,7 +83,9 @@
 }
 
 # Marketing site — apex + www. Sends its own per-request nonce CSP from src/proxy.ts.
-prabhixtechnologies.com, www.prabhixtechnologies.com {
+prabhixtechnologies.com, www.prabhixtechnologies.com,
+prabhix.in, www.prabhix.in,
+prabhix.co.in, www.prabhix.co.in {
 	import security_headers
 	reverse_proxy marketing:3000
 }
