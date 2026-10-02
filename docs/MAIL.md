@@ -3,6 +3,33 @@
 Three independent layers. Each works alone; together they give you a mail stack you own
 outright, with no per-seat vendor fee.
 
+## Mailroom web client and mailbox API (2026)
+
+The browser client in `Mailroom/web` and the Flutter app in `Mobile/apps/mailroom` are the personal-mail
+surfaces. Both talk to the **oneOps mailbox module** (`/api/v1/oneops/mailbox/*`), not IMAP directly.
+Folder threads use cursor pages only; the old offset listing is gone.
+
+Capabilities shipped in the web app:
+
+| Area | Behaviour |
+| --- | --- |
+| Lists | Cursor-paginated folder threads; starred and snoozed collections; sidebar counts |
+| Search / filters | `q`, unread-only, has-attachment (folder view; debounced server query) |
+| Reading | Sanitised HTML + plain text; optional remote images; attachment list + download |
+| Compose | New mail, reply / reply-all / forward; autosaved drafts; upload pending attachments |
+| Bulk | Multi-select toolbar — flags, move, snooze / unsnooze |
+| Live | SSE on `/oneops/mail/stream` invalidates lists and the open thread |
+| Deep links | Query parameters (`folder`, `thread`, `compose`, `mode=company`, …) — see `Mailroom/README.md` |
+
+Attachment metadata for draft reloads uses `GET /oneops/mailbox/attachments/pending?fileId=` (filename
+and size without downloading bytes). Message-bound files use `GET …/attachments?messageId=`.
+
+Shared UI primitives from `@prabhixtechnologies/ui` are not wired into Mailroom yet — the app keeps
+local Tailwind components to avoid a second preset collision; accessibility and keyboard behaviour are
+ covered in Vitest/axe suites instead.
+
+---
+
 ```
                        ┌───────────────────────────────────────────┐
   Internet MX ────────►│  LAYER 1 · TRANSPORT   (Mailroom/mail-server/)     │
