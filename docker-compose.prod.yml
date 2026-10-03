@@ -296,9 +296,9 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  # MobiStack, on the shared box. Direct to RDS with its own role and database, its own ElastiCache
-  # Valkey cache (a stray FLUSHALL in one product must not empty the other's), and the same JVM
-  # discipline as the platform backend — see the notes on that service for each flag.
+  # MobiStack, on the shared box. Direct to RDS with its own role and database, the same ElastiCache
+  # Valkey cache as the platform, and the same JVM discipline as the platform backend — see the
+  # notes on that service for each flag.
   mobistack-backend:
     build: !reset null
     restart: always

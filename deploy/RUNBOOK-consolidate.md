@@ -10,7 +10,7 @@ demand instead of kept running.
 | `i-069a080a3068da761` (Mobistack) | t3.small, MobiStack | terminated, Elastic IP released |
 | MobiStack's compose | its own project in `/opt/mobistack` | the `mobistack` profile of this repository's stack |
 | Postgres | two containers | RDS, `ap-south-1` |
-| Redis | two containers | two ElastiCache Valkey serverless caches |
+| Redis | two containers | one ElastiCache Valkey serverless cache, shared |
 | Staging | none | launched from an AMI for a rehearsal, then terminated |
 
 Steps 1 to 3 and 6 are done. Step 4 in its final form — MobiStack as a profile of this stack rather

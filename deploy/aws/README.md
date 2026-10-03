@@ -353,10 +353,10 @@ RDS connections) → SNS email are in [`cloudwatch-alarms.md`](cloudwatch-alarms
 
 ## Cache: ElastiCache Valkey instead of the Redis container
 
-Two serverless caches, `prabhixtechnologies` and `mobistack`. The Prabhix services share the first
-deliberately: the token deny list is one keyspace that Identity writes and every product reads, so
-two caches would mean a revocation only half the fleet could see. MobiStack has no share in that and
-gets its own, which also keeps an eviction or a stray `FLUSHALL` from crossing between products.
+One serverless cache, `prabhixtechnologies`, shared by Identity, oneOps and MobiStack. The token
+deny list is one keyspace that Identity writes and the platform reads, and MobiStack's keys use a
+different prefix (`rl:`, `fixflow:presence:`, Spring cache names), so they can share the cache.
+A second serverless cache only repeats the 100 MB minimum charge.
 
 Serverless is always cluster mode and always TLS, which the `host`/`port` settings cannot express.
 That is what the `valkey` Spring profile is for: `SPRING_PROFILES_ACTIVE=prod,valkey` swaps the
