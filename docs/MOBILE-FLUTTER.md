@@ -24,7 +24,7 @@ PrabhixTechnologies/Mobile/
 | Mailroom | `prabhix-mailroom-android` | `com.prabhix.mailroom` | same |
 | MobiStack | `prabhix-mobistack-android` | `app.prabhix.fixflow` | **`mobistack:/oauth2redirect`** and `mobistack://…` |
 
-Issuer (prod): `https://api.prabhixtechnologies.com`. Custom Tabs / ASWebAuthenticationSession only —
+Issuer (prod): `https://identity.prabhixtechnologies.com`. Custom Tabs / ASWebAuthenticationSession only —
 never WebView login. Product authorization via `GET /auth/me` (or MobiStack equivalent); refresh only
 against Identity.
 

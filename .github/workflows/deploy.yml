@@ -254,7 +254,7 @@ jobs:
             fi
           }
           check "api health"        https://api.prabhixtechnologies.com/actuator/health
-          check "identity discovery" https://api.prabhixtechnologies.com/.well-known/openid-configuration
+          check "identity discovery" https://identity.prabhixtechnologies.com/.well-known/openid-configuration
           check "marketing"         https://prabhixtechnologies.com/
           check "oneops web"        https://oneops.prabhixtechnologies.com/
           check "admin console"     https://admin.prabhixtechnologies.com/

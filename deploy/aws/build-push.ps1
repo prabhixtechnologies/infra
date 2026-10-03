@@ -73,16 +73,15 @@ $images = @(
     # redirects gives whoever signs in at the other a second, separate session -- which looks like
     # single sign-on failing rather than like a half-finished rollout.
     #
-    # api. rather than id. because that is where the Caddyfile serves the login page and discovery
-    # until id. has an A record. Products compare the issuer by string equality, so moving it later
-    # invalidates every token in flight and both consoles have to be rebuilt together again.
+    # identity.prabhixtechnologies.com serves both the hosted login and the identity API. Products
+    # compare the issuer by string equality, so this has to match IDENTITY_ISSUER exactly.
     @{ Name = "web"; Repo = "oneOps"; Image = "prabhix/web"; Context = "."; Dockerfile = "web/Dockerfile";
        NeedsGhToken = $true
        Args = [ordered]@{
         APP                     = "oneops"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
-        VITE_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
+        VITE_IDENTITY_ISSUER    = "https://identity.prabhixtechnologies.com"
         VITE_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
         # VITE_RAZORPAY_KEY_ID is deliberately absent: it was an unset repository variable in CI, so
         # the images already in ECR were built without it and checkout is already off. Setting it
@@ -97,7 +96,7 @@ $images = @(
         APP                     = "admin"
         VITE_API_URL            = "https://api.prabhixtechnologies.com"
         VITE_GOOGLE_SSO_ENABLED = "false"
-        VITE_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
+        VITE_IDENTITY_ISSUER    = "https://identity.prabhixtechnologies.com"
         VITE_ONEOPS_URL         = "https://oneops.prabhixtechnologies.com"
         VITE_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
     } }
@@ -111,7 +110,7 @@ $images = @(
         NEXT_PUBLIC_MOBISTACK_URL      = "https://mobistack.prabhixtechnologies.com"
         NEXT_PUBLIC_MAILROOM_URL       = "https://mail.prabhixtechnologies.com"
         NEXT_PUBLIC_STORE_URL          = "https://store.prabhixtechnologies.com"
-        NEXT_PUBLIC_IDENTITY_ISSUER    = "https://api.prabhixtechnologies.com"
+        NEXT_PUBLIC_IDENTITY_ISSUER    = "https://identity.prabhixtechnologies.com"
         # From oneOps/deploy/seed.sql. These turn on the storefront, chat widget and visitor beacon, and a
         # slug that does not match a real row disables all three at runtime rather than failing the
         # build -- which is exactly what production was doing.
@@ -127,9 +126,7 @@ $images = @(
         VITE_API_URL         = "https://api.prabhixtechnologies.com"
         # Required here, unlike in the two consoles: Mailroom has no password form of its own and
         # authenticates only through Identity, so an empty issuer leaves it unable to sign in at all.
-        # api. rather than id. because that is where the Caddyfile serves discovery until id. has an
-        # A record.
-        VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
+        VITE_IDENTITY_ISSUER = "https://identity.prabhixtechnologies.com"
         VITE_ONEOPS_URL      = "https://oneops.prabhixtechnologies.com"
     } }
 
@@ -139,7 +136,7 @@ $images = @(
        NeedsGhToken = $true
        Args = [ordered]@{
         # Same issuer as the other products: one hosted login, one session cookie.
-        VITE_IDENTITY_ISSUER = "https://api.prabhixtechnologies.com"
+        VITE_IDENTITY_ISSUER = "https://identity.prabhixtechnologies.com"
         # Android packages live only on the company store (S3-backed). Never same-origin /download.
         VITE_STORE_URL       = "https://store.prabhixtechnologies.com"
     } }

@@ -248,12 +248,10 @@ api.mobistack.prabhixtechnologies.com {
 
 # Spring Boot API — one origin for clients, whichever service is behind it.
 #
-# Authentication is moving into the Identity service, and routing it through this host rather than
-# giving it its own name is what makes that a deployment change instead of a client change: the web
-# apps, both Android apps and every link already sitting in someone's inbox keep calling
-# api.prabhixtechnologies.com. It also avoids a second CORS origin and a second cookie domain for
-# the sign-in flow, which is the part of this that is easy to get subtly wrong. The extractions after
-# it — mail is the intended next one — become a routing change here.
+# Identity's canonical host is identity.prabhixtechnologies.com. The Identity paths below remain on
+# this host so a client built against the previous issuer can still reach login, discovery and token
+# exchange. New clients and the iss claim use the identity host. The cookie domain is still the
+# parent domain, so the two names share pbx_session.
 #
 # JSON calls are selected by path, not by a shared /api/v1/auth prefix: /api/v1/identity/* is Identity
 # and /api/v1/oneops/* is the platform backend. MobiStack stays on mobistack.prabhixtechnologies.com.
@@ -374,12 +372,63 @@ api.prabhixtechnologies.com {
 	}
 }
 
-# id.prabhixtechnologies.com is deliberately absent until its A record exists. Caddy asks Let's
-# Encrypt for a certificate per site name at startup, and a name that does not resolve fails the
-# HTTP-01 challenge and retries with backoff — noise in the logs of a proxy that is otherwise fine,
-# for a hostname nothing yet points at. The issuer is api.prabhixtechnologies.com for now, which is
-# where discovery and JWKS are served above; moving it later invalidates every token in flight, so it
-# is a one-time change to make before the platform starts trusting the new tokens, not after.
+# Prabhix Identity — hosted sign-in and the identity API, on their own name.
+#
+# Login, signup, account, logout, OIDC, discovery, JWKS and /api/v1/identity/* belong here. Product
+# APIs stay on api.prabhixtechnologies.com. The same paths also remain on that host so an app built
+# against the previous issuer can still reach Identity; new tokens and new clients use this name.
+# The A record already points at this server.
+identity.prabhixtechnologies.com {
+	import no_document_headers
+
+	handle /internal* {
+		respond 404
+	}
+
+	handle /api/v1/identity/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /.well-known/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /oauth2/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /userinfo {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /connect/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /login* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /account* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /logout* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /signup* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle /assets/* {
+		reverse_proxy {$OIDC_UPSTREAM:identity:8081}
+	}
+
+	handle {
+		respond 404
+	}
+}
 
 # Prabhix Mailroom — a mail client for a person's own address.
 #

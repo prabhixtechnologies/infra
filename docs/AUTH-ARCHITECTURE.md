@@ -6,7 +6,7 @@
 
 | Surface | Role |
 |---|---|
-| Identity `:8081` (prod: `api.prabhixtechnologies.com` when deployed) | Hosted login / signup / passkeys / SMS / WhatsApp / Google |
+| Identity `:8081` (prod: `identity.prabhixtechnologies.com`) | Hosted login / signup / passkeys / SMS / WhatsApp / Google |
 | OneOps `:5173`, Admin `:5174`, Mailroom `:5175`, MobiStack web | OIDC clients only — redirect to Identity, redeem code at `/auth/callback` |
 | Marketing `:3000` | Company site — “Sign in” opens a **product**, which then starts OIDC |
 
@@ -14,7 +14,7 @@
 
 1. **`localhost:5173/login` with purple Password / Magic link / Email OTP** — old OneOps console build (credentials in the product). **Removed.** Hard-refresh or rebuild if you still see it.
 2. **`localhost:8081/login`** — local Identity (correct for laptop).
-3. **`api.prabhixtechnologies.com/login`** — **production** Identity (old “PA” UI until you approve an AWS redeploy). Bookmarks and builds pointed at prod will keep showing that.
+3. **`identity.prabhixtechnologies.com/login`** — **production** Identity. Bookmarks and builds pointed at the previous `api.` login keep working only while that compatibility route remains.
 
 Local compose forces `VITE_IDENTITY_ISSUER=http://localhost:8081` so the laptop never silently talks to production Identity.
 

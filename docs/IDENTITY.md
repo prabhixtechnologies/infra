@@ -8,25 +8,20 @@ Identity owns **who you are**. It does not own what you can do — there is no o
 or permission in its schema. Each product resolves those per request from its own database.
 
 ```
-                    api.prabhixtechnologies.com  (Caddy, one origin)
-                              │
-        ┌─────────────────────┼──────────────────────────┐
-        │                     │                          │
-  /api/v1/auth/*      /login, /oauth2/*,           everything else
-        │             /.well-known/*, /userinfo,          │
-        │             /connect/*, /assets/*               │
-        ▼                     ▼                          ▼
-   {$AUTH_UPSTREAM}    {$OIDC_UPSTREAM}            backend:8080
-   default backend:8080  default identity:8081            │
-                                                   verifies tokens
-                                                   via JWKS ────────► identity:8081
+        identity.prabhixtechnologies.com              api.prabhixtechnologies.com
+        login, oauth2, discovery, JWKS,               OneOps APIs
+        /api/v1/identity/*                                    │
+                    │                                         ▼
+                    ▼                                   backend:8080
+             {$OIDC_UPSTREAM}
+             default identity:8081
+                    ▲
+                    └── JWKS verification by every product backend
 ```
 
-One origin is deliberate. The web apps, both Android apps, and every magic link already sitting in
-someone's inbox call `api.prabhixtechnologies.com`; routing auth behind that name makes this a
-deployment change rather than a client change, and avoids a second CORS origin and a second cookie
-domain for the sign-in flow. Later extractions — mail is the intended next one — become a routing
-change in the same file.
+Identity has its own hostname. The session cookie stays on `.prabhixtechnologies.com`, so the
+products still share one browser sign-in. The same Identity paths remain on
+`api.prabhixtechnologies.com` for clients built against the previous issuer.
 
 ---
 
@@ -100,13 +95,9 @@ separate database that the platform's own user owns would not be a boundary at a
 ### 3. The issuer, exactly right
 
 `IDENTITY_ISSUER` must match what products verify against **string for string** — a trailing slash or
-`http` for `https` invalidates every token. It is `https://api.prabhixtechnologies.com` for now,
-because that is where the Caddyfile serves discovery.
-
-`id.prabhixtechnologies.com` is deliberately absent from the Caddyfile until its A record exists:
-Caddy asks Let's Encrypt for a certificate per site name at startup, and a name that does not resolve
-fails the HTTP-01 challenge and retries with backoff. Moving the issuer later invalidates every token
-in flight, so it is a one-time change to make **before** the platform starts trusting the new tokens.
+`http` for `https` invalidates every token. It is `https://identity.prabhixtechnologies.com`. That
+host serves both the hosted pages and the identity API. Changing it signs everyone out, so the
+products have to be rebuilt with the same value in the same release.
 
 ---
 
@@ -235,8 +226,8 @@ factor, so the platform's strength-10 hashes and MobiStack's strength-12 hashes 
 
 ```bash
 # Discovery and JWKS, once AUTH_UPSTREAM points at identity.
-curl -s https://api.prabhixtechnologies.com/.well-known/openid-configuration | jq .issuer
-curl -s https://api.prabhixtechnologies.com/.well-known/jwks.json | jq '.keys[].kid'
+curl -s https://identity.prabhixtechnologies.com/.well-known/openid-configuration | jq .issuer
+curl -s https://identity.prabhixtechnologies.com/.well-known/jwks.json | jq '.keys[].kid'
 
 # A token, and what is deliberately not in it.
 curl -sX POST https://api.prabhixtechnologies.com/api/v1/auth/login \

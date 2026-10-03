@@ -16,14 +16,14 @@ authorization, mail, payments, and the conventions the code follows.
 | `prabhixtechnologies.com` | Public — prospects, shoppers, candidates | `Platform/marketing` (Next.js) |
 | `oneops.prabhixtechnologies.com` | Customers operating their organization | `oneOps/web` built with `APP=oneops` |
 | `admin.prabhixtechnologies.com` | Prabhix staff operating the platform | `oneOps/web` built with `APP=admin` |
-| `api.prabhixtechnologies.com` | Every client | Caddy: `/api/v1/auth/*`, `/oauth2/*`, `/login`, `/.well-known/*` → Identity; everything else → oneOps backend |
+| `identity.prabhixtechnologies.com` | Every client | Caddy: hosted sign-in, OIDC, discovery, JWKS, and `/api/v1/identity/*` → Identity |
+| `api.prabhixtechnologies.com` | Every client | Caddy: OneOps APIs. The previous Identity paths remain there so older clients can still reach them |
 | `mail.prabhixtechnologies.com` | A person with a hosted address | `Mailroom/web`; MX / IMAP / SMTP on the same name via `Mailroom/mail-server` |
 | `mobistack.prabhixtechnologies.com` | Repair shops | `MobiStack/web` and `MobiStack/backend` |
 | `store.prabhixtechnologies.com` | Anyone installing an app | `Infra/deploy/app-store`, APKs streamed from S3 |
 
-`app.prabhixtechnologies.com` permanently redirects to `oneops.`; `id.prabhixtechnologies.com`
-resolves but is not yet the issuer — moving the issuer invalidates every token in flight and is a
-one-time change to make in a planned window.
+`app.prabhixtechnologies.com` permanently redirects to `oneops.`. The identity issuer is
+`identity.prabhixtechnologies.com`; changing that string signs every current token out.
 
 Every host is one Caddy on one EC2 instance, in one Compose project (`Infra/docker-compose.yml`).
 Databases are on one RDS instance (`oneops`, `identity`, `mobistack`), caches on ElastiCache Valkey.

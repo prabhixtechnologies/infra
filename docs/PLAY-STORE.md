@@ -85,7 +85,7 @@ Tester emails (shared list): `admin@prabhixtechnologies.com`,
 | Prabhix Mailroom | `com.prabhix.mailroom` | `Mobile/apps/mailroom` | `4976030296612135497` | `https://api.prabhixtechnologies.com/api/v1` |
 | Prabhix Admin | `com.prabhix.admin` | `Mobile/apps/admin` | `4972838248291930473` | `https://api.prabhixtechnologies.com/api/v1` |
 
-Identity issuer for all four: `https://api.prabhixtechnologies.com`.
+Identity issuer for all four: `https://identity.prabhixtechnologies.com`. Product APIs stay on their existing hosts.
 
 All four apps (including Admin) are intended for **Production**. Play still
 blocks public Production on this new developer account until a **closed test**
