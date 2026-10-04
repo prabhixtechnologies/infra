@@ -3108,6 +3108,7 @@ A phone model in one shop's private catalog.
 | `created_by` | uuid |  |  |  |
 | `updated_by` | uuid |  |  |  |
 | `variant` | varchar(40) |  |  |  |
+| `catalog_device_id` | uuid |  |  | FK → catalog_devices.id ON DELETE SET NULL |
 
 <a id="mobistack-public-product-compatibilities"></a>
 #### product_compatibilities
