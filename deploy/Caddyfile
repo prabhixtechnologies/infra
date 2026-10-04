@@ -197,16 +197,31 @@ mobistack.prabhixtechnologies.com {
 		reverse_proxy mobistack-web:80
 	}
 
-	# Same arrangement as mail. below: the images come from another repository, the services sit
-	# behind a profile, and a host without that profile enabled should say so rather than 502.
+	# The images come from another repository and the services sit behind a profile. A host
+	# without that profile, or a backend that is mid-restart, fails here with 502/503. Say so
+	# in shop language. Compose profiles and image tags belong in this comment and in the
+	# container logs, not on a page a shop owner can open.
 	handle_errors 502 503 {
-		header Content-Type "text/plain; charset=utf-8"
-		respond "MobiStack is not deployed on this host yet.
-
-The hostname is live and TLS is valid, but no MobiStack container is running behind it.
-Add mobistack to COMPOSE_PROFILES once its images have been published, and set
-MOBISTACK_BACKEND_TAG and MOBISTACK_WEB_TAG to the MobiStack commit you want.
-" 503
+		@api path /api/* /download/*
+		handle @api {
+			header Content-Type application/json
+			respond `\{"code":"UNAVAILABLE","message":"MobiStack is temporarily unavailable. Try again shortly."\}` 503
+		}
+		handle {
+			header Content-Type "text/html; charset=utf-8"
+			respond `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MobiStack is temporarily unavailable</title>
+</head>
+<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:18vh auto;padding:0 1.5rem;line-height:1.5;color:#1c1917">
+<h1 style="font-size:1.35rem;font-weight:600">MobiStack is temporarily unavailable</h1>
+<p>This usually clears in a moment. Refresh the page, and contact support if it stays this way.</p>
+</body>
+</html>` 503
+		}
 	}
 }
 
@@ -452,11 +467,6 @@ mail.prabhixtechnologies.com {
 	# broken must keep saying so, rather than being dressed up as "not deployed yet".
 	handle_errors 502 503 {
 		header Content-Type "text/plain; charset=utf-8"
-		respond "Prabhix Mailroom is not deployed on this host yet.
-
-The hostname is live and TLS is valid, but no Mailroom container is running behind it.
-Enable it with COMPOSE_PROFILES=mailroom once its image has been published, and set
-MAILROOM_TAG to the Mailroom commit you want.
-" 503
+		respond "Prabhix Mailroom is temporarily unavailable. Refresh the page, and contact support if it stays this way." 503
 	}
 }
