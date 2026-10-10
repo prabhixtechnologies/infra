@@ -110,6 +110,7 @@ function Wait-ForCi {
 }
 
 $pushedAny = $false
+$plannedAny = $false
 
 foreach ($wave in $waves) {
     $pending = @($wave.Repos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Ahead -gt 0 })
@@ -120,6 +121,7 @@ foreach ($wave in $waves) {
     }
 
     if ($pending.Count -eq 0) { continue }
+    $plannedAny = $true
 
     Write-Host ""
     Write-Host ("==> wave '{0}': {1}" -f $wave.Name, (($pending | ForEach-Object { "$($_.Repo) (+$($_.Ahead))" }) -join ", "))
@@ -146,6 +148,8 @@ foreach ($wave in $waves) {
 Write-Host ""
 if ($pushedAny) {
     Write-Host "==> Done. Image builds were spread across waves rather than run together."
+} elseif ($WhatIfPreference -and $plannedAny) {
+    Write-Host "==> Plan shown. Nothing was pushed because -WhatIf was used."
 } else {
     Write-Host "==> Nothing to push; every repository is level with its remote."
 }

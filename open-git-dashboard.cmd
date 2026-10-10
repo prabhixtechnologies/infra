@@ -1,4 +1,2 @@
 @echo off
-setlocal
-powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "%~dp0scripts\git-dashboard.ps1"
-if errorlevel 1 pause
+start "" powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0scripts\git-dashboard.ps1"
