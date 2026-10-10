@@ -13,16 +13,28 @@ Double-click `Infra\open-git-dashboard.cmd` to manage the eight repositories wit
 - **Commit selected** runs `git add -A` and creates one commit in every checked repository that has
   changes. Review the status/diff first. Common key, certificate, credentials, and environment files
   are blocked.
+- **Open log** opens today's log file, `Infra\logs\dashboard-YYYYMMDD.log`. Every button, confirmation,
+  cancellation, and the full output of fetch, push, deploy, cleanup, and server checks is appended
+  there and kept after the window closes. Password, token, signing-key, and private-key values are
+  replaced with `[redacted]` before they are written. The file is not committed.
 - **Push all pending** previews and then runs `scripts/push-waves.ps1` inside the dashboard log. It pushes
   every repository that is ahead of its upstream—not only checked rows—and waits for CI between
   dependency waves.
 - **AWS status** compares each local source commit with ECR's `latest` image tag and the immutable
   tag pinned in production. `LocalInEcr=False` means CI has not published that local commit yet;
   `Deploy available` means ECR has a newer immutable image than production.
-- **Deploy** opens a service list. Check one service or use **Select all**, enter an immutable tag
-  on each checked row, then type `DEPLOY`. Selected services run one after another. Each tag is
-  verified in ECR, the production pin is backed up, and a failed deploy restores its pin. It never
-  deploys `latest`.
+- **Deploy** opens a service list and fills each deploy tag from that service's latest immutable
+  ECR image. Services with a newer image than production start selected. Check the rows you want,
+  or use **Select all**, then click **Deploy now**. Selected services run one after another. Each tag is
+  verified in ECR, the matching production pin is backed up and updated, and a failed deploy
+  restores its pin. It never deploys `latest`.
+- **Monitor** opens the production monitor. It opens by itself when a deploy starts.
+  The **Deployment** tab lists each selected service with its status, current step, progress, and
+  time, plus the live deploy output. Steps come from `deploy.sh` (ECR sign-in, image pull, start,
+  health check, version saved). A rollback is flagged, and a failure skips the remaining services.
+  The **Server (EC2)** tab shows the instance state, status checks, CPU, load, memory, disk, uptime,
+  and every container's health. It refreshes every 15 seconds and reads no secrets
+  (`deploy/server-status.ps1`). Closing the monitor only hides it; the deploy keeps running.
 - **Environment** loads `/opt/prabhix/deploy/.env.prod` over the production SSH key. Secret values stay
   hidden and are kept when left blank. Every setting starts selected; clear **Select all** to update
   only the rows you check. Saving requires `UPDATE ENV`, first creates a timestamped `.pre-edit`

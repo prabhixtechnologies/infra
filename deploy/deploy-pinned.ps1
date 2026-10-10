@@ -79,6 +79,7 @@ Write-Host "==> Production deploy: $Service -> $Tag" -ForegroundColor Cyan
 $ErrorActionPreference = "Continue"
 try {
     & ssh -i $KeyPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new `
+        -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 `
         "$User@$HostAddress" "echo $encoded | base64 -d | bash 2>&1" |
         ForEach-Object { Write-Host $_ }
     $exitCode = $LASTEXITCODE

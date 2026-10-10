@@ -73,7 +73,7 @@ function Invoke-ProductionSsh {
     }
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = "ssh"
-    $startInfo.Arguments = "-i `"$($script:ProductionEnvKey)`" -o BatchMode=yes -o ConnectTimeout=10 $($script:ProductionEnvUser)@$($script:ProductionEnvHost) bash -s"
+    $startInfo.Arguments = "-i `"$($script:ProductionEnvKey)`" -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 $($script:ProductionEnvUser)@$($script:ProductionEnvHost) bash -s"
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardInput = $true

@@ -44,6 +44,7 @@ $awsStatusScript = Join-Path $Root "Infra\deploy\aws-status.ps1"
 $deployScript = Join-Path $Root "Infra\deploy\deploy-pinned.ps1"
 $cleanupScript = Join-Path $Root "Infra\deploy\ecr-cleanup.ps1"
 $envFileScript = Join-Path $Root "Infra\deploy\env-file.ps1"
+$serverStatusScript = Join-Path $Root "Infra\deploy\server-status.ps1"
 . $envFileScript
 
 function Invoke-Native {
@@ -332,6 +333,71 @@ function Show-TextPrompt {
     return $answer
 }
 
+function Confirm-DashboardAction {
+    param(
+        [string]$Title,
+        [string]$Message,
+        [string]$Details,
+        [string]$ActionText
+    )
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = $Title
+    $dialog.StartPosition = "CenterParent"
+    $dialog.FormBorderStyle = "FixedDialog"
+    $dialog.ClientSize = New-Object Drawing.Size(560, 340)
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+    $dialog.BackColor = $theme.Canvas
+    $dialog.Font = $form.Font
+
+    $promptHeader = New-Object System.Windows.Forms.Panel
+    $promptHeader.Dock = "Top"
+    $promptHeader.Height = 50
+    $promptHeader.BackColor = $theme.Navy
+    $promptTitle = New-Object System.Windows.Forms.Label
+    $promptTitle.Text = $Title
+    $promptTitle.ForeColor = [Drawing.Color]::White
+    $promptTitle.Font = New-Object Drawing.Font("Segoe UI Semibold", 12)
+    $promptTitle.AutoSize = $true
+    $promptTitle.Location = New-Object Drawing.Point(18, 14)
+    $promptHeader.Controls.Add($promptTitle)
+    $dialog.Controls.Add($promptHeader)
+
+    $promptLabel = New-Object System.Windows.Forms.Label
+    $promptLabel.Text = $Message
+    $promptLabel.ForeColor = $theme.Muted
+    $promptLabel.Location = New-Object Drawing.Point(20, 64)
+    $promptLabel.Size = New-Object Drawing.Size(520, 36)
+    $dialog.Controls.Add($promptLabel)
+
+    $detailBox = New-Object System.Windows.Forms.TextBox
+    $detailBox.Text = $Details
+    $detailBox.Multiline = $true
+    $detailBox.ReadOnly = $true
+    $detailBox.ScrollBars = "Vertical"
+    $detailBox.Location = New-Object Drawing.Point(20, 106)
+    $detailBox.Size = New-Object Drawing.Size(520, 150)
+    $detailBox.Font = New-Object Drawing.Font("Cascadia Mono", 10)
+    $detailBox.BackColor = $theme.Surface
+    $dialog.Controls.Add($detailBox)
+
+    $ok = New-Button $ActionText 170 $theme.Purple ([Drawing.Color]::White)
+    $ok.Location = New-Object Drawing.Point(370, 278)
+    $ok.DialogResult = [Windows.Forms.DialogResult]::OK
+    $cancel = New-Button "Cancel" 90
+    $cancel.Location = New-Object Drawing.Point(270, 278)
+    $cancel.DialogResult = [Windows.Forms.DialogResult]::Cancel
+    $dialog.Controls.Add($ok)
+    $dialog.Controls.Add($cancel)
+    $dialog.AcceptButton = $ok
+    $dialog.CancelButton = $cancel
+
+    $confirmed = $dialog.ShowDialog($form) -eq [Windows.Forms.DialogResult]::OK
+    $dialog.Dispose()
+    return $confirmed
+}
+
 function Connect-SelectAll {
     param(
         [System.Windows.Forms.CheckBox]$CheckBox,
@@ -341,9 +407,18 @@ function Connect-SelectAll {
     $state = [pscustomobject]@{ Ignore = $false }
     $CheckBox.Add_CheckedChanged({
         if ($state.Ignore) { return }
-        foreach ($row in @($Grid.Rows)) {
-            if ($row.IsNewRow) { continue }
-            $row.Cells[$Column].Value = $CheckBox.Checked
+        $target = [bool]$CheckBox.Checked
+        $state.Ignore = $true
+        try {
+            [void]$Grid.EndEdit()
+            foreach ($row in @($Grid.Rows)) {
+                if ($row.IsNewRow) { continue }
+                $row.Cells[$Column].Value = $target
+            }
+            $Grid.RefreshEdit()
+            $Grid.Invalidate()
+        } finally {
+            $state.Ignore = $false
         }
     }.GetNewClosure())
     $Grid.Add_CurrentCellDirtyStateChanged({
@@ -352,6 +427,7 @@ function Connect-SelectAll {
         }
     }.GetNewClosure())
     $Grid.Add_CellValueChanged({
+        if ($state.Ignore) { return }
         if ($_.RowIndex -lt 0 -or $Grid.Columns[$_.ColumnIndex].Name -ne $Column) { return }
         $rows = @($Grid.Rows | Where-Object { -not $_.IsNewRow })
         $allChecked = $rows.Count -gt 0 -and @($rows | Where-Object { $_.Cells[$Column].Value -ne $true }).Count -eq 0
@@ -372,11 +448,21 @@ function Show-DeploySelection {
         "backend", "web", "admin", "marketing", "identity", "mailroom",
         "mobistack-backend", "mobistack-web", "app-store"
     )
+    $statusNote = "Loading the latest immutable ECR tags. This takes about 20 seconds."
+    Add-Log "Reading ECR tags for deployment..."
+    $lookup = [powershell]::Create()
+    [void]$lookup.AddScript({
+        param($ScriptPath)
+        $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath -Json 2>&1 | Out-String
+        [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+    }).AddArgument($awsStatusScript)
+    $lookupHandle = $lookup.BeginInvoke()
+
     $dialog = New-Object System.Windows.Forms.Form
     $dialog.Text = "Deploy AWS production"
-    $dialog.StartPosition = "CenterParent"
-    $dialog.ClientSize = New-Object Drawing.Size(760, 560)
-    $dialog.MinimumSize = New-Object Drawing.Size(640, 460)
+    $dialog.StartPosition = "CenterScreen"
+    $dialog.ClientSize = New-Object Drawing.Size(980, 580)
+    $dialog.MinimumSize = New-Object Drawing.Size(820, 480)
     $dialog.MinimizeBox = $false
     $dialog.ShowInTaskbar = $false
     $dialog.BackColor = $theme.Canvas
@@ -393,7 +479,7 @@ function Show-DeploySelection {
     $promptTitle.AutoSize = $true
     $promptTitle.Location = New-Object Drawing.Point(18, 12)
     $promptHint = New-Object System.Windows.Forms.Label
-    $promptHint.Text = "Select one or more services and enter an immutable image tag for each."
+    $promptHint.Text = $statusNote
     $promptHint.ForeColor = [Drawing.ColorTranslator]::FromHtml("#98A2B3")
     $promptHint.AutoSize = $true
     $promptHint.Location = New-Object Drawing.Point(20, 40)
@@ -411,7 +497,7 @@ function Show-DeploySelection {
 
     $deployGrid = New-Object System.Windows.Forms.DataGridView
     $deployGrid.Location = New-Object Drawing.Point(18, 114)
-    $deployGrid.Size = New-Object Drawing.Size(724, 380)
+    $deployGrid.Size = New-Object Drawing.Size(944, 390)
     $deployGrid.Anchor = "Top,Bottom,Left,Right"
     $deployGrid.AllowUserToAddRows = $false
     $deployGrid.AllowUserToDeleteRows = $false
@@ -429,22 +515,86 @@ function Show-DeploySelection {
     $serviceColumn.Name = "Service"
     $serviceColumn.HeaderText = "SERVICE"
     $serviceColumn.ReadOnly = $true
-    $serviceColumn.Width = 220
+    $serviceColumn.Width = 170
+    $productionColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $productionColumn.Name = "Production"
+    $productionColumn.HeaderText = "PRODUCTION"
+    $productionColumn.ReadOnly = $true
+    $productionColumn.Width = 150
+    $stateColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $stateColumn.Name = "State"
+    $stateColumn.HeaderText = "STATUS"
+    $stateColumn.ReadOnly = $true
+    $stateColumn.Width = 140
     $tagColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
     $tagColumn.Name = "Tag"
-    $tagColumn.HeaderText = "IMMUTABLE TAG"
+    $tagColumn.HeaderText = "DEPLOY TAG"
     $tagColumn.AutoSizeMode = "Fill"
-    $deployGrid.Columns.AddRange(@($pick, $serviceColumn, $tagColumn))
-    foreach ($service in $services) { [void]$deployGrid.Rows.Add($false, $service, "") }
+    [void]$deployGrid.Columns.Add($pick)
+    [void]$deployGrid.Columns.Add($serviceColumn)
+    [void]$deployGrid.Columns.Add($productionColumn)
+    [void]$deployGrid.Columns.Add($stateColumn)
+    [void]$deployGrid.Columns.Add($tagColumn)
+    foreach ($service in $services) {
+        [void]$deployGrid.Rows.Add($false, $service, "...", "Loading", "")
+    }
     $dialog.Controls.Add($deployGrid)
     Connect-SelectAll $selectAll $deployGrid "Pick"
 
     $deploy = New-Button "Deploy selected" 140 $theme.Purple ([Drawing.Color]::White)
+    $deploy.Enabled = $false
+
+    $lookupTimer = New-Object System.Windows.Forms.Timer
+    $lookupTimer.Interval = 300
+    $lookupTimer.Add_Tick({
+        if (-not $lookupHandle.IsCompleted) { return }
+        $lookupTimer.Stop()
+        $statusByService = @{}
+        try {
+            $result = @($lookup.EndInvoke($lookupHandle))[0]
+            if (-not $result -or $result.ExitCode -ne 0) { throw "status failed" }
+            $json = [string]$result.Output
+            $jsonStart = $json.IndexOf("[")
+            if ($jsonStart -lt 0) { $jsonStart = $json.IndexOf("{") }
+            if ($jsonStart -lt 0) { throw "no status data" }
+            # Windows PowerShell 5.1 emits a JSON array as one pipeline object, so enumerate it explicitly.
+            $parsed = ConvertFrom-Json -InputObject $json.Substring($jsonStart)
+            foreach ($item in $parsed) {
+                if ($item.Service) { $statusByService[[string]$item.Service] = $item }
+            }
+            if ($statusByService.Count -eq 0) { throw "no services in status data" }
+            $promptHint.Text = "Tags are filled from the latest immutable image in ECR. Newer images start selected."
+            Add-Log "Deployment tags loaded."
+        } catch {
+            $promptHint.Text = "ECR tags could not be loaded. Enter an immutable commit tag for each selected service."
+            Add-Log "Could not load deployment tags."
+        } finally {
+            $lookup.Dispose()
+        }
+        foreach ($row in $deployGrid.Rows) {
+            $info = $statusByService[[string]$row.Cells["Service"].Value]
+            $latest = if ($info) { [string]$info.EcrLatest } else { "" }
+            $tag = if ($latest -match "^[0-9a-f]{7,40}$") { $latest } else { "" }
+            $deployment = if ($info) { [string]$info.Deployment } else { "Unknown" }
+            $row.Cells["Production"].Value = if ($info) { [string]$info.Production } else { "-" }
+            $row.Cells["State"].Value = $deployment
+            $row.Cells["Tag"].Value = $tag
+            $row.Cells["Pick"].Value = [bool]($deployment -eq "Deploy available" -and $tag)
+        }
+        $deploy.Enabled = $true
+    }.GetNewClosure())
+    $dialog.Add_Shown({ $lookupTimer.Start() }.GetNewClosure())
+    $dialog.Add_FormClosed({
+        $lookupTimer.Stop()
+        $lookupTimer.Dispose()
+        if (-not $lookupHandle.IsCompleted) { [void]$lookup.BeginStop($null, $null) }
+        $script:deployChooser = $null
+    }.GetNewClosure())
     $deploy.Anchor = "Bottom,Right"
-    $deploy.Location = New-Object Drawing.Point(602, 512)
+    $deploy.Location = New-Object Drawing.Point(822, 528)
     $cancel = New-Button "Cancel" 90
     $cancel.Anchor = "Bottom,Right"
-    $cancel.Location = New-Object Drawing.Point(500, 512)
+    $cancel.Location = New-Object Drawing.Point(720, 528)
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $dialog.CancelButton = $cancel
     $dialog.Controls.Add($deploy)
@@ -469,12 +619,34 @@ function Show-DeploySelection {
             [Windows.Forms.MessageBox]::Show("Select at least one service.", "Deploy AWS", "OK", "Information") | Out-Null
             return
         }
-        $dialog.Tag = $chosen
-        $dialog.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    })
+        $summary = ($chosen | ForEach-Object { "$($_.Service)    $($_.Tag)" }) -join "`r`n"
+        $confirmed = Confirm-DashboardAction `
+            -Title "Confirm production deploy" `
+            -Message "This updates the production version and may run database migrations. A backup is taken first." `
+            -Details $summary `
+            -ActionText "Deploy now"
+        if (-not $confirmed) {
+            Add-Log "Production deploy cancelled."
+            return
+        }
+        $dialog.Close()
+        $script:pendingTasks.Clear()
+        foreach ($item in @($chosen | Select-Object -Skip 1)) {
+            $script:pendingTasks.Enqueue([pscustomobject]@{
+                ScriptPath = $deployScript
+                Arguments = @("-Service", $item.Service, "-Tag", $item.Tag, "-Confirm")
+                Label = "Deploying $($item.Service) at $($item.Tag). Progress appears below."
+            })
+        }
+        $first = $chosen[0]
+        Start-MonitorDeploy $chosen
+        Start-DashboardTask -ScriptPath $deployScript -ScriptArguments @(
+            "-Service", $first.Service, "-Tag", $first.Tag, "-Confirm"
+        ) -Label "Deploying $($first.Service) at $($first.Tag). Live progress is in the Production monitor."
+    }.GetNewClosure())
 
-    if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) { return @() }
-    return @($dialog.Tag)
+    $script:deployChooser = $dialog
+    [void]$dialog.Show()
 }
 
 $gitActions = New-ActionGroup "Workspace actions"
@@ -487,12 +659,14 @@ $fetchButton = New-Button "Fetch all" 110
 $ciButton = New-Button "Check CI" 105
 $diffButton = New-Button "View diff" 110
 $pushButton = New-Button "Push pending" 130 $theme.Primary ([Drawing.Color]::White)
+$logButton = New-Button "Open log" 100
 $awsButton = New-Button "AWS status" 120
 $deployButton = New-Button "Deploy" 105 $theme.Purple ([Drawing.Color]::White)
 $cleanupButton = New-Button "Clean ECR" 105
 $envButton = New-Button "Environment" 130
-$gitActions.Flow.Controls.AddRange(@($refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton))
-$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $envButton, $cleanupButton))
+$gitActions.Flow.Controls.AddRange(@($refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton))
+$monitorButton = New-Button "Monitor" 105 $theme.Navy ([Drawing.Color]::White)
+$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $cleanupButton))
 
 $tooltips = New-Object System.Windows.Forms.ToolTip
 $tooltips.AutoPopDelay = 9000
@@ -502,10 +676,12 @@ $tooltips.SetToolTip($fetchButton, "Fetch every remote without merging or changi
 $tooltips.SetToolTip($ciButton, "Read the latest GitHub Actions result for each current commit.")
 $tooltips.SetToolTip($diffButton, "Show the selected repository's unstaged changes.")
 $tooltips.SetToolTip($pushButton, "Preview and push every ahead repository in safe dependency waves.")
+$tooltips.SetToolTip($logButton, "Open today's dashboard log. Passwords and keys are left out of it.")
 $tooltips.SetToolTip($awsButton, "Compare local commits, ECR images and production pins.")
 $tooltips.SetToolTip($deployButton, "Deploy one immutable image tag to production.")
 $tooltips.SetToolTip($envButton, "Safely view and update the production environment file.")
 $tooltips.SetToolTip($cleanupButton, "Preview protected ECR retention before deleting anything.")
+$tooltips.SetToolTip($monitorButton, "Live deployment progress and EC2 server health.")
 
 $workspaceCard = New-Object System.Windows.Forms.Panel
 $workspaceCard.Dock = "Fill"
@@ -666,11 +842,35 @@ $log.ForeColor = [Drawing.ColorTranslator]::FromHtml("#D1D5DB")
 $log.Font = New-Object Drawing.Font("Cascadia Mono", 9)
 $activityTab.Controls.Add($log)
 
+$script:dashboardLog = Join-Path $Root ("Infra\logs\dashboard-{0}.log" -f (Get-Date -Format "yyyyMMdd"))
+
+function Protect-LogText {
+    param([string]$Text)
+    if (-not $Text) { return "" }
+    $Text = $Text -replace '(?i)((?:PASSWORD|SECRET|TOKEN|CREDENTIAL|SIGNING_KEY|AUTH_TOKEN|API_KEY)\s*=\s*)\S+', '$1[redacted]'
+    $Text = $Text -replace '(?i)(://[^:\s]+:)[^@\s]+@', '$1[redacted]@'
+    $Text = $Text -replace '(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----', '[redacted private key]'
+    return $Text
+}
+
+function Write-DashboardLog {
+    param([string]$Message)
+    try {
+        $directory = Split-Path $script:dashboardLog
+        if (-not (Test-Path $directory)) { New-Item -ItemType Directory -Path $directory | Out-Null }
+        $line = "[{0}] {1}{2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), (Protect-LogText $Message), [Environment]::NewLine
+        [IO.File]::AppendAllText($script:dashboardLog, $line)
+    } catch {
+        # A logging failure must not stop the action the user asked for.
+    }
+}
+
 function Add-Log {
     param([string]$Message)
     $log.AppendText("[$(Get-Date -Format HH:mm:ss)] $Message`r`n")
     $log.SelectionStart = $log.TextLength
     $log.ScrollToCaret()
+    Write-DashboardLog $Message
 }
 
 function Format-ProcessArgument {
@@ -682,12 +882,18 @@ $script:outputQueue = New-Object System.Collections.Concurrent.ConcurrentQueue[s
 $script:activeTask = $null
 $script:refreshAfterTask = $false
 $script:pendingTasks = New-Object System.Collections.Generic.Queue[object]
+$script:lastTaskOutputAt = $null
+$script:taskStallReported = $false
 $outputTimer = New-Object System.Windows.Forms.Timer
 $outputTimer.Interval = 200
 $outputTimer.Add_Tick({
     $line = ""
     while ($script:outputQueue.TryDequeue([ref]$line)) {
+        $script:lastTaskOutputAt = Get-Date
+        $script:taskStallReported = $false
         $log.AppendText("$line`r`n")
+        Write-DashboardLog $line
+        if ($script:monitorDeployActive) { Update-MonitorLine $line }
     }
     if ($line) {
         $log.SelectionStart = $log.TextLength
@@ -697,9 +903,26 @@ $outputTimer.Add_Tick({
     foreach ($pump in @($script:outputPumps)) {
         if ($pump -and -not $pump.Handle.IsCompleted) { $pumpsDone = $false }
     }
+    if (
+        $script:activeTask -and -not $script:activeTask.HasExited -and
+        $script:lastTaskOutputAt -and -not $script:taskStallReported -and
+        ((Get-Date) - $script:lastTaskOutputAt).TotalSeconds -ge 45
+    ) {
+        $script:taskStallReported = $true
+        $message = "No deploy output for 45 seconds. The SSH connection may be interrupted; the dashboard is still waiting."
+        Add-Log $message
+        if ($script:monitorDeployActive -and $script:monitor) {
+            $script:monitor.Subtitle.Text = $message
+            if ($script:monitor.Index -ge 0 -and $script:monitor.Index -lt $script:monitor.Services.Rows.Count) {
+                $script:monitor.Services.Rows[$script:monitor.Index].Cells["Step"].Value =
+                    "Waiting for the production SSH connection"
+            }
+        }
+    }
     if ($script:activeTask -and $script:activeTask.HasExited -and $pumpsDone -and $script:refreshAfterTask) {
         $exitCode = $script:activeTask.ExitCode
         Add-Log "Finished with exit code $exitCode."
+        if ($script:monitorDeployActive) { Complete-MonitorService $exitCode }
         if ($exitCode -eq 0 -and $script:pendingTasks.Count -gt 0) {
             $next = $script:pendingTasks.Dequeue()
             Start-DashboardTask -ScriptPath $next.ScriptPath -ScriptArguments $next.Arguments -Label $next.Label
@@ -715,7 +938,10 @@ $outputTimer.Add_Tick({
     }
 })
 $outputTimer.Start()
-$form.Add_FormClosed({ $outputTimer.Stop() })
+$form.Add_FormClosed({
+    Write-DashboardLog "Dashboard closed."
+    $outputTimer.Stop()
+})
 
 # Long operations stay inside this window. Their output is appended here instead of opening a console.
 function Start-DashboardTask {
@@ -758,6 +984,8 @@ function Start-DashboardTask {
     )
     $script:activeTask = $process
     $script:refreshAfterTask = $true
+    $script:lastTaskOutputAt = Get-Date
+    $script:taskStallReported = $false
 }
 
 # .NET process events do not reliably share PowerShell variables, so a runspace reads each stream.
@@ -794,7 +1022,7 @@ function Set-Busy {
         [Drawing.ColorTranslator]::FromHtml("#17382B")
     }
     foreach ($control in @(
-        $refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton,
+        $refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton,
         $awsButton, $deployButton, $cleanupButton, $envButton, $commitButton
     )) {
         $control.Enabled = -not $Busy
@@ -1040,6 +1268,475 @@ $awsButton.Add_Click({
     }
 })
 
+$script:monitor = $null
+$script:monitorDeployActive = $false
+
+function New-StatCard {
+    param($Parent, [string]$Title)
+    $card = New-Object System.Windows.Forms.Panel
+    $card.Size = New-Object Drawing.Size(196, 70)
+    $card.Margin = New-Object Windows.Forms.Padding(0, 0, 10, 10)
+    $card.BackColor = $theme.Surface
+    $caption = New-Object System.Windows.Forms.Label
+    $caption.Text = $Title.ToUpperInvariant()
+    $caption.Font = New-Object Drawing.Font("Segoe UI Semibold", 7.5)
+    $caption.ForeColor = $theme.Muted
+    $caption.Location = New-Object Drawing.Point(12, 10)
+    $caption.AutoSize = $true
+    $value = New-Object System.Windows.Forms.Label
+    $value.Text = "-"
+    $value.Font = New-Object Drawing.Font("Segoe UI Semibold", 11)
+    $value.ForeColor = $theme.Navy
+    $value.Location = New-Object Drawing.Point(12, 32)
+    $value.Size = New-Object Drawing.Size(178, 30)
+    $value.AutoEllipsis = $true
+    $card.Controls.Add($caption)
+    $card.Controls.Add($value)
+    $Parent.Controls.Add($card)
+    $value
+}
+
+function New-MonitorGrid {
+    $view = New-Object System.Windows.Forms.DataGridView
+    $view.Dock = "Fill"
+    $view.AllowUserToAddRows = $false
+    $view.AllowUserToDeleteRows = $false
+    $view.AllowUserToResizeRows = $false
+    $view.ReadOnly = $true
+    $view.RowHeadersVisible = $false
+    $view.SelectionMode = "FullRowSelect"
+    $view.BackgroundColor = $theme.Surface
+    $view.BorderStyle = "None"
+    $view.CellBorderStyle = "SingleHorizontal"
+    $view.GridColor = $theme.Border
+    $view.EnableHeadersVisualStyles = $false
+    $view.ColumnHeadersBorderStyle = "None"
+    $view.ColumnHeadersHeight = 38
+    $view.ColumnHeadersDefaultCellStyle.BackColor = [Drawing.ColorTranslator]::FromHtml("#F9FAFB")
+    $view.ColumnHeadersDefaultCellStyle.ForeColor = $theme.Muted
+    $view.ColumnHeadersDefaultCellStyle.Font = New-Object Drawing.Font("Segoe UI Semibold", 8.5)
+    $view.DefaultCellStyle.SelectionBackColor = [Drawing.ColorTranslator]::FromHtml("#EFF4FF")
+    $view.DefaultCellStyle.SelectionForeColor = $theme.Navy
+    $view.DefaultCellStyle.Padding = New-Object Windows.Forms.Padding(6, 0, 6, 0)
+    $view.RowTemplate.Height = 34
+    $view
+}
+
+function Add-MonitorColumn {
+    param($View, [string]$Name, [string]$Header, [int]$Width, [switch]$Fill)
+    $column = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $column.Name = $Name
+    $column.HeaderText = $Header
+    $column.Width = $Width
+    if ($Fill) { $column.AutoSizeMode = "Fill" }
+    [void]$View.Columns.Add($column)
+}
+
+function New-OpsMonitor {
+    if ($script:monitor -and -not $script:monitor.Form.IsDisposed) { return }
+
+    $m = @{}
+    $window = New-Object System.Windows.Forms.Form
+    $window.Text = "Production monitor"
+    $window.StartPosition = "CenterScreen"
+    $window.Size = New-Object Drawing.Size(1180, 780)
+    $window.MinimumSize = New-Object Drawing.Size(960, 620)
+    $window.BackColor = $theme.Canvas
+    $window.Font = $form.Font
+    $m.Form = $window
+
+    $head = New-Object System.Windows.Forms.Panel
+    $head.Dock = "Top"
+    $head.Height = 112
+    $head.BackColor = $theme.Navy
+    $m.Title = New-Object System.Windows.Forms.Label
+    $m.Title.Text = "Production monitor"
+    $m.Title.ForeColor = [Drawing.Color]::White
+    $m.Title.Font = New-Object Drawing.Font("Segoe UI Semibold", 16)
+    $m.Title.AutoSize = $true
+    $m.Title.Location = New-Object Drawing.Point(22, 12)
+    $m.Subtitle = New-Object System.Windows.Forms.Label
+    $m.Subtitle.Text = "No deployment running. Server health refreshes every 15 seconds."
+    $m.Subtitle.ForeColor = [Drawing.ColorTranslator]::FromHtml("#98A2B3")
+    $m.Subtitle.AutoSize = $true
+    $m.Subtitle.Location = New-Object Drawing.Point(24, 46)
+    $m.Progress = New-Object System.Windows.Forms.ProgressBar
+    $m.Progress.Location = New-Object Drawing.Point(24, 76)
+    $m.Progress.Size = New-Object Drawing.Size(860, 14)
+    $m.Progress.Anchor = "Top,Left,Right"
+    $m.Progress.Minimum = 0
+    $m.Progress.Maximum = 100
+    $m.Elapsed = New-Object System.Windows.Forms.Label
+    $m.Elapsed.Text = ""
+    $m.Elapsed.ForeColor = [Drawing.Color]::White
+    $m.Elapsed.Font = New-Object Drawing.Font("Segoe UI Semibold", 10)
+    $m.Elapsed.TextAlign = "MiddleRight"
+    $m.Elapsed.Size = New-Object Drawing.Size(240, 24)
+    $m.Elapsed.Anchor = "Top,Right"
+    $m.Elapsed.Location = New-Object Drawing.Point(900, 70)
+    $head.Controls.AddRange(@($m.Title, $m.Subtitle, $m.Progress, $m.Elapsed))
+    $window.Controls.Add($head)
+
+    $m.Tabs = New-Object System.Windows.Forms.TabControl
+    $m.Tabs.Dock = "Fill"
+    $m.Tabs.Padding = New-Object Drawing.Point(16, 6)
+    $m.Tabs.Font = New-Object Drawing.Font("Segoe UI Semibold", 9)
+    $m.DeployTab = New-Object System.Windows.Forms.TabPage
+    $m.DeployTab.Text = "  Deployment  "
+    $m.DeployTab.BackColor = $theme.Canvas
+    $m.DeployTab.Padding = New-Object Windows.Forms.Padding(12)
+    $m.ServerTab = New-Object System.Windows.Forms.TabPage
+    $m.ServerTab.Text = "  Server (EC2)  "
+    $m.ServerTab.BackColor = $theme.Canvas
+    $m.ServerTab.Padding = New-Object Windows.Forms.Padding(12)
+    $m.Tabs.TabPages.Add($m.DeployTab)
+    $m.Tabs.TabPages.Add($m.ServerTab)
+    $window.Controls.Add($m.Tabs)
+    $m.Tabs.BringToFront()
+
+    $deploySplit = New-Object System.Windows.Forms.SplitContainer
+    $deploySplit.Dock = "Fill"
+    $deploySplit.Orientation = "Horizontal"
+    $deploySplit.SplitterDistance = 230
+    $deploySplit.SplitterWidth = 8
+    $m.DeployTab.Controls.Add($deploySplit)
+    $m.Services = New-MonitorGrid
+    Add-MonitorColumn $m.Services "Service" "SERVICE" 180
+    Add-MonitorColumn $m.Services "Tag" "TAG" 110
+    Add-MonitorColumn $m.Services "State" "STATUS" 120
+    Add-MonitorColumn $m.Services "Percent" "PROGRESS" 90
+    Add-MonitorColumn $m.Services "Step" "CURRENT STEP" 300 -Fill
+    Add-MonitorColumn $m.Services "Duration" "TIME" 80
+    $deploySplit.Panel1.Controls.Add($m.Services)
+    $m.Log = New-Object System.Windows.Forms.TextBox
+    $m.Log.Dock = "Fill"
+    $m.Log.Multiline = $true
+    $m.Log.ReadOnly = $true
+    $m.Log.ScrollBars = "Both"
+    $m.Log.WordWrap = $false
+    $m.Log.BorderStyle = "None"
+    $m.Log.BackColor = $theme.Code
+    $m.Log.ForeColor = [Drawing.ColorTranslator]::FromHtml("#D1D5DB")
+    $m.Log.Font = New-Object Drawing.Font("Cascadia Mono", 9)
+    $deploySplit.Panel2.Controls.Add($m.Log)
+
+    $serverLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $serverLayout.Dock = "Fill"
+    $serverLayout.ColumnCount = 1
+    $serverLayout.RowCount = 3
+    [void]$serverLayout.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 40)))
+    [void]$serverLayout.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 170)))
+    [void]$serverLayout.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
+    $m.ServerTab.Controls.Add($serverLayout)
+    $serverBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $serverBar.Dock = "Fill"
+    $m.RefreshServer = New-Button "Refresh now" 120
+    $m.RefreshServer.Margin = New-Object Windows.Forms.Padding(0, 0, 12, 0)
+    $m.ServerChecked = New-Object System.Windows.Forms.Label
+    $m.ServerChecked.Text = "Loading server status..."
+    $m.ServerChecked.ForeColor = $theme.Muted
+    $m.ServerChecked.AutoSize = $true
+    $m.ServerChecked.Margin = New-Object Windows.Forms.Padding(0, 11, 0, 0)
+    $serverBar.Controls.Add($m.RefreshServer)
+    $serverBar.Controls.Add($m.ServerChecked)
+    $serverLayout.Controls.Add($serverBar, 0, 0)
+    $cards = New-Object System.Windows.Forms.FlowLayoutPanel
+    $cards.Dock = "Fill"
+    $cards.WrapContents = $true
+    $m.CardState = New-StatCard $cards "Instance"
+    $m.CardChecks = New-StatCard $cards "Status checks"
+    $m.CardCpu = New-StatCard $cards "CPU (last 5 min)"
+    $m.CardLoad = New-StatCard $cards "Load average"
+    $m.CardMemory = New-StatCard $cards "Memory"
+    $m.CardDisk = New-StatCard $cards "Disk /"
+    $m.CardUptime = New-StatCard $cards "Uptime"
+    $m.CardHost = New-StatCard $cards "Type and address"
+    $m.CardContainers = New-StatCard $cards "Containers"
+    $m.CardZone = New-StatCard $cards "Availability zone"
+    $serverLayout.Controls.Add($cards, 0, 1)
+    $m.Containers = New-MonitorGrid
+    Add-MonitorColumn $m.Containers "Name" "CONTAINER" 230
+    Add-MonitorColumn $m.Containers "Image" "IMAGE" 260
+    Add-MonitorColumn $m.Containers "Health" "HEALTH" 110
+    Add-MonitorColumn $m.Containers "Status" "STATUS" 300 -Fill
+    $serverLayout.Controls.Add($m.Containers, 0, 2)
+
+    $m.Queue = @()
+    $m.Index = -1
+    $m.Started = $null
+    $m.ServiceStarted = $null
+    $m.ServiceBest = 0
+    $m.ServerLookup = $null
+    $m.ServerHandle = $null
+    $m.ServerNext = [DateTime]::MinValue
+
+    $m.Timer = New-Object System.Windows.Forms.Timer
+    $m.Timer.Interval = 500
+    $m.Timer.Add_Tick({ Update-OpsMonitorTick })
+    $m.RefreshServer.Add_Click({ Start-ServerRefresh -Force })
+    $window.Add_FormClosing({
+        param($sender, $e)
+        if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
+            $e.Cancel = $true
+            $sender.Hide()
+        }
+    })
+    $form.Add_FormClosed({
+        if ($script:monitor) {
+            $script:monitor.Timer.Stop()
+            $script:monitor.Form.Dispose()
+        }
+    })
+
+    $script:monitor = $m
+    $m.Timer.Start()
+}
+
+function Show-OpsMonitor {
+    param([ValidateSet("deploy", "server")][string]$Tab = "server")
+    New-OpsMonitor
+    $m = $script:monitor
+    $m.Tabs.SelectedTab = if ($Tab -eq "deploy") { $m.DeployTab } else { $m.ServerTab }
+    if (-not $m.Form.Visible) { $m.Form.Show($form) }
+    $m.Form.Activate()
+    Start-ServerRefresh
+}
+
+function Start-ServerRefresh {
+    param([switch]$Force)
+    $m = $script:monitor
+    if (-not $m) { return }
+    if ($m.ServerHandle -and -not $m.ServerHandle.IsCompleted) { return }
+    if (-not $Force -and (Get-Date) -lt $m.ServerNext) { return }
+    $m.ServerChecked.Text = "Checking the server..."
+    $lookup = [powershell]::Create()
+    [void]$lookup.AddScript({
+        param($ScriptPath)
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath 2>&1 | Out-String
+    }).AddArgument($serverStatusScript)
+    $m.ServerLookup = $lookup
+    $m.ServerHandle = $lookup.BeginInvoke()
+}
+
+function Get-HealthColor {
+    param([string]$Value)
+    switch -Regex ($Value) {
+        '^(Healthy|Running|running|ok|passed|Succeeded)$' { return $theme.Success }
+        '^(Starting|Restarting|pending|initializing|Running deploy|Rolling back)$' { return $theme.Warning }
+        '^(Unhealthy|Stopped|stopped|impaired|Failed|failed|Skipped)' { return $theme.Danger }
+    }
+    return $theme.Navy
+}
+
+function Set-HealthColor {
+    param($Target, [string]$Value)
+    $color = Get-HealthColor $Value
+    if ($Target -is [System.Windows.Forms.Control]) { $Target.ForeColor = $color }
+    else { $Target.Style.ForeColor = $color }
+}
+
+function Apply-ServerSnapshot {
+    param([string]$Text)
+    $m = $script:monitor
+    $start = $Text.IndexOf("{")
+    if ($start -lt 0) {
+        $m.ServerChecked.Text = "Server status could not be read. $($Text.Trim())"
+        return
+    }
+    $snap = ConvertFrom-Json -InputObject $Text.Substring($start)
+    $m.CardState.Text = [string]$snap.State
+    Set-HealthColor $m.CardState ([string]$snap.State)
+    $m.CardChecks.Text = "System $($snap.SystemCheck), instance $($snap.InstanceCheck)"
+    $m.CardCpu.Text = if ($snap.CpuPercent -ne "-") { "$($snap.CpuPercent)%" } else { "-" }
+    $m.CardLoad.Text = "$($snap.Load)  ($($snap.Cpus) vCPU)"
+    $m.CardMemory.Text = [string]$snap.Memory
+    $m.CardDisk.Text = [string]$snap.Disk
+    $m.CardUptime.Text = [string]$snap.Uptime
+    $m.CardHost.Text = "$($snap.Type)  $($snap.PublicIp)"
+    $m.CardZone.Text = [string]$snap.Zone
+
+    $m.Containers.Rows.Clear()
+    $healthy = 0
+    $total = 0
+    foreach ($c in $snap.Containers) {
+        if (-not $c.Name) { continue }
+        $total++
+        if ($c.Health -in @("Healthy", "Running")) { $healthy++ }
+        $index = $m.Containers.Rows.Add([string]$c.Name, [string]$c.Image, [string]$c.Health, [string]$c.Status)
+        $row = $m.Containers.Rows[$index]
+        Set-HealthColor $row.Cells["Health"] ([string]$c.Health)
+        if ($c.Health -in @("Unhealthy", "Stopped", "Restarting")) {
+            $row.DefaultCellStyle.BackColor = $theme.DangerSoft
+        }
+    }
+    $m.CardContainers.Text = "$healthy of $total up"
+    $m.CardContainers.ForeColor = if ($total -gt 0 -and $healthy -eq $total) { $theme.Success } else { $theme.Warning }
+    $errorsText = (@($snap.Errors) | Where-Object { $_ }) -join "  "
+    $m.ServerChecked.Text = "Last checked $($snap.CheckedAt). Refreshes every 15 seconds." +
+        $(if ($errorsText) { "  Problem: $errorsText" } else { "" })
+}
+
+function Get-DeployStep {
+    param([string]$Line)
+    $steps = @(
+        @('==> Production deploy', 3, 'Verifying image in ECR'),
+        @('\[remote\] .* -> .*backup', 8, 'Backed up the environment file'),
+        @('Refreshing .* from Parameter Store', 12, 'Refreshing environment'),
+        @('Secrets from|Reading secrets', 15, 'Loading secrets'),
+        @('Authenticating to ECR', 20, 'Signing in to ECR'),
+        @('Pulling images', 30, 'Pulling images'),
+        @('Application services in this deploy', 42, 'Images pulled'),
+        @('postgres|managed database', 46, 'Checking the database'),
+        @('pgbouncer', 50, 'Restarting the connection pool'),
+        @('Deploying identity', 58, 'Starting identity'),
+        @('Health-gating identity', 64, 'Waiting for identity to be healthy'),
+        @('Identity is ready', 68, 'Identity is healthy'),
+        @('Deploying backend', 70, 'Starting backend (database migrations)'),
+        @('Health-gating backend', 74, 'Waiting for backend to be ready'),
+        @('Backend is ready', 78, 'Backend is ready'),
+        @('Deploying mobistack-backend', 80, 'Starting MobiStack backend'),
+        @('Health-gating mobistack-backend', 83, 'Waiting for MobiStack backend'),
+        @('mobistack-backend is ready', 86, 'MobiStack backend is ready'),
+        @('Deploying frontends', 88, 'Starting frontends'),
+        @('Recreating caddy', 92, 'Reloading the web proxy'),
+        @('Pruning dangling images', 95, 'Cleaning up old images'),
+        @('Deploy succeeded', 98, 'Deploy succeeded'),
+        @('production pin persisted', 100, 'Version saved to the environment file')
+    )
+    foreach ($step in $steps) {
+        if ($Line -match $step[0]) { return [pscustomobject]@{ Percent = $step[1]; Label = $step[2] } }
+    }
+    if ($Line -match 'ROLLBACK') { return [pscustomobject]@{ Percent = -1; Label = 'Rolling back to the previous images' } }
+    return $null
+}
+
+function Start-MonitorDeploy {
+    param($Items)
+    Show-OpsMonitor -Tab deploy
+    $m = $script:monitor
+    $m.Queue = @($Items)
+    $m.Index = 0
+    $m.Started = Get-Date
+    $m.ServiceStarted = Get-Date
+    $m.ServiceBest = 0
+    $m.Log.Clear()
+    $m.Services.Rows.Clear()
+    foreach ($item in $m.Queue) {
+        [void]$m.Services.Rows.Add($item.Service, $item.Tag, "Queued", "0%", "Waiting", "")
+    }
+    Set-MonitorRowState 0 "Running deploy"
+    $m.Title.Text = "Deploying $($m.Queue.Count) service$(if ($m.Queue.Count -ne 1) { 's' })"
+    $m.Subtitle.Text = "Deploying $($m.Queue[0].Service) at $($m.Queue[0].Tag)"
+    $m.Progress.Value = 0
+    $script:monitorDeployActive = $true
+}
+
+function Set-MonitorRowState {
+    param([int]$Index, [string]$State)
+    $m = $script:monitor
+    if ($Index -lt 0 -or $Index -ge $m.Services.Rows.Count) { return }
+    $row = $m.Services.Rows[$Index]
+    $row.Cells["State"].Value = $State
+    Set-HealthColor $row.Cells["State"] $State
+    $row.DefaultCellStyle.BackColor = switch ($State) {
+        "Running deploy" { [Drawing.ColorTranslator]::FromHtml("#EFF4FF") }
+        "Rolling back" { $theme.WarningSoft }
+        "Succeeded" { $theme.SuccessSoft }
+        "Failed" { $theme.DangerSoft }
+        default { $theme.Surface }
+    }
+}
+
+function Update-MonitorLine {
+    param([string]$Line)
+    $m = $script:monitor
+    if (-not $m -or $m.Form.IsDisposed) { return }
+    $m.Log.AppendText("$Line`r`n")
+    $step = Get-DeployStep $Line
+    if (-not $step -or $m.Index -lt 0 -or $m.Index -ge $m.Queue.Count) { return }
+    $row = $m.Services.Rows[$m.Index]
+    $row.Cells["Step"].Value = $step.Label
+    if ($step.Percent -lt 0) {
+        Set-MonitorRowState $m.Index "Rolling back"
+        return
+    }
+    if ($step.Percent -gt $m.ServiceBest) { $m.ServiceBest = $step.Percent }
+    $row.Cells["Percent"].Value = "$($m.ServiceBest)%"
+    $overall = [int](($m.Index * 100 + $m.ServiceBest) / [Math]::Max(1, $m.Queue.Count))
+    $m.Progress.Value = [Math]::Min(100, [Math]::Max(0, $overall))
+}
+
+function Complete-MonitorService {
+    param([int]$ExitCode)
+    $m = $script:monitor
+    if (-not $m -or $m.Index -lt 0 -or $m.Index -ge $m.Queue.Count) { return }
+    $row = $m.Services.Rows[$m.Index]
+    $row.Cells["Duration"].Value = Format-Elapsed ((Get-Date) - $m.ServiceStarted)
+    if ($ExitCode -eq 0) {
+        Set-MonitorRowState $m.Index "Succeeded"
+        $row.Cells["Percent"].Value = "100%"
+        $row.Cells["Step"].Value = "Live and pinned in the environment file"
+    } else {
+        Set-MonitorRowState $m.Index "Failed"
+        $row.Cells["Step"].Value = "Failed. The previous version and pin were restored."
+        for ($i = $m.Index + 1; $i -lt $m.Queue.Count; $i++) {
+            $m.Services.Rows[$i].Cells["State"].Value = "Skipped"
+            $m.Services.Rows[$i].Cells["Step"].Value = "Not started because an earlier deploy failed"
+        }
+    }
+    $m.Index++
+    $m.ServiceBest = 0
+    $m.ServiceStarted = Get-Date
+    if ($ExitCode -eq 0 -and $m.Index -lt $m.Queue.Count) {
+        Set-MonitorRowState $m.Index "Running deploy"
+        $m.Subtitle.Text = "Deploying $($m.Queue[$m.Index].Service) at $($m.Queue[$m.Index].Tag)"
+        $m.Progress.Value = [int]($m.Index * 100 / $m.Queue.Count)
+        return
+    }
+    $script:monitorDeployActive = $false
+    $total = Format-Elapsed ((Get-Date) - $m.Started)
+    if ($ExitCode -eq 0) {
+        $m.Progress.Value = 100
+        $m.Title.Text = "Deployment complete"
+        $m.Subtitle.Text = "All $($m.Queue.Count) service(s) are live. Total time $total."
+    } else {
+        $m.Title.Text = "Deployment failed"
+        $m.Subtitle.Text = "Check the output below. The failed service was rolled back. Total time $total."
+    }
+    Start-ServerRefresh -Force
+}
+
+function Format-Elapsed {
+    param([TimeSpan]$Span)
+    "{0:00}:{1:00}" -f [Math]::Floor($Span.TotalMinutes), $Span.Seconds
+}
+
+function Update-OpsMonitorTick {
+    $m = $script:monitor
+    if (-not $m -or $m.Form.IsDisposed) { return }
+    if ($script:monitorDeployActive -and $m.Started) {
+        $m.Elapsed.Text = "Elapsed " + (Format-Elapsed ((Get-Date) - $m.Started))
+        if ($m.Index -ge 0 -and $m.Index -lt $m.Services.Rows.Count) {
+            $m.Services.Rows[$m.Index].Cells["Duration"].Value = Format-Elapsed ((Get-Date) - $m.ServiceStarted)
+        }
+    }
+    if ($m.ServerHandle -and $m.ServerHandle.IsCompleted) {
+        $text = ""
+        try {
+            $text = [string](@($m.ServerLookup.EndInvoke($m.ServerHandle)) -join "")
+            Apply-ServerSnapshot $text
+        } catch {
+            $m.ServerChecked.Text = "Server status could not be read: $($_.Exception.Message)"
+        } finally {
+            $m.ServerLookup.Dispose()
+            $m.ServerLookup = $null
+            $m.ServerHandle = $null
+            $m.ServerNext = (Get-Date).AddSeconds(15)
+        }
+    }
+    if ($m.Form.Visible) { Start-ServerRefresh }
+}
+
 $deployButton.Add_Click({
     if (-not (Test-Path $deployScript)) {
         [Windows.Forms.MessageBox]::Show("Deploy script not found: $deployScript", "Deploy AWS", "OK", "Error") | Out-Null
@@ -1051,31 +1748,14 @@ $deployButton.Add_Click({
         ) | Out-Null
         return
     }
-    $chosen = @(Show-DeploySelection)
-    if ($chosen.Count -eq 0) { return }
-    $summary = ($chosen | ForEach-Object { "$($_.Service) @ $($_.Tag)" }) -join "`r`n"
-    $word = Show-TextPrompt `
-        -Message "This changes production and may run database migrations.`r`n`r`n$summary`r`n`r`nType DEPLOY to continue:" `
-        -Title "Confirm production deploy" `
-        -Default ""
-    if ($word -cne "DEPLOY") {
-        Add-Log "Production deploy cancelled."
+    if ($script:deployChooser -and -not $script:deployChooser.IsDisposed) {
+        $script:deployChooser.Activate()
         return
     }
-
-    $script:pendingTasks.Clear()
-    foreach ($item in @($chosen | Select-Object -Skip 1)) {
-        $script:pendingTasks.Enqueue([pscustomobject]@{
-            ScriptPath = $deployScript
-            Arguments = @("-Service", $item.Service, "-Tag", $item.Tag, "-Confirm")
-            Label = "Deploying $($item.Service) at $($item.Tag). Progress appears below."
-        })
-    }
-    $first = $chosen[0]
-    Start-DashboardTask -ScriptPath $deployScript -ScriptArguments @(
-        "-Service", $first.Service, "-Tag", $first.Tag, "-Confirm"
-    ) -Label "Deploying $($first.Service) at $($first.Tag). Progress appears below."
+    Show-DeploySelection
 })
+
+$monitorButton.Add_Click({ Show-OpsMonitor -Tab $(if ($script:monitorDeployActive) { "deploy" } else { "server" }) })
 
 $cleanupButton.Add_Click({
     if (-not (Test-Path $cleanupScript)) {
@@ -1196,7 +1876,9 @@ function Show-ProductionEnvEditor {
     $valueColumn.Name = "Value"
     $valueColumn.HeaderText = "VALUE"
     $valueColumn.AutoSizeMode = "Fill"
-    $envGrid.Columns.AddRange(@($envPick, $keyColumn, $valueColumn))
+    [void]$envGrid.Columns.Add($envPick)
+    [void]$envGrid.Columns.Add($keyColumn)
+    [void]$envGrid.Columns.Add($valueColumn)
 
     foreach ($entry in $entries) {
         if ($entry.Kind -ne "value") { continue }
@@ -1324,5 +2006,11 @@ function Show-ProductionEnvEditor {
 
 $envButton.Add_Click({ Show-ProductionEnvEditor })
 
+$logButton.Add_Click({
+    if (-not (Test-Path $script:dashboardLog)) { Write-DashboardLog "Log file created." }
+    Start-Process $script:dashboardLog
+})
+
+Write-DashboardLog "Dashboard opened."
 $form.Add_Shown({ Refresh-Grid })
 [void]$form.ShowDialog()

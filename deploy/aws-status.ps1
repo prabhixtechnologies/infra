@@ -49,6 +49,7 @@ $remote = "awk -F= '/^($pinNames)=/{print `$1""=""`$2}' /opt/prabhix/deploy/.env
 $remoteEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remote))
 $pinResult = Invoke-Native "ssh" @(
     "-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+    "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3",
     "$User@$HostAddress", "echo $remoteEncoded | base64 -d | bash"
 )
 if ($pinResult.ExitCode -ne 0) {
