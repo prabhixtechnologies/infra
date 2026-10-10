@@ -951,7 +951,11 @@ $outputTimer.Add_Tick({
         ((Get-Date) - $script:lastTaskOutputAt).TotalSeconds -ge 45
     ) {
         $script:taskStallReported = $true
-        $message = "No deploy output for 45 seconds. The SSH connection may be interrupted; the dashboard is still waiting."
+        $message = if ($script:monitorDeployActive) {
+            "No deploy output for 45 seconds. The SSH connection may be interrupted; the dashboard is still waiting."
+        } else {
+            "No output for 45 seconds. The operation is still running."
+        }
         Add-Log $message
         if ($script:monitorDeployActive -and $script:monitor) {
             $script:monitor.Subtitle.Text = $message
@@ -1915,7 +1919,7 @@ function Show-PlayStoreCenter {
     $heading.AutoSize = $true
     $heading.Location = New-Object Drawing.Point(20, 12)
     $subheading = New-Object System.Windows.Forms.Label
-    $subheading.Text = "Version, build, install, and publish all four apps. Nothing is committed or uploaded without confirmation."
+    $subheading.Text = "Leave a version unchanged to publish that build. Raise its version code for a new build. Progress stays in the Activity tab until Play finishes."
     $subheading.ForeColor = [Drawing.ColorTranslator]::FromHtml("#98A2B3")
     $subheading.AutoSize = $true
     $subheading.Location = New-Object Drawing.Point(22, 48)
@@ -2030,12 +2034,7 @@ function Show-PlayStoreCenter {
         $rows = ConvertFrom-Json -InputObject $result.Output
         $playGrid.Rows.Clear()
         foreach ($item in $rows) {
-            if ($item.CommittedVersion -and [string]$item.LocalVersion -ne [string]$item.CommittedVersion) {
-                $next = [string]$item.LocalVersion
-            } else {
-                $parts = ([string]$item.LocalVersion -split '[.+]')
-                $next = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)+$([int]$parts[3] + 1)"
-            }
+            $next = [string]$item.LocalVersion
             [void]$playGrid.Rows.Add($true, $item.App, $item.Package, $item.LocalVersion, $item.RecordedPlayVersion, $next)
         }
         $selectAll.Checked = $true
@@ -2140,7 +2139,7 @@ function Show-PlayStoreCenter {
         Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @(
             "-Action", "QuickRelease", "-Apps", $plan.Apps, "-Versions", $plan.Versions,
             "-Track", $trackValue, "-CommitMessage", $message, "-Confirm", $approval
-        ) -Label "Quick release: version, commit, push, and Play $trackValue upload for $($plan.Apps)."
+        ) -Label "Quick release for $($plan.Apps) on $trackValue. Live progress stays in this Activity tab until Play finishes."
     }.GetNewClosure())
 
     $runState = [pscustomobject]@{ Lookup = $null; Handle = $null; Next = [DateTime]::MinValue; Url = "" }
