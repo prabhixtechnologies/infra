@@ -27,7 +27,10 @@ Double-click `Infra\open-git-dashboard.cmd` to manage the eight repositories wit
   ECR image. Services with a newer image than production start selected. Check the rows you want,
   or use **Select all**, then click **Deploy now**. Selected services run one after another. Each tag is
   verified in ECR, the matching production pin is backed up and updated, and a failed deploy
-  restores its pin. It never deploys `latest`.
+  restores its pin. It never deploys `latest`. `deploy.sh` runs detached on the server in
+  `~/deploy-runs/<time>-<service>/` (`output.log`, `exit`), and the dashboard polls it with short SSH
+  calls, so a dropped connection cannot hang a deploy. If contact is lost, read that folder before
+  deploying again.
 - **Monitor** opens the production monitor. It opens by itself when a deploy starts.
   The **Deployment** tab lists each selected service with its status, current step, progress, and
   time, plus the live deploy output. Steps come from `deploy.sh` (ECR sign-in, image pull, start,
@@ -44,7 +47,12 @@ Double-click `Infra\open-git-dashboard.cmd` to manage the eight repositories wit
 - **Clean ECR** previews old tagged application releases, then requires typing `DELETE`. It always
   preserves `latest`, every production-pinned image, and the selected rollback window. The minimum
   is three recent images; ten is the default. Untagged multi-architecture manifests remain under
-  ECR's existing lifecycle rule so direct deletion cannot break a referenced image.
+  ECR's existing lifecycle rule so direct deletion cannot break a referenced image. This cleans the
+  registry, not the EC2 disk.
+- **Clean disk** previews the production server disk, then requires typing `DELETE`. It removes
+  Docker images no container is using, Docker build cache, systemd journal beyond the newest 80 MB,
+  and deploy run logs older than 14 days. Running containers, the images they use, Docker volumes,
+  ECR, and S3 are left in place.
 
 The dashboard never deploys or deletes anything without the explicit confirmation words above. It
 does not upload mobile builds, merge branches, rebase, create tags, or resolve conflicts.

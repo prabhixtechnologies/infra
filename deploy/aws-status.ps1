@@ -23,7 +23,43 @@ $images = @(
 )
 
 function Invoke-Native {
-    param([string]$FilePath, [string[]]$Arguments, [string]$WorkingDirectory = $root)
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$WorkingDirectory = $root,
+        [int]$TimeoutSeconds = 0
+    )
+    if ($TimeoutSeconds -gt 0) {
+        $argumentText = ($Arguments | ForEach-Object {
+            $value = [string]$_
+            if ($value -notmatch '[\s"]') { $value }
+            else { '"' + ($value -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"' }
+        }) -join " "
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $FilePath
+        $startInfo.Arguments = $argumentText
+        $startInfo.WorkingDirectory = $WorkingDirectory
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        try {
+            [void]$process.Start()
+            $stdout = $process.StandardOutput.ReadToEndAsync()
+            $stderr = $process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+                try { $process.Kill() } catch {}
+                throw "$FilePath timed out after $TimeoutSeconds seconds."
+            }
+            $process.WaitForExit()
+            $text = (($stdout.Result, $stderr.Result) -join [Environment]::NewLine).TrimEnd()
+            return [pscustomobject]@{ ExitCode = $process.ExitCode; Output = $text }
+        } finally {
+            $process.Dispose()
+        }
+    }
     $prior = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
@@ -48,10 +84,10 @@ $pinNames = ($images.Pin -join "|")
 $remote = "awk -F= '/^($pinNames)=/{print `$1""=""`$2}' /opt/prabhix/deploy/.env.prod"
 $remoteEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remote))
 $pinResult = Invoke-Native "ssh" @(
-    "-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+    "-n", "-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
     "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3",
     "$User@$HostAddress", "echo $remoteEncoded | base64 -d | bash"
-)
+) -TimeoutSeconds 30
 if ($pinResult.ExitCode -ne 0) {
     throw "Could not read production image pins: $($pinResult.Output)"
 }

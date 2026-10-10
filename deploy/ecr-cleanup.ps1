@@ -39,7 +39,7 @@ $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remote))
 $prior = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 try {
-    $pinLines = @(& ssh -i $KeyPath -o BatchMode=yes -o ConnectTimeout=10 `
+    $pinLines = @(& ssh -n -i $KeyPath -o BatchMode=yes -o ConnectTimeout=10 `
         -o ServerAliveInterval=10 -o ServerAliveCountMax=3 `
         "$User@$HostAddress" "echo $encoded | base64 -d | bash" 2>&1)
     $sshExit = $LASTEXITCODE

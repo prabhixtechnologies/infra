@@ -99,7 +99,7 @@ docker ps -a --format 'container={{.Names}}|{{.Image}}|{{.Status}}'
 '@
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remote.Replace("`r`n", "`n")))
     $ssh = Invoke-Native "ssh" @(
-        "-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+        "-n", "-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
         "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3",
         "$User@$HostAddress", "echo $encoded | base64 -d | bash"
     )

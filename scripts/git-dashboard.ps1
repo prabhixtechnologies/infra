@@ -43,6 +43,7 @@ $pushScript = Join-Path $Root "Infra\scripts\push-waves.ps1"
 $awsStatusScript = Join-Path $Root "Infra\deploy\aws-status.ps1"
 $deployScript = Join-Path $Root "Infra\deploy\deploy-pinned.ps1"
 $cleanupScript = Join-Path $Root "Infra\deploy\ecr-cleanup.ps1"
+$diskCleanupScript = Join-Path $Root "Infra\deploy\disk-cleanup.ps1"
 $envFileScript = Join-Path $Root "Infra\deploy\env-file.ps1"
 $serverStatusScript = Join-Path $Root "Infra\deploy\server-status.ps1"
 . $envFileScript
@@ -405,50 +406,77 @@ function Connect-SelectAll {
         [string]$Column
     )
     $state = [pscustomobject]@{ Ignore = $false }
+    $columnObject = $Grid.Columns[$Column]
+    $columnObject.ReadOnly = $true
+    if ($columnObject -is [System.Windows.Forms.DataGridViewCheckBoxColumn]) {
+        $columnObject.TrueValue = $true
+        $columnObject.FalseValue = $false
+    }
     $CheckBox.Add_CheckedChanged({
         if ($state.Ignore) { return }
         $target = [bool]$CheckBox.Checked
         $state.Ignore = $true
         try {
-            [void]$Grid.EndEdit()
             foreach ($row in @($Grid.Rows)) {
                 if ($row.IsNewRow) { continue }
                 $row.Cells[$Column].Value = $target
             }
-            $Grid.RefreshEdit()
             $Grid.Invalidate()
+        } catch {
+            Write-DashboardLog "Select all failed: $($_.Exception.Message)"
         } finally {
             $state.Ignore = $false
         }
     }.GetNewClosure())
-    $Grid.Add_CurrentCellDirtyStateChanged({
-        if ($Grid.IsCurrentCellDirty) {
-            [void]$Grid.CommitEdit([System.Windows.Forms.DataGridViewDataErrorContexts]::Commit)
+    $Grid.Add_CellContentClick({
+        param($sender, $eventArgs)
+        try {
+            if ($state.Ignore -or -not $eventArgs -or $eventArgs.RowIndex -lt 0) { return }
+            if ($Grid.Columns[$eventArgs.ColumnIndex].Name -ne $Column) { return }
+            $cell = $Grid.Rows[$eventArgs.RowIndex].Cells[$Column]
+            $cell.Value = -not [bool]$cell.Value
+        } catch {
+            Write-DashboardLog "Row selection failed: $($_.Exception.Message)"
         }
     }.GetNewClosure())
     $Grid.Add_CellValueChanged({
-        if ($state.Ignore) { return }
-        if ($_.RowIndex -lt 0 -or $Grid.Columns[$_.ColumnIndex].Name -ne $Column) { return }
-        $rows = @($Grid.Rows | Where-Object { -not $_.IsNewRow })
-        $allChecked = $rows.Count -gt 0 -and @($rows | Where-Object { $_.Cells[$Column].Value -ne $true }).Count -eq 0
-        if ($CheckBox.Checked -eq $allChecked) { return }
-        $state.Ignore = $true
-        $CheckBox.Checked = $allChecked
-        $state.Ignore = $false
+        param($sender, $eventArgs)
+        try {
+            if ($state.Ignore -or -not $eventArgs -or $eventArgs.RowIndex -lt 0) { return }
+            if ($Grid.Columns[$eventArgs.ColumnIndex].Name -ne $Column) { return }
+            $rows = @($Grid.Rows | Where-Object { -not $_.IsNewRow })
+            $allChecked = $rows.Count -gt 0 -and @($rows | Where-Object { -not [bool]$_.Cells[$Column].Value }).Count -eq 0
+            if ($CheckBox.Checked -eq $allChecked) { return }
+            $state.Ignore = $true
+            $CheckBox.Checked = $allChecked
+            $state.Ignore = $false
+        } catch {
+            $state.Ignore = $false
+            Write-DashboardLog "Selection update failed: $($_.Exception.Message)"
+        }
     }.GetNewClosure())
     $Grid.Add_ColumnHeaderMouseClick({
-        if ($_.ColumnIndex -ge 0 -and $Grid.Columns[$_.ColumnIndex].Name -eq $Column) {
-            $CheckBox.Checked = -not $CheckBox.Checked
+        param($sender, $eventArgs)
+        try {
+            if ($eventArgs -and $eventArgs.ColumnIndex -ge 0 -and $Grid.Columns[$eventArgs.ColumnIndex].Name -eq $Column) {
+                $CheckBox.Checked = -not $CheckBox.Checked
+            }
+        } catch {
+            Write-DashboardLog "Select-all header failed: $($_.Exception.Message)"
         }
     }.GetNewClosure())
 }
 
 function Show-DeploySelection {
+    # GetNewClosure creates a dynamic module for event handlers. A $script:
+    # reference inside that closure points at the module, not this script, so
+    # capture the actual queue object before creating the handlers.
+    $pendingTasks = $script:pendingTasks
     $services = @(
         "backend", "web", "admin", "marketing", "identity", "mailroom",
         "mobistack-backend", "mobistack-web", "app-store"
     )
-    $statusNote = "Loading the latest immutable ECR tags. This takes about 20 seconds."
+    $statusNote = "Loading ECR tags and production pins. This can take about 45 seconds."
     Add-Log "Reading ECR tags for deployment..."
     $lookup = [powershell]::Create()
     [void]$lookup.AddScript({
@@ -629,20 +657,29 @@ function Show-DeploySelection {
             Add-Log "Production deploy cancelled."
             return
         }
-        $dialog.Close()
-        $script:pendingTasks.Clear()
-        foreach ($item in @($chosen | Select-Object -Skip 1)) {
-            $script:pendingTasks.Enqueue([pscustomobject]@{
-                ScriptPath = $deployScript
-                Arguments = @("-Service", $item.Service, "-Tag", $item.Tag, "-Confirm")
-                Label = "Deploying $($item.Service) at $($item.Tag). Progress appears below."
-            })
+        try {
+            $pendingTasks.Clear()
+            foreach ($item in @($chosen | Select-Object -Skip 1)) {
+                $pendingTasks.Enqueue([pscustomobject]@{
+                    ScriptPath = $deployScript
+                    Arguments = @("-Service", $item.Service, "-Tag", $item.Tag, "-Confirm")
+                    Label = "Deploying $($item.Service) at $($item.Tag). Progress appears below."
+                })
+            }
+            $first = $chosen[0]
+            Start-MonitorDeploy $chosen
+            $dialog.Close()
+            Start-DashboardTask -ScriptPath $deployScript -ScriptArguments @(
+                "-Service", $first.Service, "-Tag", $first.Tag, "-Confirm"
+            ) -Label "Deploying $($first.Service) at $($first.Tag). Live progress is in the Production monitor."
+        } catch {
+            $pendingTasks.Clear()
+            $message = "Could not start deployment: $($_.Exception.Message)"
+            Add-Log $message
+            [Windows.Forms.MessageBox]::Show(
+                $message, "Deploy AWS", "OK", "Error"
+            ) | Out-Null
         }
-        $first = $chosen[0]
-        Start-MonitorDeploy $chosen
-        Start-DashboardTask -ScriptPath $deployScript -ScriptArguments @(
-            "-Service", $first.Service, "-Tag", $first.Tag, "-Confirm"
-        ) -Label "Deploying $($first.Service) at $($first.Tag). Live progress is in the Production monitor."
     }.GetNewClosure())
 
     $script:deployChooser = $dialog
@@ -663,10 +700,11 @@ $logButton = New-Button "Open log" 100
 $awsButton = New-Button "AWS status" 120
 $deployButton = New-Button "Deploy" 105 $theme.Purple ([Drawing.Color]::White)
 $cleanupButton = New-Button "Clean ECR" 105
+$diskButton = New-Button "Clean disk" 110
 $envButton = New-Button "Environment" 130
 $gitActions.Flow.Controls.AddRange(@($refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton))
 $monitorButton = New-Button "Monitor" 105 $theme.Navy ([Drawing.Color]::White)
-$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $cleanupButton))
+$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $cleanupButton, $diskButton))
 
 $tooltips = New-Object System.Windows.Forms.ToolTip
 $tooltips.AutoPopDelay = 9000
@@ -681,6 +719,7 @@ $tooltips.SetToolTip($awsButton, "Compare local commits, ECR images and producti
 $tooltips.SetToolTip($deployButton, "Deploy one immutable image tag to production.")
 $tooltips.SetToolTip($envButton, "Safely view and update the production environment file.")
 $tooltips.SetToolTip($cleanupButton, "Preview protected ECR retention before deleting anything.")
+$tooltips.SetToolTip($diskButton, "Free production disk: unused Docker images and old system logs. Containers stay running.")
 $tooltips.SetToolTip($monitorButton, "Live deployment progress and EC2 server health.")
 
 $workspaceCard = New-Object System.Windows.Forms.Panel
@@ -1023,7 +1062,7 @@ function Set-Busy {
     }
     foreach ($control in @(
         $refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton,
-        $awsButton, $deployButton, $cleanupButton, $envButton, $commitButton
+        $awsButton, $deployButton, $cleanupButton, $diskButton, $envButton, $commitButton
     )) {
         $control.Enabled = -not $Busy
     }
@@ -1080,20 +1119,24 @@ function Get-PickedRows {
 }
 
 $grid.Add_SelectionChanged({
-    if ($grid.SelectedRows.Count -eq 0) { return }
-    $state = $grid.SelectedRows[0].Tag
-    if (-not $state) { return }
-    $stat = Invoke-Git $state.Path @("diff", "--stat", "HEAD")
-    $details.Text = @(
-        "$($state.Name)  [$($state.Branch)]"
-        "Path: $($state.Path)"
-        "Upstream: $($state.Upstream)  Ahead: $($state.Ahead)  Behind: $($state.Behind)"
-        ""
-        $state.Details
-        ""
-        $stat.Output
-    ) -join "`r`n"
-    $outputTabs.SelectedTab = $detailsTab
+    try {
+        if ($grid.SelectedRows.Count -eq 0) { return }
+        $state = $grid.SelectedRows[0].Tag
+        if (-not $state) { return }
+        $stat = Invoke-Git $state.Path @("diff", "--stat", "HEAD")
+        $details.Text = @(
+            "$($state.Name)  [$($state.Branch)]"
+            "Path: $($state.Path)"
+            "Upstream: $($state.Upstream)  Ahead: $($state.Ahead)  Behind: $($state.Behind)"
+            ""
+            $state.Details
+            ""
+            $stat.Output
+        ) -join "`r`n"
+        $outputTabs.SelectedTab = $detailsTab
+    } catch {
+        Add-Log "Could not show $($state.Name): $($_.Exception.Message)"
+    }
 })
 
 $refreshButton.Add_Click({ Refresh-Grid })
@@ -1802,6 +1845,40 @@ $cleanupButton.Add_Click({
     Start-DashboardTask -ScriptPath $cleanupScript -ScriptArguments @(
         "-KeepRecent", "$keep", "-Apply", "-ConfirmWord", "DELETE"
     ) -Label "Cleaning ECR with a $keep-image rollback window. Progress appears below."
+})
+
+$diskButton.Add_Click({
+    if (-not (Test-Path $diskCleanupScript)) {
+        [Windows.Forms.MessageBox]::Show("Disk cleanup script not found: $diskCleanupScript", "Clean disk", "OK", "Error") | Out-Null
+        return
+    }
+    Set-Busy $true
+    try {
+        Add-Log "Previewing production disk cleanup..."
+        $preview = Invoke-Native "powershell.exe" @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $diskCleanupScript
+        )
+        $details.Text = $preview.Output
+        $outputTabs.SelectedTab = $detailsTab
+        if ($preview.ExitCode -ne 0) {
+            [Windows.Forms.MessageBox]::Show($preview.Output, "Disk cleanup preview failed", "OK", "Error") | Out-Null
+            return
+        }
+    } finally {
+        Set-Busy $false
+    }
+
+    $word = Show-TextPrompt `
+        -Message "Review the preview in the details pane.`r`n`r`nThis deletes unused Docker images and old system logs on the production server. Running containers and their images stay. Type DELETE to apply it:" `
+        -Title "Confirm disk cleanup" `
+        -Default ""
+    if ($word -cne "DELETE") {
+        Add-Log "Disk cleanup left in preview mode; nothing was deleted."
+        return
+    }
+    Start-DashboardTask -ScriptPath $diskCleanupScript -ScriptArguments @(
+        "-Apply", "-ConfirmWord", "DELETE"
+    ) -Label "Cleaning unused images and old logs on the production server. Progress appears below."
 })
 
 function Show-ProductionEnvEditor {
