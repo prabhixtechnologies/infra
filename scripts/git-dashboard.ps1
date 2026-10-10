@@ -2030,8 +2030,12 @@ function Show-PlayStoreCenter {
         $rows = ConvertFrom-Json -InputObject $result.Output
         $playGrid.Rows.Clear()
         foreach ($item in $rows) {
-            $parts = ([string]$item.LocalVersion -split '[.+]')
-            $next = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)+$([int]$parts[3] + 1)"
+            if ($item.CommittedVersion -and [string]$item.LocalVersion -ne [string]$item.CommittedVersion) {
+                $next = [string]$item.LocalVersion
+            } else {
+                $parts = ([string]$item.LocalVersion -split '[.+]')
+                $next = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)+$([int]$parts[3] + 1)"
+            }
             [void]$playGrid.Rows.Add($true, $item.App, $item.Package, $item.LocalVersion, $item.RecordedPlayVersion, $next)
         }
         $selectAll.Checked = $true
@@ -2115,7 +2119,7 @@ function Show-PlayStoreCenter {
         $plan = & $getPlan; if (-not $plan) { return }
         $message = $commitText.Text.Trim()
         if (-not $message) { [Windows.Forms.MessageBox]::Show("Enter a commit message.", "Play Store", "OK", "Information") | Out-Null; return }
-        if (-not (Confirm-DashboardAction -Title "Commit and push Mobile" -Message "Only selected app version files are committed. Unrelated changes block this action." -Details "$($plan.Summary)`r`n`r`n$message" -ActionText "Commit + push")) { return }
+        if (-not (Confirm-DashboardAction -Title "Commit and push Mobile" -Message "Only the selected app version files are committed and pushed. Other Mobile changes stay uncommitted." -Details "$($plan.Summary)`r`n`r`n$message" -ActionText "Commit + push")) { return }
         Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "CommitPush", "-Apps", $plan.Apps, "-CommitMessage", $message) -Label "Committing and pushing Android versions for $($plan.Apps)."
     }.GetNewClosure())
     $upload.Add_Click({

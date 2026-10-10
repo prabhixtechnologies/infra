@@ -60,7 +60,8 @@ releases without an agent. The old `open-git-dashboard.cmd` launcher remains com
   Closed testing (`alpha`), Beta, or Production. Guided controls keep each step separate.
   **Quick release** requires a clean Mobile `main`, then updates only selected version files,
   commits and pushes them, starts the selected Play track, and displays the GitHub workflow link.
-  Unrelated Mobile changes stop the operation. Test tracks require a confirmation button;
+  Other Mobile changes stay uncommitted; a changed keystore, key file, or environment file stops the
+  release. Test tracks require a confirmation button;
   Production still requires typing `APPROVE PRODUCTION` and cannot bypass Google's testing gate.
 
 The dashboard never deploys or deletes anything without the explicit confirmation words above. It
