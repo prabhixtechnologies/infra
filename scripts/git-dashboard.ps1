@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-    throw "Git Dashboard requires Windows."
+    throw "Prabhix Control Center requires Windows."
 }
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -18,7 +18,7 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") {
     [System.Windows.Forms.MessageBox]::Show(
         "Start this dashboard with Infra\open-git-dashboard.cmd so it runs in STA mode.",
-        "Git Dashboard",
+        "Prabhix Control Center",
         "OK",
         "Error"
     ) | Out-Null
@@ -44,6 +44,7 @@ $awsStatusScript = Join-Path $Root "Infra\deploy\aws-status.ps1"
 $deployScript = Join-Path $Root "Infra\deploy\deploy-pinned.ps1"
 $cleanupScript = Join-Path $Root "Infra\deploy\ecr-cleanup.ps1"
 $diskCleanupScript = Join-Path $Root "Infra\deploy\disk-cleanup.ps1"
+$playReleaseScript = Join-Path $Root "Mobile\scripts\play-release.ps1"
 $envFileScript = Join-Path $Root "Infra\deploy\env-file.ps1"
 $serverStatusScript = Join-Path $Root "Infra\deploy\server-status.ps1"
 . $envFileScript
@@ -142,7 +143,7 @@ $theme = @{
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Prabhix Workspace"
+$form.Text = "Prabhix Control Center"
 $form.StartPosition = "CenterScreen"
 $form.Size = New-Object Drawing.Size(1280, 860)
 $form.MinimumSize = New-Object Drawing.Size(1040, 720)
@@ -168,7 +169,7 @@ $header.Padding = New-Object Windows.Forms.Padding(24, 14, 24, 12)
 $shell.Controls.Add($header, 0, 0)
 
 $title = New-Object System.Windows.Forms.Label
-$title.Text = "Prabhix Workspace"
+$title.Text = "Prabhix Control Center"
 $title.Font = New-Object Drawing.Font("Segoe UI Semibold", 18)
 $title.ForeColor = [Drawing.Color]::White
 $title.AutoSize = $true
@@ -701,10 +702,11 @@ $awsButton = New-Button "AWS status" 120
 $deployButton = New-Button "Deploy" 105 $theme.Purple ([Drawing.Color]::White)
 $cleanupButton = New-Button "Clean ECR" 105
 $diskButton = New-Button "Clean disk" 110
+$playButton = New-Button "Play Store" 110 $theme.Success ([Drawing.Color]::White)
 $envButton = New-Button "Environment" 130
 $gitActions.Flow.Controls.AddRange(@($refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton))
 $monitorButton = New-Button "Monitor" 105 $theme.Navy ([Drawing.Color]::White)
-$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $cleanupButton, $diskButton))
+$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $playButton, $cleanupButton, $diskButton))
 
 $tooltips = New-Object System.Windows.Forms.ToolTip
 $tooltips.AutoPopDelay = 9000
@@ -720,6 +722,7 @@ $tooltips.SetToolTip($deployButton, "Deploy one immutable image tag to productio
 $tooltips.SetToolTip($envButton, "Safely view and update the production environment file.")
 $tooltips.SetToolTip($cleanupButton, "Preview protected ECR retention before deleting anything.")
 $tooltips.SetToolTip($diskButton, "Free production disk: unused Docker images and old system logs. Containers stay running.")
+$tooltips.SetToolTip($playButton, "Version, build, test, and publish the Android apps through Google Play.")
 $tooltips.SetToolTip($monitorButton, "Live deployment progress and EC2 server health.")
 
 $workspaceCard = New-Object System.Windows.Forms.Panel
@@ -978,7 +981,7 @@ $outputTimer.Add_Tick({
 })
 $outputTimer.Start()
 $form.Add_FormClosed({
-    Write-DashboardLog "Dashboard closed."
+    Write-DashboardLog "Control Center closed."
     $outputTimer.Stop()
 })
 
@@ -992,7 +995,7 @@ function Start-DashboardTask {
 
     if ($script:activeTask -and -not $script:activeTask.HasExited) {
         [Windows.Forms.MessageBox]::Show(
-            "Wait for the current operation to finish.", "Git Dashboard", "OK", "Information"
+            "Wait for the current operation to finish.", "Prabhix Control Center", "OK", "Information"
         ) | Out-Null
         return
     }
@@ -1062,7 +1065,7 @@ function Set-Busy {
     }
     foreach ($control in @(
         $refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton,
-        $awsButton, $deployButton, $cleanupButton, $diskButton, $envButton, $commitButton
+        $awsButton, $deployButton, $cleanupButton, $diskButton, $playButton, $envButton, $commitButton
     )) {
         $control.Enabled = -not $Busy
     }
@@ -1881,6 +1884,311 @@ $diskButton.Add_Click({
     ) -Label "Cleaning unused images and old logs on the production server. Progress appears below."
 })
 
+$script:playWindow = $null
+
+function Show-PlayStoreCenter {
+    if ($script:playWindow -and -not $script:playWindow.IsDisposed) {
+        $script:playWindow.Activate()
+        return
+    }
+    if (-not (Test-Path $playReleaseScript)) {
+        [Windows.Forms.MessageBox]::Show("Play release script not found: $playReleaseScript", "Play Store", "OK", "Error") | Out-Null
+        return
+    }
+
+    $window = New-Object System.Windows.Forms.Form
+    $window.Text = "Play Store - Prabhix Control Center"
+    $window.StartPosition = "CenterScreen"
+    $window.Size = New-Object Drawing.Size(1120, 700)
+    $window.MinimumSize = New-Object Drawing.Size(980, 620)
+    $window.Font = $form.Font
+    $window.BackColor = $theme.Canvas
+
+    $header = New-Object System.Windows.Forms.Panel
+    $header.Dock = "Top"
+    $header.Height = 82
+    $header.BackColor = $theme.Navy
+    $heading = New-Object System.Windows.Forms.Label
+    $heading.Text = "Android releases"
+    $heading.ForeColor = [Drawing.Color]::White
+    $heading.Font = New-Object Drawing.Font("Segoe UI Semibold", 16)
+    $heading.AutoSize = $true
+    $heading.Location = New-Object Drawing.Point(20, 12)
+    $subheading = New-Object System.Windows.Forms.Label
+    $subheading.Text = "Version, build, install, and publish all four apps. Nothing is committed or uploaded without confirmation."
+    $subheading.ForeColor = [Drawing.ColorTranslator]::FromHtml("#98A2B3")
+    $subheading.AutoSize = $true
+    $subheading.Location = New-Object Drawing.Point(22, 48)
+    $header.Controls.Add($heading)
+    $header.Controls.Add($subheading)
+    $window.Controls.Add($header)
+
+    $top = New-Object System.Windows.Forms.FlowLayoutPanel
+    $top.Dock = "Top"
+    $top.Height = 62
+    $top.Padding = New-Object Windows.Forms.Padding(16, 12, 16, 6)
+    $top.BackColor = $theme.Surface
+    $trackLabel = New-Object System.Windows.Forms.Label
+    $trackLabel.Text = "TRACK"
+    $trackLabel.AutoSize = $true
+    $trackLabel.Margin = New-Object Windows.Forms.Padding(0, 9, 8, 0)
+    $trackLabel.ForeColor = $theme.Muted
+    $track = New-Object System.Windows.Forms.ComboBox
+    $track.DropDownStyle = "DropDownList"
+    $track.Width = 190
+    [void]$track.Items.AddRange(@("Internal", "Closed testing (alpha)", "Beta", "Production"))
+    $track.SelectedIndex = 0
+    $messageLabel = New-Object System.Windows.Forms.Label
+    $messageLabel.Text = "COMMIT MESSAGE"
+    $messageLabel.AutoSize = $true
+    $messageLabel.Margin = New-Object Windows.Forms.Padding(24, 9, 8, 0)
+    $messageLabel.ForeColor = $theme.Muted
+    $commitText = New-Object System.Windows.Forms.TextBox
+    $commitText.Width = 430
+    $commitText.Text = "release(android): publish Play build"
+    $top.Controls.AddRange(@($trackLabel, $track, $messageLabel, $commitText))
+    $window.Controls.Add($top)
+
+    $bottom = New-Object System.Windows.Forms.Panel
+    $bottom.Dock = "Bottom"
+    $bottom.Height = 126
+    $bottom.Padding = New-Object Windows.Forms.Padding(16, 8, 16, 8)
+    $bottom.BackColor = $theme.Surface
+    $actionsFlow = New-Object System.Windows.Forms.FlowLayoutPanel
+    $actionsFlow.Dock = "Top"
+    $actionsFlow.Height = 48
+    $saveVersions = New-Button "Save versions" 125
+    $buildAab = New-Button "Build AAB" 110
+    $buildApk = New-Button "Build APK" 110
+    $installApk = New-Button "Install USB" 110
+    $openOutput = New-Button "Open output" 115
+    $commitPush = New-Button "Commit + push" 125
+    $upload = New-Button "Upload track" 120 $theme.Primary ([Drawing.Color]::White)
+    $quick = New-Button "Quick release" 125 $theme.Purple ([Drawing.Color]::White)
+    $actionsFlow.Controls.AddRange(@(
+        $saveVersions, $buildAab, $buildApk, $installApk, $openOutput, $commitPush, $upload, $quick
+    ))
+    $runStatus = New-Object System.Windows.Forms.Label
+    $runStatus.Text = "Latest Play workflow: checking..."
+    $runStatus.AutoSize = $true
+    $runStatus.Location = New-Object Drawing.Point(18, 67)
+    $runStatus.ForeColor = $theme.Muted
+    $runLink = New-Object System.Windows.Forms.LinkLabel
+    $runLink.Text = ""
+    $runLink.AutoSize = $true
+    $runLink.Location = New-Object Drawing.Point(18, 91)
+    $runLink.LinkColor = $theme.Primary
+    $bottom.Controls.Add($actionsFlow)
+    $bottom.Controls.Add($runStatus)
+    $bottom.Controls.Add($runLink)
+    $window.Controls.Add($bottom)
+
+    $selectAll = New-Object System.Windows.Forms.CheckBox
+    $selectAll.Text = "Select all"
+    $selectAll.Checked = $true
+    $selectAll.AutoSize = $true
+    $selectAll.Dock = "Top"
+    $selectAll.Height = 34
+    $selectAll.Padding = New-Object Windows.Forms.Padding(18, 8, 0, 0)
+    $window.Controls.Add($selectAll)
+
+    $playGrid = New-Object System.Windows.Forms.DataGridView
+    $playGrid.Dock = "Fill"
+    $playGrid.AllowUserToAddRows = $false
+    $playGrid.AllowUserToDeleteRows = $false
+    $playGrid.RowHeadersVisible = $false
+    $playGrid.SelectionMode = "FullRowSelect"
+    $playGrid.BackgroundColor = $theme.Surface
+    $playGrid.BorderStyle = "None"
+    $playGrid.AutoGenerateColumns = $false
+    $playGrid.RowTemplate.Height = 40
+    $pick = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
+    $pick.Name = "Pick"; $pick.HeaderText = "ALL"; $pick.Width = 50
+    $appColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $appColumn.Name = "App"; $appColumn.HeaderText = "APP"; $appColumn.Width = 130; $appColumn.ReadOnly = $true
+    $packageColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $packageColumn.Name = "Package"; $packageColumn.HeaderText = "PACKAGE"; $packageColumn.Width = 230; $packageColumn.ReadOnly = $true
+    $currentColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $currentColumn.Name = "Current"; $currentColumn.HeaderText = "LOCAL VERSION"; $currentColumn.Width = 130; $currentColumn.ReadOnly = $true
+    $playColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $playColumn.Name = "Play"; $playColumn.HeaderText = "RECORDED ON PLAY"; $playColumn.Width = 145; $playColumn.ReadOnly = $true
+    $nextColumn = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $nextColumn.Name = "Next"; $nextColumn.HeaderText = "NEXT VERSION"; $nextColumn.AutoSizeMode = "Fill"
+    foreach ($column in @($pick, $appColumn, $packageColumn, $currentColumn, $playColumn, $nextColumn)) {
+        [void]$playGrid.Columns.Add($column)
+    }
+    $window.Controls.Add($playGrid)
+    $playGrid.BringToFront()
+    Connect-SelectAll $selectAll $playGrid "Pick"
+
+    $refreshVersions = {
+        $result = Invoke-Native "powershell.exe" @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $playReleaseScript,
+            "-Action", "Status", "-Json"
+        )
+        if ($result.ExitCode -ne 0) { throw $result.Output }
+        $rows = ConvertFrom-Json -InputObject $result.Output
+        $playGrid.Rows.Clear()
+        foreach ($item in $rows) {
+            $parts = ([string]$item.LocalVersion -split '[.+]')
+            $next = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)+$([int]$parts[3] + 1)"
+            [void]$playGrid.Rows.Add($true, $item.App, $item.Package, $item.LocalVersion, $item.RecordedPlayVersion, $next)
+        }
+        $selectAll.Checked = $true
+    }.GetNewClosure()
+
+    $getPlan = {
+        [void]$playGrid.EndEdit()
+        $selected = @($playGrid.Rows | Where-Object { $_.Cells["Pick"].Value -eq $true })
+        if ($selected.Count -eq 0) {
+            [Windows.Forms.MessageBox]::Show("Select at least one app.", "Play Store", "OK", "Information") | Out-Null
+            return $null
+        }
+        foreach ($row in $selected) {
+            $next = ([string]$row.Cells["Next"].Value).Trim()
+            if ($next -notmatch '^\d+\.\d+\.\d+\+\d+$') {
+                [Windows.Forms.MessageBox]::Show("Enter major.minor.patch+versionCode for $($row.Cells["App"].Value).", "Play Store", "OK", "Warning") | Out-Null
+                return $null
+            }
+        }
+        [pscustomobject]@{
+            Apps = ($selected | ForEach-Object { [string]$_.Cells["App"].Value }) -join ","
+            Versions = ($selected | ForEach-Object { "$($_.Cells["App"].Value)=$($_.Cells["Next"].Value)" }) -join ","
+            Summary = ($selected | ForEach-Object { "$($_.Cells["App"].Value)    $($_.Cells["Current"].Value) -> $($_.Cells["Next"].Value)" }) -join "`r`n"
+            UploadSummary = ($selected | ForEach-Object { "$($_.Cells["App"].Value)    version $($_.Cells["Current"].Value)" }) -join "`r`n"
+        }
+    }.GetNewClosure()
+
+    $trackValues = @("internal", "alpha", "beta", "production")
+    $getApproval = {
+        param([string]$Title, $Plan)
+        $trackValue = $trackValues[$track.SelectedIndex]
+        if ($trackValue -eq "production") {
+            $word = Show-TextPrompt -Title $Title -Message "Google Play Production may be gated by closed testing.`r`n`r`n$($Plan.Summary)`r`n`r`nType APPROVE PRODUCTION:" -Default ""
+            if ($word -cne "APPROVE PRODUCTION") { return $null }
+            return "APPROVE PRODUCTION"
+        }
+        if (-not (Confirm-DashboardAction -Title $Title -Message "Publish the selected apps to $($track.Text)?" -Details $Plan.Summary -ActionText "Continue")) {
+            return $null
+        }
+        "deploy"
+    }.GetNewClosure()
+
+    $saveVersions.Add_Click({
+        $plan = & $getPlan
+        if (-not $plan) { return }
+        if (-not (Confirm-DashboardAction -Title "Save Android versions" -Message "Update only the selected pubspec.yaml files? This does not commit or upload." -Details $plan.Summary -ActionText "Save versions")) { return }
+        Set-Busy $true
+        try {
+            $result = Invoke-Native "powershell.exe" @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $playReleaseScript,
+                "-Action", "SaveVersions", "-Apps", $plan.Apps, "-Versions", $plan.Versions
+            )
+            if ($result.ExitCode -ne 0) { throw $result.Output }
+            Add-Log "Android versions updated: $($plan.Apps)."
+            & $refreshVersions
+            Refresh-Grid
+        } catch {
+            [Windows.Forms.MessageBox]::Show($_.Exception.Message, "Save versions failed", "OK", "Error") | Out-Null
+        } finally { Set-Busy $false }
+    }.GetNewClosure())
+
+    $buildAab.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "BuildAab", "-Apps", $plan.Apps) -Label "Building signed Play AABs for $($plan.Apps)."
+    }.GetNewClosure())
+    $buildApk.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "BuildApk", "-Apps", $plan.Apps) -Label "Building signed APKs for $($plan.Apps)."
+    }.GetNewClosure())
+    $installApk.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        if ([Windows.Forms.MessageBox]::Show("This uninstalls Play copies of the selected apps from the connected phone, then installs the local signed APKs. Continue?", "Install APKs by USB", "YesNo", "Warning") -ne "Yes") { return }
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "InstallApk", "-Apps", $plan.Apps) -Label "Installing signed APKs for $($plan.Apps) by USB."
+    }.GetNewClosure())
+    $openOutput.Add_Click({
+        $path = Join-Path $Root "Mobile\build\play"
+        if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
+        Start-Process explorer.exe $path
+    }.GetNewClosure())
+    $commitPush.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        $message = $commitText.Text.Trim()
+        if (-not $message) { [Windows.Forms.MessageBox]::Show("Enter a commit message.", "Play Store", "OK", "Information") | Out-Null; return }
+        if (-not (Confirm-DashboardAction -Title "Commit and push Mobile" -Message "Only selected app version files are committed. Unrelated changes block this action." -Details "$($plan.Summary)`r`n`r`n$message" -ActionText "Commit + push")) { return }
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "CommitPush", "-Apps", $plan.Apps, "-CommitMessage", $message) -Label "Committing and pushing Android versions for $($plan.Apps)."
+    }.GetNewClosure())
+    $upload.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        $uploadPlan = [pscustomobject]@{ Summary = $plan.UploadSummary }
+        $approval = & $getApproval "Confirm Play upload" $uploadPlan
+        if (-not $approval) { Add-Log "Play upload cancelled."; return }
+        $trackValue = $trackValues[$track.SelectedIndex]
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @("-Action", "Upload", "-Apps", $plan.Apps, "-Track", $trackValue, "-Confirm", $approval) -Label "Starting Play $trackValue upload for $($plan.Apps)."
+    }.GetNewClosure())
+    $quick.Add_Click({
+        $plan = & $getPlan; if (-not $plan) { return }
+        $approval = & $getApproval "Confirm Quick release" $plan
+        if (-not $approval) { Add-Log "Quick release cancelled."; return }
+        $message = $commitText.Text.Trim()
+        if (-not $message) { $message = "release(android): publish Play build" }
+        $trackValue = $trackValues[$track.SelectedIndex]
+        Start-DashboardTask -ScriptPath $playReleaseScript -ScriptArguments @(
+            "-Action", "QuickRelease", "-Apps", $plan.Apps, "-Versions", $plan.Versions,
+            "-Track", $trackValue, "-CommitMessage", $message, "-Confirm", $approval
+        ) -Label "Quick release: version, commit, push, and Play $trackValue upload for $($plan.Apps)."
+    }.GetNewClosure())
+
+    $runState = [pscustomobject]@{ Lookup = $null; Handle = $null; Next = [DateTime]::MinValue; Url = "" }
+    $runTimer = New-Object System.Windows.Forms.Timer
+    $runTimer.Interval = 1000
+    $runTimer.Add_Tick({
+        if ($runState.Handle -and $runState.Handle.IsCompleted) {
+            try {
+                $text = [string](@($runState.Lookup.EndInvoke($runState.Handle)) -join "")
+                $items = ConvertFrom-Json -InputObject $text
+                $latest = foreach ($candidate in $items) { $candidate; break }
+                if ($latest) {
+                    $state = if ($latest.status -eq "completed") { $latest.conclusion } else { $latest.status }
+                    $runStatus.Text = "Latest Play workflow: $state  |  $($latest.createdAt)"
+                    $runState.Url = [string]$latest.url
+                    $runLink.Text = $runState.Url
+                } else { $runStatus.Text = "Latest Play workflow: no run found" }
+            } catch { $runStatus.Text = "Latest Play workflow: unavailable" }
+            $runState.Lookup.Dispose()
+            $runState.Lookup = $null
+            $runState.Handle = $null
+            $runState.Next = (Get-Date).AddSeconds(12)
+        }
+        if (-not $runState.Handle -and (Get-Date) -ge $runState.Next) {
+            $runState.Lookup = [powershell]::Create()
+            [void]$runState.Lookup.AddScript({
+                & gh run list --repo prabhixtechnologies/Mobile --workflow play-upload.yml --limit 1 --json status,conclusion,url,createdAt 2>$null | Out-String
+            })
+            $runState.Handle = $runState.Lookup.BeginInvoke()
+            $runState.Next = [DateTime]::MaxValue
+        }
+    }.GetNewClosure())
+    $runLink.Add_LinkClicked({ if ($runState.Url) { Start-Process $runState.Url } }.GetNewClosure())
+    $window.Add_Shown({
+        try { & $refreshVersions } catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message, "Play status failed", "OK", "Error") | Out-Null }
+        $runTimer.Start()
+    }.GetNewClosure())
+    $window.Add_FormClosed({
+        $runTimer.Stop()
+        $runTimer.Dispose()
+        if ($runState.Lookup) {
+            if ($runState.Handle -and -not $runState.Handle.IsCompleted) { [void]$runState.Lookup.BeginStop($null, $null) }
+            $runState.Lookup.Dispose()
+        }
+    }.GetNewClosure())
+
+    $script:playWindow = $window
+    [void]$window.Show()
+}
+
+$playButton.Add_Click({ Show-PlayStoreCenter })
+
 function Show-ProductionEnvEditor {
     Set-Busy $true
     try {
@@ -2088,6 +2396,6 @@ $logButton.Add_Click({
     Start-Process $script:dashboardLog
 })
 
-Write-DashboardLog "Dashboard opened."
+Write-DashboardLog "Control Center opened."
 $form.Add_Shown({ Refresh-Grid })
 [void]$form.ShowDialog()

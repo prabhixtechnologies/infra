@@ -1,6 +1,7 @@
-# Git dashboard
+# Prabhix Control Center
 
-Double-click `Infra\open-git-dashboard.cmd` to manage the eight repositories without an agent.
+Double-click `Infra\open-control-center.cmd` to manage repositories, production, and Android
+releases without an agent. The old `open-git-dashboard.cmd` launcher remains compatible.
 
 ## What the controls do
 
@@ -53,6 +54,14 @@ Double-click `Infra\open-git-dashboard.cmd` to manage the eight repositories wit
   Docker images no container is using, Docker build cache, systemd journal beyond the newest 80 MB,
   and deploy run logs older than 14 days. Running containers, the images they use, Docker volumes,
   ECR, and S3 are left in place.
+- **Play Store** opens Android release control for Admin, Mailroom, OneOps, and MobiStack. It shows
+  package IDs and versions, safely updates selected `pubspec.yaml` files, builds signed AAB/APK
+  artifacts, installs selected APKs over USB, and dispatches the manual Play workflow to Internal,
+  Closed testing (`alpha`), Beta, or Production. Guided controls keep each step separate.
+  **Quick release** requires a clean Mobile `main`, then updates only selected version files,
+  commits and pushes them, starts the selected Play track, and displays the GitHub workflow link.
+  Unrelated Mobile changes stop the operation. Test tracks require a confirmation button;
+  Production still requires typing `APPROVE PRODUCTION` and cannot bypass Google's testing gate.
 
 The dashboard never deploys or deletes anything without the explicit confirmation words above. It
 does not upload mobile builds, merge branches, rebase, create tags, or resolve conflicts.

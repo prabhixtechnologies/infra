@@ -119,6 +119,12 @@ until Play resets the upload key. **Never commit these files.**
 
 ## Build signed AABs
 
+Preferred UI: open `Infra\open-control-center.cmd` and choose **Play Store**. Guided controls can
+save versions, build selected AABs/APKs, install APKs over USB, commit/push Mobile, and upload to
+Internal, Closed testing (`alpha`), Beta, or Production. **Quick release** combines version update,
+an isolated version-file commit, push, workflow dispatch, and run monitoring; it refuses a dirty
+Mobile working tree. Production always requires `APPROVE PRODUCTION`.
+
 ```powershell
 cd Mobile
 powershell -File scripts/build-play-aabs.ps1
