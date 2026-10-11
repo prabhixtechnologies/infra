@@ -54,6 +54,12 @@ releases without an agent. The old `open-git-dashboard.cmd` launcher remains com
   Docker images no container is using, Docker build cache, systemd journal beyond the newest 80 MB,
   and deploy run logs older than 14 days. Running containers, the images they use, Docker volumes,
   ECR, and S3 are left in place.
+- **Release selected** opens one dialog for one or more modules. It upgrades checked Android
+  apps, commits every change in the checked modules, pushes those repositories in dependency waves,
+  waits for CI, verifies the immutable images in ECR, deploys the modules' AWS services one at a
+  time, and uploads the selected apps to Play only after AWS succeeds. CI stays parallel within each
+  safe wave, and multiple Play app builds run together. One approval starts the whole run; a failure
+  stops the remaining phases. Production Play still requires `APPROVE PRODUCTION`.
 - **Play Store** opens Android release control for Admin, Mailroom, OneOps, and MobiStack. It shows
   package IDs and versions, safely updates selected `pubspec.yaml` files, builds signed AAB/APK
   artifacts, installs selected APKs over USB, and dispatches the manual Play workflow to Internal,

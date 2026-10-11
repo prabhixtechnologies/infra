@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Root
 )
@@ -45,6 +45,7 @@ $deployScript = Join-Path $Root "Infra\deploy\deploy-pinned.ps1"
 $cleanupScript = Join-Path $Root "Infra\deploy\ecr-cleanup.ps1"
 $diskCleanupScript = Join-Path $Root "Infra\deploy\disk-cleanup.ps1"
 $playReleaseScript = Join-Path $Root "Mobile\scripts\play-release.ps1"
+$releaseScript = Join-Path $Root "Infra\scripts\release-orchestrator.ps1"
 $envFileScript = Join-Path $Root "Infra\deploy\env-file.ps1"
 $serverStatusScript = Join-Path $Root "Infra\deploy\server-status.ps1"
 . $envFileScript
@@ -687,6 +688,304 @@ function Show-DeploySelection {
     [void]$dialog.Show()
 }
 
+function Show-ReleaseSelection {
+    $moduleCatalog = @(
+        [pscustomobject]@{ Repo = "web-kit"; Module = "Web Kit"; Services = @() },
+        [pscustomobject]@{ Repo = "Platform"; Module = "Marketing"; Services = @("marketing") },
+        [pscustomobject]@{ Repo = "oneOps"; Module = "OneOps"; Services = @("backend", "web", "admin") },
+        [pscustomobject]@{ Repo = "MobiStack"; Module = "MobiStack"; Services = @("mobistack-backend", "mobistack-web") },
+        [pscustomobject]@{ Repo = "Mailroom"; Module = "Mailroom"; Services = @("mailroom") },
+        [pscustomobject]@{ Repo = "Identity"; Module = "Identity"; Services = @("identity") },
+        [pscustomobject]@{ Repo = "Infra"; Module = "Infra"; Services = @("app-store") },
+        [pscustomobject]@{ Repo = "Mobile"; Module = "Mobile"; Services = @() }
+    )
+    $appCatalog = @(
+        [pscustomobject]@{ Key = "admin"; Name = "Admin" },
+        [pscustomobject]@{ Key = "mailroom"; Name = "Mailroom" },
+        [pscustomobject]@{ Key = "oneops"; Name = "OneOps" },
+        [pscustomobject]@{ Key = "mobistack"; Name = "MobiStack" }
+    )
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = "Release selected modules"
+    $dialog.StartPosition = "CenterScreen"
+    $dialog.ClientSize = New-Object Drawing.Size(1040, 860)
+    $dialog.MinimumSize = New-Object Drawing.Size(900, 680)
+    $dialog.MinimizeBox = $false
+    $dialog.ShowInTaskbar = $false
+    $dialog.BackColor = $theme.Canvas
+    $dialog.Font = $form.Font
+
+    $promptHeader = New-Object System.Windows.Forms.Panel
+    $promptHeader.Dock = "Top"
+    $promptHeader.Height = 72
+    $promptHeader.BackColor = $theme.Navy
+    $promptTitle = New-Object System.Windows.Forms.Label
+    $promptTitle.Text = "One release"
+    $promptTitle.ForeColor = [Drawing.Color]::White
+    $promptTitle.Font = New-Object Drawing.Font("Segoe UI Semibold", 14)
+    $promptTitle.AutoSize = $true
+    $promptTitle.Location = New-Object Drawing.Point(18, 12)
+    $promptHint = New-Object System.Windows.Forms.Label
+    $promptHint.Text = "After approval, versions, commits, pushes, AWS, and Play continue without another stop."
+    $promptHint.ForeColor = [Drawing.ColorTranslator]::FromHtml("#98A2B3")
+    $promptHint.AutoSize = $true
+    $promptHint.Location = New-Object Drawing.Point(20, 40)
+    $promptHeader.Controls.Add($promptTitle)
+    $promptHeader.Controls.Add($promptHint)
+    $dialog.Controls.Add($promptHeader)
+
+    $moduleSelectAll = New-Object System.Windows.Forms.CheckBox
+    $moduleSelectAll.Text = "Select all modules"
+    $moduleSelectAll.AutoSize = $true
+    $moduleSelectAll.Font = New-Object Drawing.Font("Segoe UI Semibold", 9)
+    $moduleSelectAll.ForeColor = $theme.Navy
+    $moduleSelectAll.Location = New-Object Drawing.Point(18, 84)
+    $dialog.Controls.Add($moduleSelectAll)
+
+    $moduleGrid = New-Object System.Windows.Forms.DataGridView
+    $moduleGrid.Location = New-Object Drawing.Point(18, 112)
+    $moduleGrid.Size = New-Object Drawing.Size(1004, 230)
+    $moduleGrid.Anchor = "Top,Left,Right"
+    $moduleGrid.AllowUserToAddRows = $false
+    $moduleGrid.AllowUserToDeleteRows = $false
+    $moduleGrid.RowHeadersVisible = $false
+    $moduleGrid.SelectionMode = "FullRowSelect"
+    $moduleGrid.BackgroundColor = $theme.Surface
+    $moduleGrid.BorderStyle = "None"
+    $moduleGrid.AutoGenerateColumns = $false
+    $moduleGrid.RowTemplate.Height = 32
+    $modulePick = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
+    $modulePick.Name = "Pick"
+    $modulePick.HeaderText = "ALL"
+    $modulePick.Width = 52
+    $moduleName = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $moduleName.Name = "Module"
+    $moduleName.HeaderText = "MODULE"
+    $moduleName.ReadOnly = $true
+    $moduleName.Width = 180
+    $moduleState = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $moduleState.Name = "State"
+    $moduleState.HeaderText = "WORKING TREE"
+    $moduleState.ReadOnly = $true
+    $moduleState.Width = 150
+    $moduleServices = New-Object System.Windows.Forms.DataGridViewTextBoxColumn
+    $moduleServices.Name = "Services"
+    $moduleServices.HeaderText = "AWS SERVICES"
+    $moduleServices.ReadOnly = $true
+    $moduleServices.AutoSizeMode = "Fill"
+    foreach ($column in @($modulePick, $moduleName, $moduleState, $moduleServices)) {
+        [void]$moduleGrid.Columns.Add($column)
+    }
+    foreach ($item in $moduleCatalog) {
+        $state = Get-RepoState $item.Repo
+        $label = if ($state.Changes -gt 0) { "$($state.Changes) changed" } else { "Clean" }
+        $index = $moduleGrid.Rows.Add([bool]($state.Changes -gt 0), $item.Module, $label, ($item.Services -join ", "))
+        $moduleGrid.Rows[$index].Tag = $item
+    }
+    $dialog.Controls.Add($moduleGrid)
+    Connect-SelectAll $moduleSelectAll $moduleGrid "Pick"
+
+    $appLabel = New-Object System.Windows.Forms.Label
+    $appLabel.Text = "ANDROID APPS"
+    $appLabel.Font = New-Object Drawing.Font("Segoe UI Semibold", 8)
+    $appLabel.ForeColor = $theme.Muted
+    $appLabel.AutoSize = $true
+    $appLabel.Location = New-Object Drawing.Point(18, 356)
+    $dialog.Controls.Add($appLabel)
+
+    $appRows = @()
+    $appTop = 380
+    foreach ($app in $appCatalog) {
+        $pubspec = Join-Path $Root "Mobile\apps\$($app.Key)\pubspec.yaml"
+        $current = "Unavailable"
+        $next = ""
+        if (Test-Path $pubspec) {
+            $line = @(Get-Content $pubspec | Where-Object { $_ -match '^version:\s*' } | Select-Object -First 1)
+            $parsed = [regex]::Match([string]$line, '^version:\s*(\d+)\.(\d+)\.(\d+)\+(\d+)\s*$')
+            if ($parsed.Success) {
+                $major = $parsed.Groups[1].Value
+                $minor = $parsed.Groups[2].Value
+                $patch = $parsed.Groups[3].Value
+                $code = $parsed.Groups[4].Value
+                $current = "major $major, minor $minor, patch $patch, code $code"
+                $next = "major $major, minor $minor, patch $([int]$patch + 1), code $([int]$code + 1)"
+            }
+        }
+        $pickBox = New-Object System.Windows.Forms.CheckBox
+        $pickBox.AutoSize = $true
+        $pickBox.Location = New-Object Drawing.Point(24, ($appTop + 4))
+        $nameLabel = New-Object System.Windows.Forms.Label
+        $nameLabel.Text = $app.Name
+        $nameLabel.AutoSize = $true
+        $nameLabel.Location = New-Object Drawing.Point(54, ($appTop + 5))
+        $currentLabel = New-Object System.Windows.Forms.Label
+        $currentLabel.Text = $current
+        $currentLabel.AutoSize = $false
+        $currentLabel.Size = New-Object Drawing.Size(430, 20)
+        $currentLabel.ForeColor = $theme.Muted
+        $currentLabel.Location = New-Object Drawing.Point(54, ($appTop + 24))
+        $nextBox = New-Object System.Windows.Forms.TextBox
+        $nextBox.Text = $next
+        $nextBox.Location = New-Object Drawing.Point(500, ($appTop + 8))
+        $nextBox.Size = New-Object Drawing.Size(500, 26)
+        foreach ($control in @($pickBox, $nameLabel, $currentLabel, $nextBox)) { $dialog.Controls.Add($control) }
+        $appRows += [pscustomobject]@{ Key = $app.Key; Name = $app.Name; Pick = $pickBox; Next = $nextBox }
+        $appTop += 48
+    }
+    $appSelectAll = New-Object System.Windows.Forms.CheckBox
+    $appSelectAll.Text = "Select all apps"
+    $appSelectAll.AutoSize = $true
+    $appSelectAll.Font = New-Object Drawing.Font("Segoe UI Semibold", 9)
+    $appSelectAll.ForeColor = $theme.Navy
+    $appSelectAll.Location = New-Object Drawing.Point(18, 620)
+    $dialog.Controls.Add($appSelectAll)
+    $appSelectAll.Add_CheckedChanged({
+        foreach ($appRow in $appRows) { $appRow.Pick.Checked = $appSelectAll.Checked }
+    }.GetNewClosure())
+
+    $trackLabel = New-Object System.Windows.Forms.Label
+    $trackLabel.Text = "PLAY TRACK"
+    $trackLabel.Font = New-Object Drawing.Font("Segoe UI Semibold", 8)
+    $trackLabel.ForeColor = $theme.Muted
+    $trackLabel.AutoSize = $true
+    $trackLabel.Location = New-Object Drawing.Point(690, 356)
+    $dialog.Controls.Add($trackLabel)
+    $trackBox = New-Object System.Windows.Forms.ComboBox
+    $trackBox.DropDownStyle = "DropDownList"
+    $trackBox.Location = New-Object Drawing.Point(690, 382)
+    $trackBox.Size = New-Object Drawing.Size(250, 30)
+    $trackBox.Anchor = "Top,Right"
+    [void]$trackBox.Items.AddRange(@(
+        "Internal testing", "Closed testing", "Beta", "Production"
+    ))
+    $trackBox.SelectedIndex = 0
+    $dialog.Controls.Add($trackBox)
+
+    $messageLabel = New-Object System.Windows.Forms.Label
+    $messageLabel.Text = "COMMIT MESSAGE"
+    $messageLabel.Font = New-Object Drawing.Font("Segoe UI Semibold", 8)
+    $messageLabel.ForeColor = $theme.Muted
+    $messageLabel.AutoSize = $true
+    $messageLabel.Location = New-Object Drawing.Point(18, 664)
+    $dialog.Controls.Add($messageLabel)
+    $messageBox = New-Object System.Windows.Forms.TextBox
+    $messageBox.Text = $commitMessage.Text
+    $messageBox.Location = New-Object Drawing.Point(18, 688)
+    $messageBox.Size = New-Object Drawing.Size(1004, 28)
+    $messageBox.Anchor = "Top,Left,Right"
+    $messageBox.Font = New-Object Drawing.Font("Segoe UI", 10)
+    $dialog.Controls.Add($messageBox)
+
+    $release = New-Button "Release now" 150 $theme.Success ([Drawing.Color]::White)
+    $release.Anchor = "Bottom,Right"
+    $release.Location = New-Object Drawing.Point(872, 790)
+    $cancel = New-Button "Cancel" 90
+    $cancel.Anchor = "Bottom,Right"
+    $cancel.Location = New-Object Drawing.Point(770, 790)
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $dialog.CancelButton = $cancel
+    $dialog.Controls.Add($release)
+    $dialog.Controls.Add($cancel)
+
+    $release.Add_Click({
+        $moduleGrid.EndEdit()
+        $chosenModules = @(
+            foreach ($row in $moduleGrid.Rows) {
+                if ($row.Cells["Pick"].Value -eq $true) { $row.Tag }
+            }
+        )
+        if ($chosenModules.Count -eq 0) {
+            [Windows.Forms.MessageBox]::Show("Select at least one module.", "Release", "OK", "Information") | Out-Null
+            return
+        }
+        $message = $messageBox.Text.Trim()
+        if (-not $message) {
+            [Windows.Forms.MessageBox]::Show("Enter a commit message.", "Release", "OK", "Information") | Out-Null
+            return
+        }
+        $chosenApps = @(
+            foreach ($appRow in $appRows) {
+                if (-not $appRow.Pick.Checked) { continue }
+                $versionText = $appRow.Next.Text.Trim()
+                if ($versionText -notmatch '^major (\d+), minor (\d+), patch (\d+), code (\d+)$') {
+                    [Windows.Forms.MessageBox]::Show(
+                        "Enter major, minor, patch, and code for $($appRow.Name).",
+                        "Release", "OK", "Warning"
+                    ) | Out-Null
+                    return
+                }
+                $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])+$($Matches[4])"
+                [pscustomobject]@{ Key = $appRow.Key; Name = $appRow.Name; Version = $version }
+            }
+        )
+        $mobileSelected = @($chosenModules | Where-Object { $_.Repo -eq "Mobile" }).Count -gt 0
+        if ($chosenApps.Count -gt 0 -and -not $mobileSelected) {
+            [Windows.Forms.MessageBox]::Show("Select the Mobile module before releasing Android apps.", "Release", "OK", "Warning") | Out-Null
+            return
+        }
+
+        $trackMap = @{
+            "Internal testing" = "internal"
+            "Closed testing" = "alpha"
+            "Beta" = "beta"
+            "Production" = "production"
+        }
+        $track = $trackMap[[string]$trackBox.SelectedItem]
+        $playConfirm = ""
+        if ($chosenApps.Count -gt 0) {
+            if ($track -eq "production") {
+                $playConfirm = Show-TextPrompt "Type APPROVE PRODUCTION to include the production Play upload." "Approve production"
+                if ($playConfirm -cne "APPROVE PRODUCTION") { return }
+            } else {
+                $playConfirm = "deploy"
+            }
+        }
+
+        $services = @($chosenModules | ForEach-Object { $_.Services })
+        $summary = @(
+            "Modules: $((@($chosenModules | ForEach-Object { $_.Module })) -join ', ')"
+            "AWS: $(if ($services.Count) { $services -join ', ' } else { 'none' })"
+            "Android: $(if ($chosenApps.Count) { (@($chosenApps | ForEach-Object { "$($_.Name) $($_.Version)" })) -join ', ' } else { 'none' })"
+            "Play track: $(if ($chosenApps.Count) { $trackBox.SelectedItem } else { 'not used' })"
+            "Commit: $message"
+            ""
+            "AWS finishes and is verified before Play starts. A failure stops the remaining work."
+        ) -join "`r`n"
+        if (-not (Confirm-DashboardAction -Title "Start release" -Message "This commits every change in the selected modules, pushes them, deploys AWS, and publishes Play." -Details $summary -ActionText "Start release")) {
+            Add-Log "Combined release cancelled."
+            return
+        }
+
+        $arguments = @(
+            "-Repos", ((@($chosenModules | ForEach-Object { $_.Repo })) -join ","),
+            "-CommitMessage", $message
+        )
+        if ($services.Count -gt 0) { $arguments += @("-Services", ($services -join ",")) }
+        if ($chosenApps.Count -gt 0) {
+            $arguments += @(
+                "-Apps", ((@($chosenApps | ForEach-Object { $_.Key })) -join ","),
+                "-Versions", ((@($chosenApps | ForEach-Object { "$($_.Key)=$($_.Version)" })) -join ","),
+                "-Track", $track,
+                "-Confirm", $playConfirm
+            )
+        }
+        try {
+            $dialog.Close()
+            Start-DashboardTask -ScriptPath $releaseScript -ScriptArguments $arguments -Label "Starting the combined release. Progress appears below."
+        } catch {
+            $errorMessage = "Could not start the release: $($_.Exception.Message)"
+            Add-Log $errorMessage
+            [Windows.Forms.MessageBox]::Show($errorMessage, "Release", "OK", "Error") | Out-Null
+        }
+    }.GetNewClosure())
+
+    $form.AddOwnedForm($dialog)
+    $dialog.ShowInTaskbar = $true
+    [void]$dialog.ShowDialog()
+    $dialog.Dispose()
+}
+
 $gitActions = New-ActionGroup "Workspace actions"
 $productionActions = New-ActionGroup "Production controls"
 $actions.Controls.Add($gitActions.Container, 0, 0)
@@ -703,10 +1002,11 @@ $deployButton = New-Button "Deploy" 105 $theme.Purple ([Drawing.Color]::White)
 $cleanupButton = New-Button "Clean ECR" 105
 $diskButton = New-Button "Clean disk" 110
 $playButton = New-Button "Play Store" 110 $theme.Success ([Drawing.Color]::White)
+$releaseButton = New-Button "Release selected" 150 $theme.Success ([Drawing.Color]::White)
 $envButton = New-Button "Environment" 130
 $gitActions.Flow.Controls.AddRange(@($refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton))
 $monitorButton = New-Button "Monitor" 105 $theme.Navy ([Drawing.Color]::White)
-$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $playButton, $cleanupButton, $diskButton))
+$productionActions.Flow.Controls.AddRange(@($awsButton, $deployButton, $monitorButton, $envButton, $releaseButton, $playButton, $cleanupButton, $diskButton))
 
 $tooltips = New-Object System.Windows.Forms.ToolTip
 $tooltips.AutoPopDelay = 9000
@@ -723,6 +1023,7 @@ $tooltips.SetToolTip($envButton, "Safely view and update the production environm
 $tooltips.SetToolTip($cleanupButton, "Preview protected ECR retention before deleting anything.")
 $tooltips.SetToolTip($diskButton, "Free production disk: unused Docker images and old system logs. Containers stay running.")
 $tooltips.SetToolTip($playButton, "Version, build, test, and publish the Android apps through Google Play.")
+$tooltips.SetToolTip($releaseButton, "Version, commit, push, deploy AWS, and publish Play for one or more selected modules.")
 $tooltips.SetToolTip($monitorButton, "Live deployment progress and EC2 server health.")
 
 $workspaceCard = New-Object System.Windows.Forms.Panel
@@ -1072,7 +1373,7 @@ function Set-Busy {
     }
     foreach ($control in @(
         $refreshButton, $fetchButton, $ciButton, $diffButton, $pushButton, $logButton,
-        $awsButton, $deployButton, $cleanupButton, $diskButton, $playButton, $envButton, $commitButton
+        $awsButton, $deployButton, $cleanupButton, $diskButton, $releaseButton, $playButton, $envButton, $commitButton
     )) {
         $control.Enabled = -not $Busy
     }
@@ -1272,6 +1573,14 @@ $commitButton.Add_Click({
     } finally {
         Set-Busy $false
     }
+})
+
+$releaseButton.Add_Click({
+    if (-not (Test-Path $releaseScript)) {
+        [Windows.Forms.MessageBox]::Show("Release script not found: $releaseScript", "Release", "OK", "Error") | Out-Null
+        return
+    }
+    Show-ReleaseSelection
 })
 
 $pushButton.Add_Click({

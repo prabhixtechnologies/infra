@@ -19,13 +19,18 @@
 #   pwsh Infra/scripts/push-waves.ps1              # push what is ahead, waiting between waves
 #   pwsh Infra/scripts/push-waves.ps1 -WhatIf      # show the plan, push nothing
 #   pwsh Infra/scripts/push-waves.ps1 -NoWait      # push every wave without waiting for CI
+#   pwsh Infra/scripts/push-waves.ps1 -Repos Mobile,MobiStack -FailOnCi
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     # Skip the wait between waves. Faster, and gives up the thing the script is for -- use it only
     # when none of the pending commits touches a Dockerfile or anything a container build reads.
     [switch]$NoWait,
     # How long to wait for one wave's CI before moving on regardless.
-    [int]$TimeoutMinutes = 20
+    [int]$TimeoutMinutes = 20,
+    # Comma-separated repository names. Empty means every known repository.
+    [string]$Repos = "",
+    # Stop the script when CI is red or still running after the timeout.
+    [switch]$FailOnCi
 )
 
 $ErrorActionPreference = "Stop"
@@ -71,6 +76,7 @@ function Get-Pending {
 
 function Wait-ForCi {
     param([string[]]$Repos, [int]$Minutes)
+    $failed = [System.Collections.Generic.List[string]]::new()
     $deadline = (Get-Date).AddMinutes($Minutes)
     $waiting = [System.Collections.ArrayList]::new()
     $Repos | ForEach-Object { [void]$waiting.Add($_) }
@@ -95,10 +101,11 @@ function Wait-ForCi {
                 if ($mine.Count -eq 0) { continue }
                 if (@($mine | Where-Object { $_.status -ne "completed" }).Count -gt 0) { continue }
 
-                $failed = @($mine | Where-Object { $_.conclusion -ne "success" }).Count
+                $failedCount = @($mine | Where-Object { $_.conclusion -ne "success" }).Count
                 $verdict = "green"
-                if ($failed -gt 0) { $verdict = "$failed failing" }
+                if ($failedCount -gt 0) { $verdict = "$failedCount failing" }
                 Write-Host ("    {0,-10} {1}" -f $repo, $verdict)
+                if ($failedCount -gt 0) { [void]$failed.Add($repo) }
                 $waiting.Remove($repo)
             } finally { Pop-Location }
         }
@@ -106,6 +113,22 @@ function Wait-ForCi {
 
     foreach ($repo in $waiting) {
         Write-Host ("    {0,-10} still running after {1}m, moving on" -f $repo, $Minutes)
+        [void]$failed.Add($repo)
+    }
+    if ($FailOnCi -and $failed.Count -gt 0) {
+        throw ("CI did not succeed for: {0}" -f ($failed -join ", "))
+    }
+}
+
+$selectedRepos = @(
+    $Repos.Split(",") |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ }
+)
+$knownRepos = @($waves | ForEach-Object { $_.Repos })
+foreach ($selectedRepo in $selectedRepos) {
+    if ($knownRepos -notcontains $selectedRepo) {
+        throw "Unknown repository '$selectedRepo'. Known: $($knownRepos -join ', ')"
     }
 }
 
@@ -113,9 +136,15 @@ $pushedAny = $false
 $plannedAny = $false
 
 foreach ($wave in $waves) {
-    $pending = @($wave.Repos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Ahead -gt 0 })
+    $waveRepos = if ($selectedRepos.Count -eq 0) {
+        @($wave.Repos)
+    } else {
+        @($wave.Repos | Where-Object { $selectedRepos -contains $_ })
+    }
+    if ($waveRepos.Count -eq 0) { continue }
+    $pending = @($waveRepos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Ahead -gt 0 })
 
-    $blocked = @($wave.Repos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Dirty -gt 0 })
+    $blocked = @($waveRepos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Dirty -gt 0 })
     foreach ($b in $blocked) {
         Write-Warning ("{0} has {1} uncommitted file(s); pushing only what is committed." -f $b.Repo, $b.Dirty)
     }
@@ -139,7 +168,20 @@ foreach ($wave in $waves) {
         } finally { Pop-Location }
     }
 
-    if ($sent.Count -gt 0 -and -not $NoWait -and $wave -ne $waves[-1]) {
+    $hasLaterWave = $false
+    for ($waveIndex = [array]::IndexOf($waves, $wave) + 1; $waveIndex -lt $waves.Count; $waveIndex++) {
+        $laterRepos = if ($selectedRepos.Count -eq 0) {
+            @($waves[$waveIndex].Repos)
+        } else {
+            @($waves[$waveIndex].Repos | Where-Object { $selectedRepos -contains $_ })
+        }
+        if (@($laterRepos | ForEach-Object { Get-Pending $_ } | Where-Object { $_ -and $_.Ahead -gt 0 }).Count -gt 0) {
+            $hasLaterWave = $true
+            break
+        }
+    }
+
+    if ($sent.Count -gt 0 -and -not $NoWait -and ($FailOnCi -or $hasLaterWave)) {
         Write-Host "    waiting for CI before the next wave"
         Wait-ForCi -Repos $sent -Minutes $TimeoutMinutes
     }
