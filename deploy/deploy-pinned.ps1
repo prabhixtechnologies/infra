@@ -56,6 +56,8 @@ if (-not $found) {
 $pin = $known[$Service].Pin
 $remote = @"
 set -euo pipefail
+exec 8>/tmp/prabhix-deploy.lock
+flock 8
 cd "$RemoteRoot"
 env_file="deploy/.env.prod"
 backup="`$env_file.pre-deploy-`$(date -u +%Y%m%dT%H%M%SZ)"

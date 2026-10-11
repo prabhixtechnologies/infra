@@ -970,6 +970,9 @@ $outputTimer.Add_Tick({
         Add-Log "Finished with exit code $exitCode."
         if ($script:monitorDeployActive) { Complete-MonitorService $exitCode }
         if ($exitCode -eq 0 -and $script:pendingTasks.Count -gt 0) {
+            # Clear this before starting the next task. Set-Busy pumps the UI, and this timer
+            # would otherwise see the finished process again and start a second deploy.
+            $script:refreshAfterTask = $false
             $next = $script:pendingTasks.Dequeue()
             Start-DashboardTask -ScriptPath $next.ScriptPath -ScriptArguments $next.Arguments -Label $next.Label
             return
