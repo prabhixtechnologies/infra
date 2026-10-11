@@ -2034,7 +2034,8 @@ function Show-PlayStoreCenter {
         $rows = ConvertFrom-Json -InputObject $result.Output
         $playGrid.Rows.Clear()
         foreach ($item in $rows) {
-            $next = [string]$item.LocalVersion
+            $parts = ([string]$item.LocalVersion -split '[.+]')
+            $next = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)+$([int]$parts[3] + 1)"
             [void]$playGrid.Rows.Add($true, $item.App, $item.Package, $item.LocalVersion, $item.RecordedPlayVersion, $next)
         }
         $selectAll.Checked = $true

@@ -58,8 +58,9 @@ releases without an agent. The old `open-git-dashboard.cmd` launcher remains com
   package IDs and versions, safely updates selected `pubspec.yaml` files, builds signed AAB/APK
   artifacts, installs selected APKs over USB, and dispatches the manual Play workflow to Internal,
   Closed testing (`alpha`), Beta, or Production. Guided controls keep each step separate.
-  **Quick release** requires a clean Mobile `main`, then updates only selected version files,
-  commits and pushes them, starts the selected Play track, and displays the GitHub workflow link.
+  **Quick release** automatically increments both the patch version and versionCode for every
+  selected app, updates only those version files, commits and pushes them, starts the selected Play
+  track, and follows the GitHub workflow until it succeeds or fails.
   Other Mobile changes stay uncommitted; a changed keystore, key file, or environment file stops the
   release. Test tracks require a confirmation button;
   Production still requires typing `APPROVE PRODUCTION` and cannot bypass Google's testing gate.
