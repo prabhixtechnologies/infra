@@ -28,6 +28,9 @@ if ($consoleWindow -ne [IntPtr]::Zero) {
 }
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
+# Must be set before any window exists. Later, a background failure becomes a modal
+# crash dialog and blocks every close button.
+[System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
 
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") {
     [System.Windows.Forms.MessageBox]::Show(
@@ -129,6 +132,10 @@ function Invoke-Native {
         $process.Dispose()
     }
 }
+
+# A background runspace has to define this itself. Passing the live function
+# calls back into the window's session, whose execution context is null on that thread.
+$script:QuietNativeSource = "function Invoke-Native {`r`n" + ${function:Invoke-Native}.ToString() + "`r`n}"
 
 function Invoke-Git {
     param([string]$RepoPath, [string[]]$Arguments)
@@ -533,12 +540,13 @@ function Show-DeploySelection {
     $statusNote = "Loading ECR tags and production pins. This can take about 45 seconds."
     Add-Log "Reading ECR tags for deployment..."
     $lookup = [powershell]::Create()
+    [void]$lookup.AddScript($script:QuietNativeSource)
     [void]$lookup.AddScript({
-        param($ScriptPath, $Invoke, $WorkRoot)
-        & $Invoke "powershell.exe" @(
+        param($ScriptPath, $WorkRoot)
+        Invoke-Native "powershell.exe" @(
             "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath, "-Json"
         ) $WorkRoot
-    }).AddArgument($awsStatusScript).AddArgument(${function:Invoke-Native}).AddArgument($Root)
+    }).AddArgument($awsStatusScript).AddArgument($Root)
     $lookupHandle = $lookup.BeginInvoke()
 
     $dialog = New-Object System.Windows.Forms.Form
@@ -630,41 +638,48 @@ function Show-DeploySelection {
     $lookupTimer = New-Object System.Windows.Forms.Timer
     $lookupTimer.Interval = 300
     $lookupTimer.Add_Tick({
-        if (-not $lookupHandle.IsCompleted) { return }
-        $lookupTimer.Stop()
-        $statusByService = @{}
         try {
-            $result = @($lookup.EndInvoke($lookupHandle))[0]
-            if (-not $result -or $result.ExitCode -ne 0) { throw "status failed" }
-            $json = [string]$result.Output
-            $jsonStart = $json.IndexOf("[")
-            if ($jsonStart -lt 0) { $jsonStart = $json.IndexOf("{") }
-            if ($jsonStart -lt 0) { throw "no status data" }
-            # Windows PowerShell 5.1 emits a JSON array as one pipeline object, so enumerate it explicitly.
-            $parsed = ConvertFrom-Json -InputObject $json.Substring($jsonStart)
-            foreach ($item in $parsed) {
-                if ($item.Service) { $statusByService[[string]$item.Service] = $item }
+            if (-not $lookupHandle.IsCompleted) { return }
+            $lookupTimer.Stop()
+            $statusByService = @{}
+            try {
+                $result = @($lookup.EndInvoke($lookupHandle))[0]
+                if (-not $result -or $result.ExitCode -ne 0) { throw "status failed" }
+                $json = [string]$result.Output
+                $jsonStart = $json.IndexOf("[")
+                if ($jsonStart -lt 0) { $jsonStart = $json.IndexOf("{") }
+                if ($jsonStart -lt 0) { throw "no status data" }
+                # Windows PowerShell 5.1 emits a JSON array as one pipeline object, so enumerate it explicitly.
+                $parsed = ConvertFrom-Json -InputObject $json.Substring($jsonStart)
+                foreach ($item in $parsed) {
+                    if ($item.Service) { $statusByService[[string]$item.Service] = $item }
+                }
+                if ($statusByService.Count -eq 0) { throw "no services in status data" }
+                $promptHint.Text = "Tags are filled from the latest immutable image in ECR. Newer images start selected."
+                Add-Log "Deployment tags loaded."
+            } catch {
+                $promptHint.Text = "ECR tags could not be loaded. Enter an immutable commit tag for each selected service."
+                Add-Log "Could not load deployment tags."
+            } finally {
+                $lookup.Dispose()
             }
-            if ($statusByService.Count -eq 0) { throw "no services in status data" }
-            $promptHint.Text = "Tags are filled from the latest immutable image in ECR. Newer images start selected."
-            Add-Log "Deployment tags loaded."
+            foreach ($row in $deployGrid.Rows) {
+                $info = $statusByService[[string]$row.Cells["Service"].Value]
+                $latest = if ($info) { [string]$info.EcrLatest } else { "" }
+                $tag = if ($latest -match "^[0-9a-f]{7,40}$") { $latest } else { "" }
+                $deployment = if ($info) { [string]$info.Deployment } else { "Unknown" }
+                $row.Cells["Production"].Value = if ($info) { [string]$info.Production } else { "-" }
+                $row.Cells["State"].Value = $deployment
+                $row.Cells["Tag"].Value = $tag
+                $row.Cells["Pick"].Value = [bool]($deployment -eq "Deploy available" -and $tag)
+            }
+            $deploy.Enabled = $true
         } catch {
+            try { $lookupTimer.Stop() } catch { }
             $promptHint.Text = "ECR tags could not be loaded. Enter an immutable commit tag for each selected service."
             Add-Log "Could not load deployment tags."
-        } finally {
-            $lookup.Dispose()
+            $deploy.Enabled = $true
         }
-        foreach ($row in $deployGrid.Rows) {
-            $info = $statusByService[[string]$row.Cells["Service"].Value]
-            $latest = if ($info) { [string]$info.EcrLatest } else { "" }
-            $tag = if ($latest -match "^[0-9a-f]{7,40}$") { $latest } else { "" }
-            $deployment = if ($info) { [string]$info.Deployment } else { "Unknown" }
-            $row.Cells["Production"].Value = if ($info) { [string]$info.Production } else { "-" }
-            $row.Cells["State"].Value = $deployment
-            $row.Cells["Tag"].Value = $tag
-            $row.Cells["Pick"].Value = [bool]($deployment -eq "Deploy available" -and $tag)
-        }
-        $deploy.Enabled = $true
     }.GetNewClosure())
     $dialog.Add_Shown({ $lookupTimer.Start() }.GetNewClosure())
     $dialog.Add_FormClosed({
@@ -1932,13 +1947,14 @@ function Start-ServerRefresh {
     if (-not $Force -and (Get-Date) -lt $m.ServerNext) { return }
     $m.ServerChecked.Text = "Checking the server..."
     $lookup = [powershell]::Create()
+    [void]$lookup.AddScript($script:QuietNativeSource)
     [void]$lookup.AddScript({
-        param($ScriptPath, $Invoke, $WorkRoot)
-        $result = & $Invoke "powershell.exe" @(
+        param($ScriptPath, $WorkRoot)
+        $result = Invoke-Native "powershell.exe" @(
             "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
         ) $WorkRoot
         $result.Output
-    }).AddArgument($serverStatusScript).AddArgument(${function:Invoke-Native}).AddArgument($Root)
+    }).AddArgument($serverStatusScript).AddArgument($Root)
     $m.ServerLookup = $lookup
     $m.ServerHandle = $lookup.BeginInvoke()
 }
@@ -2541,15 +2557,15 @@ function Show-PlayStoreCenter {
         }
         if (-not $runState.Handle -and (Get-Date) -ge $runState.Next) {
             $runState.Lookup = [powershell]::Create()
+            [void]$runState.Lookup.AddScript($script:QuietNativeSource)
             [void]$runState.Lookup.AddScript({
-                param($Invoke)
-                $result = & $Invoke "gh" @(
+                $result = Invoke-Native "gh" @(
                     "run", "list", "--repo", "prabhixtechnologies/Mobile",
                     "--workflow", "play-upload.yml", "--limit", "1",
                     "--json", "status,conclusion,url,createdAt"
                 )
                 $result.StdOut
-            }).AddArgument(${function:Invoke-Native})
+            })
             $runState.Handle = $runState.Lookup.BeginInvoke()
             $runState.Next = [DateTime]::MaxValue
         }
@@ -2779,6 +2795,11 @@ $envButton.Add_Click({ Show-ProductionEnvEditor })
 $logButton.Add_Click({
     if (-not (Test-Path $script:dashboardLog)) { Write-DashboardLog "Log file created." }
     Start-Process $script:dashboardLog
+})
+
+[System.Windows.Forms.Application]::Add_ThreadException({
+    param($sender, $eventArgs)
+    Write-DashboardLog "UI error: $($eventArgs.Exception.Message)"
 })
 
 Write-DashboardLog "Control Center opened."
