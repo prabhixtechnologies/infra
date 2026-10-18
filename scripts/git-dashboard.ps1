@@ -13,6 +13,20 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.VisualBasic
 
+# powershell.exe is a console program, so opening the dashboard also opens a console.
+# Hide it. Anything written to the pipeline makes Windows show that console again,
+# and a console child that is not started with CreateNoWindow does the same.
+Add-Type -Namespace PrabhixConsole -Name Native -MemberDefinition @"
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern System.IntPtr GetConsoleWindow();
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+"@
+$consoleWindow = [PrabhixConsole.Native]::GetConsoleWindow()
+if ($consoleWindow -ne [IntPtr]::Zero) {
+    [void][PrabhixConsole.Native]::ShowWindow($consoleWindow, 0)
+}
+
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") {
@@ -57,24 +71,62 @@ function Invoke-Native {
         [string]$WorkingDirectory = $Root
     )
 
-    $prior = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        Push-Location $WorkingDirectory
-        try {
-            $lines = @(& $FilePath @Arguments 2>&1)
-            $code = $LASTEXITCODE
-        } finally {
-            Pop-Location
+    $commandLine = @(foreach ($value in $Arguments) {
+        if ([string]::IsNullOrEmpty($value) -or $value -match '[\s"]') {
+            '"' + ($value -replace '"', '\"') + '"'
+        } else {
+            $value
         }
-    } finally {
-        $ErrorActionPreference = $prior
+    }) -join " "
+
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $FilePath
+    $start.Arguments = $commandLine
+    if ($WorkingDirectory) { $start.WorkingDirectory = $WorkingDirectory }
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $start.StandardErrorEncoding = [Text.Encoding]::UTF8
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $start
+    try {
+        [void]$process.Start()
+    } catch {
+        $message = $_.Exception.Message
+        return [pscustomobject]@{
+            ExitCode = 1
+            Output = $message
+            Lines = @($message)
+            StdOut = ""
+        }
     }
 
-    [pscustomobject]@{
-        ExitCode = $code
-        Output = ($lines | Out-String).TrimEnd()
-        Lines = $lines
+    try {
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        [void]$process.WaitForExit()
+        $null = $stdoutTask.Wait()
+        $null = $stderrTask.Wait()
+        $stdout = [string]$stdoutTask.Result
+        $stderr = [string]$stderrTask.Result
+        $merged = $stdout
+        if ($stderr) {
+            if ($merged -and -not $merged.EndsWith("`n")) { $merged += "`n" }
+            $merged += $stderr
+        }
+        $merged = $merged.TrimEnd()
+        $lines = if ([string]::IsNullOrEmpty($merged)) { @() } else { @($merged -split "`r?`n") }
+        [pscustomobject]@{
+            ExitCode = $process.ExitCode
+            Output = $merged
+            Lines = $lines
+            StdOut = $stdout.TrimEnd()
+        }
+    } finally {
+        $process.Dispose()
     }
 }
 
@@ -158,9 +210,9 @@ $shell.ColumnCount = 1
 $shell.RowCount = 3
 $shell.Margin = New-Object Windows.Forms.Padding(0)
 $shell.Padding = New-Object Windows.Forms.Padding(0)
-$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 82)))
-$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 150)))
-$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
+[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 82)))
+[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 150)))
+[void]$shell.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
 $form.Controls.Add($shell)
 
 $header = New-Object System.Windows.Forms.Panel
@@ -206,8 +258,8 @@ $actions.BackColor = $theme.Surface
 $actions.Padding = New-Object Windows.Forms.Padding(18, 8, 18, 8)
 $actions.ColumnCount = 2
 $actions.RowCount = 1
-$actions.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 56)))
-$actions.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 44)))
+[void]$actions.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 56)))
+[void]$actions.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 44)))
 $shell.Controls.Add($actions, 0, 1)
 
 function New-ActionGroup {
@@ -217,8 +269,8 @@ function New-ActionGroup {
     $group.RowCount = 2
     $group.ColumnCount = 1
     $group.Margin = New-Object Windows.Forms.Padding(6, 0, 6, 0)
-    $group.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 25)))
-    $group.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
+    [void]$group.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 25)))
+    [void]$group.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
     $label = New-Object System.Windows.Forms.Label
     $label.Text = $Title.ToUpperInvariant()
     $label.Dock = "Fill"
@@ -482,10 +534,11 @@ function Show-DeploySelection {
     Add-Log "Reading ECR tags for deployment..."
     $lookup = [powershell]::Create()
     [void]$lookup.AddScript({
-        param($ScriptPath)
-        $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath -Json 2>&1 | Out-String
-        [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
-    }).AddArgument($awsStatusScript)
+        param($ScriptPath, $Invoke, $WorkRoot)
+        & $Invoke "powershell.exe" @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath, "-Json"
+        ) $WorkRoot
+    }).AddArgument($awsStatusScript).AddArgument(${function:Invoke-Native}).AddArgument($Root)
     $lookupHandle = $lookup.BeginInvoke()
 
     $dialog = New-Object System.Windows.Forms.Form
@@ -1114,8 +1167,8 @@ $bottom.Dock = "Fill"
 $bottom.ColumnCount = 1
 $bottom.RowCount = 2
 $bottom.BackColor = $theme.Canvas
-$bottom.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
-$bottom.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 58)))
+[void]$bottom.RowStyles.Add((New-Object Windows.Forms.RowStyle("Percent", 100)))
+[void]$bottom.RowStyles.Add((New-Object Windows.Forms.RowStyle("Absolute", 58)))
 $split.Panel2.Controls.Add($bottom)
 
 $outputTabs = New-Object System.Windows.Forms.TabControl
@@ -1152,9 +1205,9 @@ $commitPanel.Dock = "Fill"
 $commitPanel.ColumnCount = 3
 $commitPanel.BackColor = $theme.Surface
 $commitPanel.Padding = New-Object Windows.Forms.Padding(10, 9, 10, 8)
-$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Absolute", 125)))
-$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 100)))
-$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Absolute", 165)))
+[void]$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Absolute", 125)))
+[void]$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Percent", 100)))
+[void]$commitPanel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle("Absolute", 165)))
 $commitLabel = New-Object System.Windows.Forms.Label
 $commitLabel.Text = "COMMIT MESSAGE"
 $commitLabel.Dock = "Fill"
@@ -1395,21 +1448,21 @@ function Refresh-Grid {
             $row = $grid.Rows[$index]
             $row.Tag = $state
             if ($state.Behind -gt 0) {
-                $behindRepos++
+                $behindRepos += 1
                 $row.Cells["Status"].Style.ForeColor = $theme.Danger
                 $row.DefaultCellStyle.BackColor = $theme.DangerSoft
             } elseif ($state.Changes -gt 0) {
-                $changedRepos++
+                $changedRepos += 1
                 $row.Cells["Status"].Style.ForeColor = $theme.Warning
                 $row.DefaultCellStyle.BackColor = $theme.WarningSoft
             } elseif ($state.Ahead -gt 0) {
-                $aheadRepos++
+                $aheadRepos += 1
                 $row.Cells["Status"].Style.ForeColor = $theme.Success
                 $row.DefaultCellStyle.BackColor = $theme.SuccessSoft
             } else {
                 $row.Cells["Status"].Style.ForeColor = $theme.Success
             }
-            if ($state.Ahead -gt 0 -and $state.Changes -gt 0) { $aheadRepos++ }
+            if ($state.Ahead -gt 0 -and $state.Changes -gt 0) { $aheadRepos += 1 }
             $row.Cells["Repo"].Style.Font = New-Object Drawing.Font("Segoe UI Semibold", 9.5)
         }
         $subtitle.Text = "8 repositories  |  $changedRepos with changes  |  $aheadRepos ahead  |  $behindRepos behind"
@@ -1880,9 +1933,12 @@ function Start-ServerRefresh {
     $m.ServerChecked.Text = "Checking the server..."
     $lookup = [powershell]::Create()
     [void]$lookup.AddScript({
-        param($ScriptPath)
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath 2>&1 | Out-String
-    }).AddArgument($serverStatusScript)
+        param($ScriptPath, $Invoke, $WorkRoot)
+        $result = & $Invoke "powershell.exe" @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
+        ) $WorkRoot
+        $result.Output
+    }).AddArgument($serverStatusScript).AddArgument(${function:Invoke-Native}).AddArgument($Root)
     $m.ServerLookup = $lookup
     $m.ServerHandle = $lookup.BeginInvoke()
 }
@@ -1929,8 +1985,8 @@ function Apply-ServerSnapshot {
     $total = 0
     foreach ($c in $snap.Containers) {
         if (-not $c.Name) { continue }
-        $total++
-        if ($c.Health -in @("Healthy", "Running")) { $healthy++ }
+        $total += 1
+        if ($c.Health -in @("Healthy", "Running")) { $healthy += 1 }
         $index = $m.Containers.Rows.Add([string]$c.Name, [string]$c.Image, [string]$c.Health, [string]$c.Status)
         $row = $m.Containers.Rows[$index]
         Set-HealthColor $row.Cells["Health"] ([string]$c.Health)
@@ -2053,7 +2109,7 @@ function Complete-MonitorService {
             $m.Services.Rows[$i].Cells["Step"].Value = "Not started because an earlier deploy failed"
         }
     }
-    $m.Index++
+    $m.Index += 1
     $m.ServiceBest = 0
     $m.ServiceStarted = Get-Date
     if ($ExitCode -eq 0 -and $m.Index -lt $m.Queue.Count) {
@@ -2486,8 +2542,14 @@ function Show-PlayStoreCenter {
         if (-not $runState.Handle -and (Get-Date) -ge $runState.Next) {
             $runState.Lookup = [powershell]::Create()
             [void]$runState.Lookup.AddScript({
-                & gh run list --repo prabhixtechnologies/Mobile --workflow play-upload.yml --limit 1 --json status,conclusion,url,createdAt 2>$null | Out-String
-            })
+                param($Invoke)
+                $result = & $Invoke "gh" @(
+                    "run", "list", "--repo", "prabhixtechnologies/Mobile",
+                    "--workflow", "play-upload.yml", "--limit", "1",
+                    "--json", "status,conclusion,url,createdAt"
+                )
+                $result.StdOut
+            }).AddArgument(${function:Invoke-Native})
             $runState.Handle = $runState.Lookup.BeginInvoke()
             $runState.Next = [DateTime]::MaxValue
         }
