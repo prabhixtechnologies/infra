@@ -1516,6 +1516,13 @@ $ciButton.Add_Click({
     }
 })
 
+function Test-SecretPath([string]$Path) {
+    if ($Path -match '(^|/)(\.env(\..*)?|key\.properties|[^/]*\.(jks|pem|p12|pfx))$') { return $true }
+    # "CredentialService.java" is account code. A credentials file is a secret store.
+    return $Path -match '(^|/)[^/]*credentials[^/]*$' -and
+        $Path -notmatch '\.(java|kt|kts|dart|ts|tsx|js|jsx|cs|go|py|rb|md)$'
+}
+
 $commitButton.Add_Click({
     $picked = @(Get-PickedRows | Where-Object { $_.Tag.Changes -gt 0 })
     $message = $commitMessage.Text.Trim()
@@ -1532,7 +1539,7 @@ $commitButton.Add_Click({
     foreach ($row in $picked) {
         foreach ($line in @($row.Tag.Details -split "`r?`n")) {
             $path = if ($line.Length -gt 3) { $line.Substring(3).Trim() } else { "" }
-            if ($path -match "(^|/)(\.env(\..*)?|key\.properties|[^/]*\.(jks|pem|p12|pfx)|[^/]*credentials[^/]*)$") {
+            if (Test-SecretPath $path) {
                 $sensitive += "$($row.Tag.Name): $path"
             }
         }

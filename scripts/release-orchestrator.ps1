@@ -47,7 +47,12 @@ $appModules = @{
     oneops = "OneOps"
     mobistack = "MobiStack"
 }
-$secretPattern = '(^|/)(\.env(\..*)?|key\.properties|[^/]*\.(jks|pem|p12|pfx)|[^/]*credentials[^/]*)$'
+function Test-SecretPath([string]$Path) {
+    if ($Path -match '(^|/)(\.env(\..*)?|key\.properties|[^/]*\.(jks|pem|p12|pfx))$') { return $true }
+    # "CredentialService.java" is account code. A credentials file is a secret store.
+    return $Path -match '(^|/)[^/]*credentials[^/]*$' -and
+        $Path -notmatch '\.(java|kt|kts|dart|ts|tsx|js|jsx|cs|go|py|rb|md)$'
+}
 
 function Split-CsvValue {
     param([string]$Value)
@@ -141,7 +146,7 @@ function Assert-ReleaseReady {
         $path = Join-Path $root $repo
         $branch = (Invoke-Native "git" @("-C", $path, "branch", "--show-current")).Output.Trim()
         if ($branch -ne "main") { throw "$repo must be on main, not '$branch'." }
-        $secrets = @(Get-ChangedPaths $path | Where-Object { $_ -match $secretPattern })
+        $secrets = @(Get-ChangedPaths $path | Where-Object { Test-SecretPath $_ })
         if ($secrets.Count -gt 0) {
             throw "$repo has sensitive changes: $($secrets -join ', ')"
         }
