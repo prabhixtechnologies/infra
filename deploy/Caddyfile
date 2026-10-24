@@ -82,14 +82,20 @@
 	}
 }
 
-# Marketing site — apex + www. Sends its own per-request nonce CSP from src/proxy.ts.
-prabhixtechnologies.com, www.prabhixtechnologies.com,
+# Marketing site — canonical apex. Sends its own per-request nonce CSP from src/proxy.ts.
+prabhixtechnologies.com {
+	import security_headers
+	reverse_proxy marketing:3000
+}
+
+# Marketing domain aliases — 301 permanent redirect to canonical apex for SEO consolidation.
+www.prabhixtechnologies.com,
 prabhix.in, www.prabhix.in,
 prabhix.co.in, www.prabhix.co.in,
 prabhix.online, www.prabhix.online,
 prabhix.shop, www.prabhix.shop {
-	import security_headers
-	reverse_proxy marketing:3000
+	import no_document_headers
+	redir https://prabhixtechnologies.com{uri} permanent
 }
 
 # OneOps — the operator console sold to customers (React SPA behind nginx, which serves the
