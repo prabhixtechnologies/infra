@@ -217,6 +217,14 @@ jobs:
       - name: Log in to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
+      # Base images are pulled from public.ecr.aws. Anonymous pulls share a 500 GB/month cap with
+      # every other job on this runner's address, and the gallery answers 429 Data limit exceeded.
+      # This login moves the pull onto the account's 5 TB allowance. The token API is only in
+      # us-east-1; the action targets that region itself. The private login above is untouched.
+      - name: Log in to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
       - name: Build and push
         uses: docker/build-push-action@v6
         with:

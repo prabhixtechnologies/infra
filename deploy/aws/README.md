@@ -75,9 +75,9 @@ Three sources feed the stack, and each is there for a reason:
   CI over OIDC, pulled by the instance role.
 - **Official base images** — `public.ecr.aws/docker/library/*`. Caddy, nginx, Node, Postgres, Redis,
   Maven and Temurin are Docker Official Images, and AWS mirrors them into its public gallery, so the
-  Dockerfiles and compose files name the gallery rather than Docker Hub. The instance role carries
-  `ecr-public:GetAuthorizationToken` for the higher authenticated limit. **CI does not**, and this
-  is the open problem below.
+  Dockerfiles and compose files name the gallery rather than Docker Hub. The instance role and the
+  CI role both carry `ecr-public:GetAuthorizationToken`, and each image workflow logs in before
+  the build so the pull uses the account allowance. See the quota section below.
 - **Third-party images we run** — mirrored into `prabhix/third-party/*` by
   `mirror-third-party.ps1`. PgBouncer, which has no gallery mirror, and the six base images.
   Leaving either on an anonymous pull puts a rate limit on the critical path.
@@ -90,19 +90,23 @@ repositories together runs those builds concurrently and the gallery answers
 not the retry — it is that a quota failure and a real one are indistinguishable, so every red build
 has to be opened before it can be dismissed.
 
-Two measures, one cheap and one durable:
+Three measures. Authentication and wave pushes are the ones that stop the shared-address cap. Mirroring is the one that removes the public pull. The login step is in each image workflow and takes effect on the next push of that repository.
 
-1. **`Infra/scripts/push-waves.ps1`** pushes in dependency-ordered waves and waits for CI between
-   them, so at most two image builds run at once. In place, no permissions needed.
-2. **Mirroring** the base images into `prabhix/third-party/*`, which CI already authenticates to
+1. **Authenticated pulls.** Each image workflow logs in to `public.ecr.aws` before building. The
+   live inline policy on `prabhix-github-ecr-push` is named `EcrPush` and includes
+   `PublicGalleryToken`, so the pull counts against the account's 5 TB allowance instead of the
+   anonymous 500 GB cap on the runner's address.
+2. **`Infra/scripts/push-waves.ps1`** pushes in dependency-ordered waves and waits for CI between
+   them, so at most two image builds run at once.
+3. **Mirroring** the base images into `prabhix/third-party/*`, which CI already authenticates to
    in order to push. `mirror-third-party.ps1` lists them and will create the repositories.
    **Not yet switched on**, and the order matters:
 
    ```bash
-   # 1. IAM first, or every build breaks at once: CI can push its own images but cannot
-   #    pull a mirrored base layer until the third-party prefix is granted.
-   aws iam put-role-policy --role-name <ci-oidc-role> \
-     --policy-name ecr-push --policy-document file://deploy/aws/ecr-push-policy.json
+   # 1. The live inline policy must include PullMirroredBaseImagesOnly before any Dockerfile
+   #    is repointed. The policy name on the role is EcrPush, not ecr-push.
+   aws iam put-role-policy --role-name prabhix-github-ecr-push \
+     --policy-name EcrPush --policy-document file://deploy/aws/ecr-push-policy.json
 
    # 2. Populate the mirror (needs Docker running; the gallery pull is sequential here,
    #    one runner, so it does not trip the quota it is fixing).

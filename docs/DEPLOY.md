@@ -48,18 +48,16 @@ environment; see LOCAL-STACK.md.
 
 ### `toomanyrequests: Data limit exceeded`
 
-Not Docker Hub: every base image already comes from `public.ecr.aws`, and that mirror has its own
-anonymous pull quota. It is a quota, not a defect — the same Dockerfile builds when the quota is
-clear, so a re-run usually passes. Pushing several repositories at once is what exhausts it,
-because each build pulls the same node, nginx and temurin bases anonymously.
+Not Docker Hub: every base image already comes from `public.ecr.aws`. An anonymous pull shares a
+500 GB per month cap with every other job on the runner's address. Each image workflow logs in to
+the public gallery after the private ECR login, which counts the pull against this account's 5 TB
+monthly allowance instead. The CI role's inline policy `EcrPush` grants
+`ecr-public:GetAuthorizationToken` and `sts:GetServiceBearerToken` for that login
+(`PublicGalleryToken` in `deploy/aws/ecr-push-policy.json`).
 
-The durable fix is to authenticate before building, which raises the limit:
-
-    aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-
-That needs `ecr-public:GetAuthorizationToken` and `sts:GetServiceBearerToken`, which the `prabhix`
-user does not currently have — the call fails with `AccessDeniedException`. Until those are added
-to `PrabhixPlatformDeployer`, re-running the job is the only remedy.
+A commit whose workflow does not contain that login still pulls anonymously, and re-running it
+only succeeds while the shared address has quota left. The login takes effect on the next push of
+that repository.
 
 ## Put images on the server
 

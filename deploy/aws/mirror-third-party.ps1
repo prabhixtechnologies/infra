@@ -17,11 +17,10 @@
 # Either way the mirror pins the exact digest we tested against rather than whatever the upstream
 # tag points at on the day.
 #
-# BEFORE MIRRORING THE BASE IMAGES: the CI role's ecr-push-policy.json enumerates the ten
-# prabhix/* repositories by name and does not cover the prabhix/third-party/* prefix, so CI can
-# push its own images but cannot pull a mirrored base layer. Repointing the Dockerfiles before
-# that policy grants the prefix breaks every build at once. The instance role's
-# ecr-pull-policy.json already grants it.
+# BEFORE REPOINTING THE DOCKERFILES: CI pulls a mirrored base layer only if the live inline
+# policy EcrPush on prabhix-github-ecr-push includes PullMirroredBaseImagesOnly from
+# ecr-push-policy.json. Repointing the Dockerfiles while that statement is absent breaks every
+# build at once. The instance role's ecr-pull-policy.json already grants the same prefix.
 #
 # Run this when adding an image or moving to a new upstream version, not on every deploy -- the
 # repositories are IMMUTABLE, so re-pushing an existing tag is refused rather than silently

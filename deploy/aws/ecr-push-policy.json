@@ -43,6 +43,15 @@
         "ecr:DescribeRepositories"
       ],
       "Resource": "arn:aws:ecr:ap-south-1:029096972251:repository/prabhix/third-party/*"
+    },
+    {
+      "Sid": "PublicGalleryToken",
+      "Effect": "Allow",
+      "Action": [
+        "ecr-public:GetAuthorizationToken",
+        "sts:GetServiceBearerToken"
+      ],
+      "Resource": "*"
     }
   ]
 }
