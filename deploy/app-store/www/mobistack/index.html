@@ -14,8 +14,8 @@
   </header>
   <main class="hero">
     <p class="eyebrow">MobiStack</p>
-    <h1>Android download</h1>
-    <p class="lede">Counter app for stock, sales, and repairs. Sign in with Prabhix Identity.</p>
+    <h1>Downloads</h1>
+    <p class="lede">Counter app for stock, sales, and repairs. Sign in with Prabhix Identity. The iOS file is an unsigned test build, not an App Store release.</p>
     <div class="panel" id="status">
       <p>Checking for a published build…</p>
     </div>
@@ -23,15 +23,26 @@
   <footer class="foot">© Prabhix Technologies Pvt Ltd</footer>
   <script src="/assets/store.js"></script>
   <script>
-    fetch("/mobistack/android.apk", { method: "HEAD" }).then(function (r) {
+    function probe(path) {
+      return fetch(path, { method: "HEAD" }).then(function (r) { return r.ok; }).catch(function () { return false; });
+    }
+    Promise.all([
+      probe("/mobistack/android.apk"),
+      probe("/mobistack/ios.ipa")
+    ]).then(function (ready) {
       var el = document.getElementById("status");
-      if (r.ok) {
-        el.innerHTML = '<p>Release APK is ready.</p><a class="btn" href="/mobistack/android.apk">Download Android APK</a>';
-      } else {
-        el.innerHTML = '<p class="pending">Build pending — upload <code>mobistack/android.apk</code> to the company APK bucket.</p><a class="btn secondary" href="/">Back to store</a>';
+      var android = ready[0];
+      var ios = ready[1];
+      if (!android && !ios) {
+        el.innerHTML = '<p class="pending">Build pending — upload <code>mobistack/android.apk</code> or <code>mobistack/ios.ipa</code> to the company bucket.</p><a class="btn secondary" href="/">Back to store</a>';
+        return;
       }
-    }).catch(function () {
-      document.getElementById("status").innerHTML = '<p class="pending">Build pending.</p>';
+      var html = "<p>Published builds</p>";
+      if (android) html += '<a class="btn" href="/mobistack/android.apk">Download Android</a>';
+      if (ios) html += '<a class="btn secondary" href="/mobistack/ios.ipa">Download iOS test build</a>';
+      if (!ios) html += '<p class="pending">The iOS test build is not published yet.</p>';
+      if (ios) html += '<p class="pending">The iOS file is unsigned. On Windows, install it with Sideloadly and a free Apple ID. It opens for 7 days, then install the same file again.</p>';
+      el.innerHTML = html;
     });
   </script>
 </body>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Company app store: static HTML plus APK streams from S3 (or a local artifacts dir)."""
+"""Company app store: static HTML plus APK and IPA streams from S3 (or a local artifacts dir)."""
 
 from __future__ import annotations
 
@@ -14,29 +14,74 @@ WWW = Path(os.environ.get("STORE_WWW", "/srv/www"))
 ARTIFACTS = Path(os.environ.get("STORE_ARTIFACTS", "/artifacts"))
 BUCKET = os.environ.get("APK_S3_BUCKET", "").strip()
 REGION = os.environ.get("APK_S3_REGION", os.environ.get("AWS_REGION", "ap-south-1")).strip()
-APPS = {
-    "mobistack": "mobistack/android.apk",
-    "oneops": "oneops/android.apk",
-    "mailroom": "mailroom/android.apk",
+# (s3 key, content type, download filename). iOS is MobiStack only: the other apps have no IPA.
+PACKAGES = {
+    ("mobistack", "android"): (
+        "mobistack/android.apk",
+        "application/vnd.android.package-archive",
+        "mobistack.apk",
+    ),
+    ("oneops", "android"): (
+        "oneops/android.apk",
+        "application/vnd.android.package-archive",
+        "oneops.apk",
+    ),
+    ("mailroom", "android"): (
+        "mailroom/android.apk",
+        "application/vnd.android.package-archive",
+        "mailroom.apk",
+    ),
+    ("mobistack", "ios"): (
+        "mobistack/ios.ipa",
+        "application/octet-stream",
+        "MobiStack.ipa",
+    ),
 }
 
 app = Flask(__name__, static_folder=None)
 s3 = boto3.client("s3", region_name=REGION) if BUCKET else None
 
 
-def _disposition(product: str) -> str:
-    return f'attachment; filename="{product}.apk"'
-
-
-def _apk_headers(product: str, length: int | None = None) -> dict[str, str]:
+def _headers(content_type: str, filename: str, length: int | None = None) -> dict[str, str]:
     headers = {
-        "Content-Type": "application/vnd.android.package-archive",
-        "Content-Disposition": _disposition(product),
+        "Content-Type": content_type,
+        "Content-Disposition": f'attachment; filename="{filename}"',
         "Cache-Control": "public, max-age=300",
     }
     if length is not None:
         headers["Content-Length"] = str(length)
     return headers
+
+
+def _stream(key: str, content_type: str, filename: str):
+    if BUCKET:
+        assert s3 is not None
+        try:
+            if request.method == "HEAD":
+                head = s3.head_object(Bucket=BUCKET, Key=key)
+                return Response(status=200, headers=_headers(content_type, filename, head.get("ContentLength")))
+            obj = s3.get_object(Bucket=BUCKET, Key=key)
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            if code in {"404", "NoSuchKey", "NotFound"}:
+                abort(404)
+            raise
+        return Response(
+            obj["Body"].iter_chunks(chunk_size=1024 * 256),
+            headers=_headers(content_type, filename, obj.get("ContentLength")),
+            direct_passthrough=True,
+        )
+
+    path = ARTIFACTS / key
+    if not path.is_file():
+        abort(404)
+    if request.method == "HEAD":
+        return Response(status=200, headers=_headers(content_type, filename, path.stat().st_size))
+    return Response(
+        path.open("rb"),
+        headers=_headers(content_type, filename, path.stat().st_size),
+        direct_passthrough=True,
+    )
 
 
 @app.get("/healthz")
@@ -46,44 +91,24 @@ def healthz():
 
 @app.route("/<product>/android.apk", methods=["GET", "HEAD"])
 def android_apk(product: str):
-    key = APPS.get(product)
-    if not key:
+    spec = PACKAGES.get((product, "android"))
+    if not spec:
         abort(404)
+    return _stream(*spec)
 
-    if BUCKET:
-        assert s3 is not None
-        try:
-            if request.method == "HEAD":
-                head = s3.head_object(Bucket=BUCKET, Key=key)
-                return Response(status=200, headers=_apk_headers(product, head.get("ContentLength")))
-            obj = s3.get_object(Bucket=BUCKET, Key=key)
-        except ClientError as exc:
-            code = exc.response.get("Error", {}).get("Code", "")
-            if code in {"404", "NoSuchKey", "NotFound"}:
-                abort(404)
-            raise
-        return Response(
-            obj["Body"].iter_chunks(chunk_size=1024 * 256),
-            headers=_apk_headers(product, obj.get("ContentLength")),
-            direct_passthrough=True,
-        )
 
-    path = ARTIFACTS / key
-    if not path.is_file():
+@app.route("/<product>/ios.ipa", methods=["GET", "HEAD"])
+def ios_ipa(product: str):
+    spec = PACKAGES.get((product, "ios"))
+    if not spec:
         abort(404)
-    if request.method == "HEAD":
-        return Response(status=200, headers=_apk_headers(product, path.stat().st_size))
-    return Response(
-        path.open("rb"),
-        headers=_apk_headers(product, path.stat().st_size),
-        direct_passthrough=True,
-    )
+    return _stream(*spec)
 
 
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def static_pages(path: str):
-    if path.endswith(".apk"):
+    if path.endswith(".apk") or path.endswith(".ipa"):
         abort(404)
     if path:
         candidate = WWW / path
