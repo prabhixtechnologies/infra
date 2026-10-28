@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RdsDescribe",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ElastiCacheDescribe",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeServerlessCaches",
+        "elasticache:DescribeReplicationGroups"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
